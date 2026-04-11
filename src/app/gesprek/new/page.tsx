@@ -35,9 +35,9 @@ const STOPLIGHT = (key: string, val: number) => {
 }
 
 const COLORS = {
-  red:   { thumb: '#dc2626', label: '#dc2626', track: '#fca5a5' },
-  amber: { thumb: '#d97706', label: '#d97706', track: '#fcd34d' },
-  green: { thumb: '#16a34a', label: '#16a34a', track: '#86efac' },
+  red:   { thumb: '#dc2626', label: '#f87171', track: 'rgba(220,38,38,0.25)',  glow: 'rgba(220,38,38,0.12)'  },
+  amber: { thumb: '#d97706', label: '#fbbf24', track: 'rgba(217,119,6,0.25)', glow: 'rgba(217,119,6,0.10)'  },
+  green: { thumb: '#16a34a', label: '#4ade80', track: 'rgba(22,163,74,0.25)', glow: 'rgba(22,163,74,0.10)'  },
 }
 
 export default function GesprekNew() {
@@ -59,8 +59,11 @@ export default function GesprekNew() {
   })
 
   useEffect(() => {
-    const supabase = getSupabase()
-    supabase
+    const params = new URLSearchParams(window.location.search)
+    const prefill = params.get('lid_id')
+    if (prefill) setLidId(prefill)
+
+    getSupabase()
       .from('leden')
       .select('id, lid_id, voornaam, achternaam')
       .eq('actief', true)
@@ -78,455 +81,478 @@ export default function GesprekNew() {
     setError(null)
 
     const supabase = getSupabase()
-
     const { data: trainerData } = await supabase.from('trainers').select('id').limit(1)
     const trainerId = trainerData?.[0]?.id
     if (!trainerId) { setError('Geen trainer gevonden.'); setSaving(false); return }
 
-    // Get next cyclus for this member
     const { data: evalData } = await supabase
-      .from('evaluaties')
-      .select('cyclus')
-      .eq('lid_id', lidId)
-      .order('cyclus', { ascending: false })
-      .limit(1)
+      .from('evaluaties').select('cyclus').eq('lid_id', lidId)
+      .order('cyclus', { ascending: false }).limit(1)
     const cyclus = evalData && evalData.length > 0 ? evalData[0].cyclus + 1 : 1
 
     const { error: insertError } = await supabase.from('evaluaties').insert({
-      lid_id: lidId,
-      trainer_id: trainerId,
-      cyclus,
-      datum,
-      slaap: scores.slaap,
-      energie: scores.energie,
-      stress: scores.stress,
-      voeding: scores.voeding,
-      beweging: scores.beweging,
-      motivatie: scores.motivatie,
+      lid_id: lidId, trainer_id: trainerId, cyclus, datum,
+      slaap: scores.slaap, energie: scores.energie, stress: scores.stress,
+      voeding: scores.voeding, beweging: scores.beweging, motivatie: scores.motivatie,
       gewicht_kg: gewicht ? parseFloat(gewicht) : null,
       vetpercentage: vetpercentage ? parseFloat(vetpercentage) : null,
       doelen_behaald: doelen,
       notities: notities || null,
     })
 
-    if (insertError) {
-      setError(insertError.message)
-      setSaving(false)
-      return
-    }
-
+    if (insertError) { setError(insertError.message); setSaving(false); return }
     setSuccess(true)
     setTimeout(() => router.push('/'), 1200)
   }
 
   if (loading) return (
-    <div style={styles.loadWrap}>
-      <span style={styles.loadDot} />
+    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#A8C800', boxShadow: '0 0 12px rgba(168,200,0,0.5)' }} />
     </div>
   )
 
   return (
-    <main style={styles.main}>
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <span style={styles.wordmark} onClick={() => router.push('/')}>WAV-E</span>
-          <span style={styles.pageTitle}>Nieuw gesprek</span>
-        </div>
-      </header>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
-      <form onSubmit={handleSubmit} style={styles.form}>
+        .gn-root {
+          min-height: 100vh;
+          background: #111;
+          color: #c8c6c0;
+          font-family: 'Raleway', sans-serif;
+          position: relative;
+        }
 
-        <section style={styles.section}>
-          <h2 style={styles.sectionLabel}>Lid & datum</h2>
-          <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>Lid</label>
-              <select
-                style={styles.select}
-                value={lidId}
-                onChange={e => setLidId(e.target.value)}
-                required
-              >
-                <option value="">— selecteer lid —</option>
-                {leden.map(l => (
-                  <option key={l.id} value={l.id}>
-                    {l.voornaam} {l.achternaam} · {l.lid_id}
-                  </option>
+        .gn-root::before {
+          content: '';
+          position: fixed;
+          top: -10%;
+          right: -10%;
+          width: 50%;
+          height: 50%;
+          background: radial-gradient(ellipse, rgba(168,200,0,0.05) 0%, transparent 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Header */
+        .gn-header {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          height: 56px;
+          display: flex;
+          align-items: center;
+          padding: 0 2rem;
+          background: rgba(17,17,17,0.92);
+          border-bottom: 1px solid rgba(168,200,0,0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        .gn-header-inner {
+          max-width: 860px;
+          width: 100%;
+          margin: 0 auto;
+          display: flex;
+          align-items: baseline;
+          gap: 18px;
+        }
+
+        .gn-wordmark {
+          display: flex;
+          align-items: baseline;
+          gap: 0;
+          cursor: pointer;
+          text-decoration: none;
+        }
+        .gn-wordmark-wav { font-size: 1rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
+        .gn-wordmark-e   { font-size: 1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
+
+        .gn-page-title {
+          font-size: 0.72rem;
+          font-weight: 500;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #2a2a2a;
+        }
+
+        /* Form */
+        .gn-form {
+          max-width: 860px;
+          margin: 0 auto;
+          padding: 2.5rem 2rem 6rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        /* Section */
+        .gn-section { margin-bottom: 0; animation: gnFadeUp 0.4s ease-out both; }
+
+        .gn-section-label {
+          font-size: 0.6rem;
+          font-weight: 600;
+          letter-spacing: 0.18em;
+          color: #2a2a2a;
+          text-transform: uppercase;
+          margin-bottom: 1.25rem;
+          margin-top: 0;
+          display: block;
+        }
+
+        .gn-divider {
+          height: 1px;
+          background: #181818;
+          margin: 2.5rem 0;
+        }
+
+        /* Row / Field */
+        .gn-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .gn-field { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
+        .gn-field-narrow { max-width: 200px; }
+
+        .gn-label {
+          font-size: 0.65rem;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #2a2a2a;
+          margin-bottom: 7px;
+        }
+
+        .gn-select, .gn-input, .gn-textarea {
+          background: #141414;
+          border: 1px solid #1e1e1e;
+          border-radius: 3px;
+          color: #c8c6c0;
+          padding: 10px 12px;
+          font-size: 0.875rem;
+          font-family: 'Raleway', sans-serif;
+          font-weight: 400;
+          outline: none;
+          width: 100%;
+          box-sizing: border-box;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .gn-select:focus, .gn-input:focus, .gn-textarea:focus {
+          border-color: #A8C800;
+          box-shadow: 0 0 0 3px rgba(168,200,0,0.08);
+        }
+        .gn-select option { background: #141414; }
+        .gn-textarea { resize: vertical; line-height: 1.6; }
+
+        /* Slider grid */
+        .gn-slider-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 12px;
+        }
+
+        .gn-slider-card {
+          background: #141414;
+          border: 1px solid #1e1e1e;
+          border-radius: 3px;
+          padding: 18px 18px 14px;
+          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+
+        .gn-slider-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        }
+
+        .gn-slider-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          margin-bottom: 14px;
+        }
+
+        .gn-slider-label {
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #888;
+          letter-spacing: 0.02em;
+        }
+
+        .gn-slider-value {
+          font-size: 1.5rem;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+          transition: color 0.2s;
+        }
+
+        .gn-slider {
+          width: 100%;
+          cursor: pointer;
+          height: 3px;
+          margin-bottom: 8px;
+          appearance: none;
+          -webkit-appearance: none;
+          background: #1e1e1e;
+          border-radius: 2px;
+          outline: none;
+        }
+        .gn-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: transform 0.15s;
+        }
+        .gn-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+        .gn-slider::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+        }
+
+        .gn-slider-meta {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+
+        .gn-slider-hint {
+          font-size: 0.6rem;
+          color: #2a2a2a;
+          letter-spacing: 0.04em;
+        }
+
+        .gn-stoplight-bar {
+          height: 2px;
+          border-radius: 1px;
+          transition: background 0.3s;
+        }
+
+        /* Toggle */
+        .gn-toggle-group { display: flex; gap: 6px; margin-top: 4px; }
+
+        .gn-toggle-btn {
+          background: #141414;
+          border: 1px solid #1e1e1e;
+          border-radius: 3px;
+          color: #2a2a2a;
+          padding: 8px 20px;
+          font-size: 0.8rem;
+          font-family: 'Raleway', sans-serif;
+          font-weight: 600;
+          cursor: pointer;
+          letter-spacing: 0.04em;
+          transition: all 0.15s;
+        }
+        .gn-toggle-btn:hover { border-color: rgba(168,200,0,0.3); color: #888; }
+        .gn-toggle-btn.active {
+          background: #1a1a1a;
+          border-color: rgba(168,200,0,0.5);
+          color: #A8C800;
+        }
+
+        /* Error */
+        .gn-error {
+          background: rgba(220,38,38,0.07);
+          border: 1px solid rgba(220,38,38,0.2);
+          border-radius: 3px;
+          color: #f87171;
+          padding: 12px 16px;
+          font-size: 0.82rem;
+          margin-bottom: 1.5rem;
+          letter-spacing: 0.02em;
+        }
+
+        /* Submit row */
+        .gn-submit-row {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 3rem;
+        }
+
+        .gn-cancel-btn {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 10px 22px;
+          border-radius: 3px;
+          border: 1px solid #1e1e1e;
+          background: transparent;
+          color: #2a2a2a;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .gn-cancel-btn:hover { border-color: rgba(168,200,0,0.3); color: #666; }
+
+        .gn-submit-btn {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          padding: 10px 28px;
+          border-radius: 3px;
+          border: 1px solid #A8C800;
+          background: #A8C800;
+          color: #111;
+          cursor: pointer;
+          transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+        .gn-submit-btn:hover:not(:disabled) {
+          background: #95B400;
+          box-shadow: 0 4px 16px rgba(168,200,0,0.35);
+          transform: translateY(-1px);
+        }
+        .gn-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .gn-submit-btn.success {
+          background: #16a34a;
+          border-color: #16a34a;
+          color: #fff;
+        }
+
+        @keyframes gnFadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      <div className="gn-root">
+        <header className="gn-header">
+          <div className="gn-header-inner">
+            <div className="gn-wordmark" onClick={() => router.push('/')}>
+              <span className="gn-wordmark-wav">wav-e</span>
+              <span className="gn-wordmark-e"> studios</span>
+            </div>
+            <span className="gn-page-title">Nieuw gesprek</span>
+          </div>
+        </header>
+
+        <form className="gn-form" onSubmit={handleSubmit}>
+
+          {/* Lid & datum */}
+          <section className="gn-section">
+            <span className="gn-section-label">Lid & datum</span>
+            <div className="gn-row">
+              <div className="gn-field">
+                <label className="gn-label">Lid</label>
+                <select className="gn-select" value={lidId} onChange={e => setLidId(e.target.value)} required>
+                  <option value="">— selecteer lid —</option>
+                  {leden.map(l => (
+                    <option key={l.id} value={l.id}>{l.voornaam} {l.achternaam} · {l.lid_id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="gn-field gn-field-narrow">
+                <label className="gn-label">Datum</label>
+                <input type="date" className="gn-input" value={datum} onChange={e => setDatum(e.target.value)} required />
+              </div>
+            </div>
+          </section>
+
+          <div className="gn-divider" />
+
+          {/* Leefstijl scores */}
+          <section className="gn-section" style={{ animationDelay: '0.05s' }}>
+            <span className="gn-section-label">Leefstijl scores</span>
+            <div className="gn-slider-grid">
+              {SLIDERS.map(({ key, label, low, high }) => {
+                const val = scores[key]
+                const sig = STOPLIGHT(key, val)
+                const col = COLORS[sig as keyof typeof COLORS]
+                return (
+                  <div key={key} className="gn-slider-card" style={{ borderColor: col.glow !== 'rgba(168,200,0,0.10)' ? col.glow : '#1e1e1e' }}>
+                    <div className="gn-slider-top">
+                      <span className="gn-slider-label">{label}</span>
+                      <span className="gn-slider-value" style={{ color: col.label }}>{val}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1} max={10}
+                      value={val}
+                      onChange={e => setScores(s => ({ ...s, [key]: Number(e.target.value) }))}
+                      className="gn-slider"
+                      style={{ accentColor: col.thumb }}
+                    />
+                    <div className="gn-slider-meta">
+                      <span className="gn-slider-hint">{low}</span>
+                      <span className="gn-slider-hint">{high}</span>
+                    </div>
+                    <div className="gn-stoplight-bar" style={{ background: col.track }} />
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          <div className="gn-divider" />
+
+          {/* Fysiek */}
+          <section className="gn-section" style={{ animationDelay: '0.1s' }}>
+            <span className="gn-section-label">Fysiek (optioneel)</span>
+            <div className="gn-row">
+              <div className="gn-field">
+                <label className="gn-label">Gewicht (kg)</label>
+                <input type="number" step="0.1" min="0" max="300" placeholder="82.5" className="gn-input" value={gewicht} onChange={e => setGewicht(e.target.value)} />
+              </div>
+              <div className="gn-field">
+                <label className="gn-label">Vetpercentage (%)</label>
+                <input type="number" step="0.1" min="0" max="100" placeholder="18.0" className="gn-input" value={vetpercentage} onChange={e => setVetpercentage(e.target.value)} />
+              </div>
+            </div>
+          </section>
+
+          <div className="gn-divider" />
+
+          {/* Doelen & notities */}
+          <section className="gn-section" style={{ animationDelay: '0.15s' }}>
+            <span className="gn-section-label">Doelen & notities</span>
+            <div className="gn-field" style={{ marginBottom: '1.5rem' }}>
+              <label className="gn-label">Doelen behaald?</label>
+              <div className="gn-toggle-group">
+                {([true, false, null] as (boolean | null)[]).map(v => (
+                  <button
+                    type="button"
+                    key={String(v)}
+                    className={`gn-toggle-btn${doelen === v ? ' active' : ''}`}
+                    onClick={() => setDoelen(v)}
+                  >
+                    {v === true ? 'Ja' : v === false ? 'Nee' : 'N.v.t.'}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
-            <div style={{ ...styles.field, maxWidth: 180 }}>
-              <label style={styles.label}>Datum</label>
-              <input
-                type="date"
-                style={styles.input}
-                value={datum}
-                onChange={e => setDatum(e.target.value)}
-                required
+            <div className="gn-field">
+              <label className="gn-label">Notities</label>
+              <textarea
+                className="gn-textarea"
+                placeholder="Wat viel op? Wat heeft de aandacht nodig?"
+                value={notities}
+                onChange={e => setNotities(e.target.value)}
+                rows={5}
               />
             </div>
+          </section>
+
+          {error && <div className="gn-error">{error}</div>}
+
+          <div className="gn-submit-row">
+            <button type="button" className="gn-cancel-btn" onClick={() => router.back()}>Annuleren</button>
+            <button
+              type="submit"
+              className={`gn-submit-btn${success ? ' success' : ''}`}
+              disabled={saving}
+            >
+              {success ? '✓ Opgeslagen' : saving ? 'Opslaan…' : 'Gesprek opslaan'}
+            </button>
           </div>
-        </section>
 
-        <div style={styles.divider} />
-
-        <section style={styles.section}>
-          <h2 style={styles.sectionLabel}>Leefstijl scores</h2>
-          <div style={styles.sliderGrid}>
-            {SLIDERS.map(({ key, label, low, high }) => {
-              const val = scores[key]
-              const sig = STOPLIGHT(key, val)
-              const col = COLORS[sig as keyof typeof COLORS]
-              return (
-                <div key={key} style={styles.sliderCard}>
-                  <div style={styles.sliderTop}>
-                    <span style={styles.sliderLabel}>{label}</span>
-                    <span style={{ ...styles.sliderValue, color: col.label }}>{val}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={val}
-                    onChange={e => setScores(s => ({ ...s, [key]: Number(e.target.value) }))}
-                    style={{ ...styles.slider, accentColor: col.thumb }}
-                  />
-                  <div style={styles.sliderMeta}>
-                    <span style={styles.sliderHint}>{low}</span>
-                    <span style={styles.sliderHint}>{high}</span>
-                  </div>
-                  <div style={{ ...styles.stoplightBar, background: col.track }} />
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <div style={styles.divider} />
-
-        <section style={styles.section}>
-          <h2 style={styles.sectionLabel}>Fysiek (optioneel)</h2>
-          <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>Gewicht (kg)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="300"
-                placeholder="82.5"
-                style={styles.input}
-                value={gewicht}
-                onChange={e => setGewicht(e.target.value)}
-              />
-            </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Vetpercentage (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                placeholder="18.0"
-                style={styles.input}
-                value={vetpercentage}
-                onChange={e => setVetpercentage(e.target.value)}
-              />
-            </div>
-          </div>
-        </section>
-
-        <div style={styles.divider} />
-
-        <section style={styles.section}>
-          <h2 style={styles.sectionLabel}>Doelen & notities</h2>
-          <div style={styles.field}>
-            <label style={styles.label}>Doelen behaald?</label>
-            <div style={styles.toggleGroup}>
-              {([true, false, null] as (boolean | null)[]).map((v) => (
-                <button
-                  type="button"
-                  key={String(v)}
-                  style={{
-                    ...styles.toggleBtn,
-                    ...(doelen === v ? styles.toggleBtnActive : {}),
-                  }}
-                  onClick={() => setDoelen(v)}
-                >
-                  {v === true ? 'Ja' : v === false ? 'Nee' : 'N.v.t.'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div style={{ ...styles.field, marginTop: 20 }}>
-            <label style={styles.label}>Notities</label>
-            <textarea
-              style={styles.textarea}
-              placeholder="Wat viel op? Wat heeft de aandacht nodig?"
-              value={notities}
-              onChange={e => setNotities(e.target.value)}
-              rows={5}
-            />
-          </div>
-        </section>
-
-        {error && <div style={styles.errorBox}>{error}</div>}
-
-        <div style={styles.submitRow}>
-          <button
-            type="button"
-            style={styles.cancelBtn}
-            onClick={() => router.back()}
-          >
-            Annuleren
-          </button>
-          <button
-            type="submit"
-            style={{
-              ...styles.submitBtn,
-              ...(success ? styles.submitSuccess : {}),
-            }}
-            disabled={saving}
-          >
-            {success ? '✓ Opgeslagen' : saving ? 'Opslaan...' : 'Gesprek opslaan'}
-          </button>
-        </div>
-
-      </form>
-    </main>
+        </form>
+      </div>
+    </>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  main: {
-    minHeight: '100vh',
-    background: '#0a0a0a',
-    color: '#e8e6e0',
-    fontFamily: '"DM Mono", "Courier New", monospace',
-  },
-  header: {
-    borderBottom: '1px solid #222',
-    padding: '0 32px',
-    height: 56,
-    display: 'flex',
-    alignItems: 'center',
-    position: 'sticky',
-    top: 0,
-    background: '#0a0a0a',
-    zIndex: 10,
-  },
-  headerInner: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: 20,
-    maxWidth: 860,
-    width: '100%',
-    margin: '0 auto',
-  },
-  wordmark: {
-    fontSize: 13,
-    fontWeight: 600,
-    letterSpacing: '0.2em',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  pageTitle: {
-    fontSize: 13,
-    color: '#555',
-    letterSpacing: '0.05em',
-  },
-  form: {
-    maxWidth: 860,
-    margin: '0 auto',
-    padding: '48px 32px 120px',
-  },
-  section: { marginBottom: 0 },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: '0.15em',
-    color: '#555',
-    textTransform: 'uppercase' as const,
-    marginBottom: 24,
-    marginTop: 0,
-  },
-  divider: {
-    height: 1,
-    background: '#1a1a1a',
-    margin: '40px 0',
-  },
-  row: {
-    display: 'flex',
-    gap: 20,
-    flexWrap: 'wrap' as const,
-  },
-  field: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    flex: 1,
-    minWidth: 200,
-  },
-  label: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 8,
-    letterSpacing: '0.05em',
-  },
-  select: {
-    background: '#111',
-    border: '1px solid #222',
-    borderRadius: 6,
-    color: '#e8e6e0',
-    padding: '10px 14px',
-    fontSize: 14,
-    fontFamily: 'inherit',
-    outline: 'none',
-    cursor: 'pointer',
-  },
-  input: {
-    background: '#111',
-    border: '1px solid #222',
-    borderRadius: 6,
-    color: '#e8e6e0',
-    padding: '10px 14px',
-    fontSize: 14,
-    fontFamily: 'inherit',
-    outline: 'none',
-  },
-  sliderGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-    gap: 20,
-  },
-  sliderCard: {
-    background: '#111',
-    border: '1px solid #1c1c1c',
-    borderRadius: 10,
-    padding: '18px 20px 14px',
-  },
-  sliderTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 14,
-  },
-  sliderLabel: {
-    fontSize: 14,
-    color: '#ccc',
-    fontWeight: 500,
-  },
-  sliderValue: {
-    fontSize: 22,
-    fontWeight: 600,
-    fontVariantNumeric: 'tabular-nums',
-    transition: 'color 0.2s',
-  },
-  slider: {
-    width: '100%',
-    cursor: 'pointer',
-    height: 4,
-    marginBottom: 8,
-  },
-  sliderMeta: {
-    display: 'flex',
-    justifyContent: 'space-between',
-  },
-  sliderHint: {
-    fontSize: 11,
-    color: '#444',
-  },
-  stoplightBar: {
-    height: 3,
-    borderRadius: 2,
-    marginTop: 12,
-    transition: 'background 0.3s',
-  },
-  toggleGroup: {
-    display: 'flex',
-    gap: 8,
-    marginTop: 4,
-  },
-  toggleBtn: {
-    background: '#111',
-    border: '1px solid #222',
-    borderRadius: 6,
-    color: '#555',
-    padding: '8px 20px',
-    fontSize: 13,
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  },
-  toggleBtnActive: {
-    background: '#1a1a1a',
-    border: '1px solid #444',
-    color: '#e8e6e0',
-  },
-  textarea: {
-    background: '#111',
-    border: '1px solid #222',
-    borderRadius: 6,
-    color: '#e8e6e0',
-    padding: '12px 14px',
-    fontSize: 14,
-    fontFamily: 'inherit',
-    outline: 'none',
-    resize: 'vertical' as const,
-    lineHeight: 1.6,
-  },
-  errorBox: {
-    background: '#1a0808',
-    border: '1px solid #441010',
-    borderRadius: 6,
-    color: '#f87171',
-    padding: '12px 16px',
-    fontSize: 13,
-    marginBottom: 24,
-  },
-  submitRow: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 48,
-  },
-  cancelBtn: {
-    background: 'transparent',
-    border: '1px solid #222',
-    borderRadius: 6,
-    color: '#555',
-    padding: '12px 24px',
-    fontSize: 13,
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-  },
-  submitBtn: {
-    background: '#fff',
-    border: 'none',
-    borderRadius: 6,
-    color: '#000',
-    padding: '12px 32px',
-    fontSize: 13,
-    fontFamily: 'inherit',
-    fontWeight: 600,
-    cursor: 'pointer',
-    letterSpacing: '0.05em',
-    transition: 'all 0.2s',
-  },
-  submitSuccess: {
-    background: '#16a34a',
-    color: '#fff',
-  },
-  loadWrap: {
-    minHeight: '100vh',
-    background: '#0a0a0a',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    background: '#333',
-  },
 }
