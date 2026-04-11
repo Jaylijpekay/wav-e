@@ -43,11 +43,13 @@ type Actie = {
 }
 
 type HealthSignal = {
+  key: string
   label: string
-  value: number
-  unit?: string
-  status: 'red' | 'amber' | 'green'
+  value: number | null
+  unit: string
+  status: 'red' | 'amber' | 'green' | 'empty'
   reden: string
+  inverted: boolean
 }
 
 const formatDate = (date: string | null): string => {
@@ -55,73 +57,55 @@ const formatDate = (date: string | null): string => {
   return new Date(date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const scoreColor = (score: number | null, inverted = false): string => {
-  if (score === null) return '#333'
-  const bad = inverted ? score > 7 : score < 6
-  const ok = inverted ? score > 5 : score > 7
-  if (bad) return '#dc2626'
-  if (ok) return '#16a34a'
-  return '#888'
+const daysSince = (date: string | null): number | null => {
+  if (!date) return null
+  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
 }
 
-// Derive health signals from the most recent evaluation
 // TODO v0.2 — allow trainer to create an actie directly linked to a health signal
 // (e.g. actie.health_signal = 'slaap' | 'energie' | 'stress').
-// Requires: acties.health_signal nullable text column + UI trigger on signal row.
-const getHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
-  if (!ev) return []
-
-  const signals: HealthSignal[] = []
-
-  if (ev.slaap !== null) {
-    signals.push({
-      label: 'Slaap',
-      value: ev.slaap,
-      unit: '/10',
-      status: ev.slaap < 6 ? 'red' : ev.slaap < 7 ? 'amber' : 'green',
-      reden: ev.slaap < 6
-        ? 'Onder drempelwaarde — actie vereist'
-        : ev.slaap < 7
-        ? 'Dicht bij drempelwaarde'
-        : 'Geen zorgen',
-    })
+// Requires: acties.health_signal nullable text column + "+ Actie" button per flagged signal card.
+const buildHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
+  const make = (
+    key: string,
+    label: string,
+    value: number | null,
+    unit: string,
+    inverted: boolean
+  ): HealthSignal => {
+    if (value === null) return { key, label, value, unit, status: 'empty', reden: 'Nog niet gemeten', inverted }
+    const bad = inverted ? value > 7 : value < 6
+    const warn = inverted ? value > 5 : value < 7
+    const status = bad ? 'red' : warn ? 'amber' : 'green'
+    const reden = bad
+      ? inverted ? 'Boven drempelwaarde' : 'Onder drempelwaarde'
+      : warn
+      ? 'Dicht bij drempelwaarde'
+      : 'Goed'
+    return { key, label, value, unit, status, reden, inverted }
   }
 
-  if (ev.energie !== null) {
-    signals.push({
-      label: 'Energie',
-      value: ev.energie,
-      unit: '/10',
-      status: ev.energie < 6 ? 'red' : ev.energie < 7 ? 'amber' : 'green',
-      reden: ev.energie < 6
-        ? 'Onder drempelwaarde — actie vereist'
-        : ev.energie < 7
-        ? 'Dicht bij drempelwaarde'
-        : 'Geen zorgen',
-    })
-  }
-
-  if (ev.stress !== null) {
-    signals.push({
-      label: 'Stress',
-      value: ev.stress,
-      unit: '/10',
-      status: ev.stress > 7 ? 'red' : ev.stress > 5 ? 'amber' : 'green',
-      reden: ev.stress > 7
-        ? 'Boven drempelwaarde — actie vereist'
-        : ev.stress > 5
-        ? 'Dicht bij drempelwaarde'
-        : 'Geen zorgen',
-    })
-  }
-
-  return signals
+  return [
+    make('slaap',   'Slaap',   ev?.slaap   ?? null, '/10', false),
+    make('energie', 'Energie', ev?.energie ?? null, '/10', false),
+    make('stress',  'Stress',  ev?.stress  ?? null, '/10', true),
+  ]
 }
 
-const HEALTH_COLORS = {
-  red:   { bg: '#1a0808', border: '#3a1010', dot: '#dc2626', text: '#f87171', label: '#f87171' },
-  amber: { bg: '#1a1208', border: '#3a2a08', dot: '#d97706', text: '#fbbf24', label: '#fbbf24' },
-  green: { bg: '#081a0e', border: '#0e3018', dot: '#16a34a', text: '#4ade80', label: '#4ade80' },
+const HEALTH = {
+  red:   { bg: '#1c0a0a', border: '#3d1515', dot: '#ef4444', text: '#fca5a5', dim: '#7f1d1d' },
+  amber: { bg: '#1a1305', border: '#3d2e0a', dot: '#f59e0b', text: '#fcd34d', dim: '#78350f' },
+  green: { bg: '#061510', border: '#0d3320', dot: '#22c55e', text: '#86efac', dim: '#14532d' },
+  empty: { bg: '#111', border: '#1e1e1e', dot: '#2a2a2a', text: '#333', dim: '#1a1a1a' },
+}
+
+const scoreColor = (score: number | null, inverted = false): string => {
+  if (score === null) return '#2a2a2a'
+  const bad = inverted ? score > 7 : score < 6
+  const ok = inverted ? score > 5 : score > 7 // note: for non-inverted ok means > 7
+  if (bad) return '#ef4444'
+  if (ok) return '#22c55e'
+  return '#666'
 }
 
 export default function LedenDetail() {
@@ -189,10 +173,7 @@ export default function LedenDetail() {
       .update({ status: 'afgerond', afgerond: true, afgerond_op: new Date().toISOString() })
       .eq('id', actieId)
       .select()
-
-    if (!error) {
-      setActies(prev => prev.filter(a => a.id !== actieId))
-    }
+    if (!error) setActies(prev => prev.filter(a => a.id !== actieId))
   }
 
   const logContact = async () => {
@@ -217,20 +198,33 @@ export default function LedenDetail() {
   }
 
   const latestEval = evaluaties[0] ?? null
-  const healthSignals = getHealthSignals(latestEval)
-  const flaggedSignals = healthSignals.filter(s => s.status !== 'green')
+  const healthSignals = buildHealthSignals(latestEval)
+  const lastContactDays = daysSince(contacten[0]?.datum ?? null)
 
-  if (loading) return <main style={s.main}><div style={s.empty}>Laden...</div></main>
-  if (!lid) return <main style={s.main}><div style={s.empty}>Lid niet gevonden.</div></main>
+  if (loading) return (
+    <main style={s.main}>
+      <div style={s.loadingState}>Laden...</div>
+    </main>
+  )
+
+  if (!lid) return (
+    <main style={s.main}>
+      <div style={s.loadingState}>Lid niet gevonden.</div>
+    </main>
+  )
 
   return (
     <main style={s.main}>
+
+      {/* Header */}
       <header style={s.header}>
         <div style={s.headerInner}>
-          <span style={s.wordmark} onClick={() => router.back()}>← terug</span>
-          <div style={s.headerRight}>
-            <button style={s.btnAccent} onClick={() => router.push(`/leden/${id}/vooruitgang`)}>
-              Vooruitgang tonen
+          <button style={s.backBtn} onClick={() => router.back()}>
+            ← terug
+          </button>
+          <div style={s.headerActions}>
+            <button style={s.btnGhost} onClick={() => router.push(`/leden/${id}/vooruitgang`)}>
+              Vooruitgang
             </button>
             <button style={s.btnPrimary} onClick={() => router.push(`/gesprek/new?lid_id=${lid.id}`)}>
               + Nieuw gesprek
@@ -241,76 +235,104 @@ export default function LedenDetail() {
 
       <div style={s.body}>
 
-        {/* Member info */}
-        <div style={s.memberHeader}>
-          <div>
-            <div style={s.memberName}>{lid.voornaam} {lid.achternaam}</div>
-            <div style={s.memberMeta}>
-              {lid.lid_id}
-              {lid.startdatum && ` · lid sinds ${formatDate(lid.startdatum)}`}
-              {!lid.actief && ' · inactief'}
+        {/* Member identity block */}
+        <div style={s.identityBlock}>
+          <div style={s.identityLeft}>
+            <div style={s.avatar}>
+              {lid.voornaam[0]}{lid.achternaam[0]}
+            </div>
+            <div>
+              <h1 style={s.memberName}>{lid.voornaam} {lid.achternaam}</h1>
+              <div style={s.memberMeta}>
+                <span style={s.metaTag}>{lid.lid_id}</span>
+                {lid.startdatum && (
+                  <span style={s.metaTag}>lid sinds {formatDate(lid.startdatum)}</span>
+                )}
+                {!lid.actief && (
+                  <span style={{ ...s.metaTag, color: '#ef4444', borderColor: '#3d1515' }}>inactief</span>
+                )}
+                {lastContactDays !== null && (
+                  <span style={{
+                    ...s.metaTag,
+                    color: lastContactDays > 14 ? '#f59e0b' : '#555',
+                    borderColor: lastContactDays > 14 ? '#3d2e0a' : '#1e1e1e',
+                  }}>
+                    contact {lastContactDays}d geleden
+                  </span>
+                )}
+                {lastContactDays === null && (
+                  <span style={{ ...s.metaTag, color: '#ef4444', borderColor: '#3d1515' }}>
+                    nog geen contact
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div style={s.memberContact}>
-            {lid.email && <span style={s.memberContactItem}>{lid.email}</span>}
-            {lid.telefoon && <span style={s.memberContactItem}>{lid.telefoon}</span>}
+          <div style={s.identityRight}>
+            {lid.email && <a href={`mailto:${lid.email}`} style={s.contactLink}>{lid.email}</a>}
+            {lid.telefoon && <a href={`tel:${lid.telefoon}`} style={s.contactLink}>{lid.telefoon}</a>}
           </div>
         </div>
 
+        {/* Main grid */}
         <div style={s.grid}>
 
           {/* Left column */}
           <div style={s.col}>
 
-            {/* Evaluaties */}
-            <div style={s.section}>
-              <div style={s.sectionHeader}>
-                <span style={s.sectionTitle}>Evaluaties</span>
-                <span style={s.sectionCount}>{evaluaties.length}</span>
+            {/* Evaluatie history */}
+            <section style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionLabel}>Evaluaties</span>
+                <span style={s.sectionBadge}>{evaluaties.length}</span>
               </div>
+
               {evaluaties.length === 0 ? (
-                <div style={s.empty}>Geen evaluaties.</div>
+                <div style={s.emptyState}>
+                  <span style={s.emptyIcon}>○</span>
+                  <span>Nog geen evaluaties</span>
+                </div>
               ) : evaluaties.map(ev => (
                 <div
                   key={ev.id}
-                  style={{ ...s.row, cursor: 'pointer' }}
+                  style={s.evalRow}
                   onClick={() => router.push(`/leden/${id}/evaluatie/${ev.cyclus}`)}
                 >
-                  <div style={s.rowMain}>
-                    <div style={s.rowName}>Cyclus {ev.cyclus}</div>
-                    <div style={s.rowMeta}>{formatDate(ev.datum)}</div>
+                  <div style={s.evalLeft}>
+                    <div style={s.evalCyclus}>Cyclus {ev.cyclus}</div>
+                    <div style={s.evalDatum}>{formatDate(ev.datum)}</div>
                   </div>
-                  <div style={s.scoreRow}>
-                    <div style={s.scoreItem}>
-                      <span style={s.scoreLabel}>Slaap</span>
-                      <span style={{ ...s.scoreValue, color: scoreColor(ev.slaap) }}>{ev.slaap ?? '—'}</span>
-                    </div>
-                    <div style={s.scoreItem}>
-                      <span style={s.scoreLabel}>Energie</span>
-                      <span style={{ ...s.scoreValue, color: scoreColor(ev.energie) }}>{ev.energie ?? '—'}</span>
-                    </div>
-                    <div style={s.scoreItem}>
-                      <span style={s.scoreLabel}>Stress</span>
-                      <span style={{ ...s.scoreValue, color: scoreColor(ev.stress, true) }}>{ev.stress ?? '—'}</span>
-                    </div>
+                  <div style={s.evalScores}>
+                    {[
+                      { label: 'S', val: ev.slaap, inv: false },
+                      { label: 'E', val: ev.energie, inv: false },
+                      { label: 'ST', val: ev.stress, inv: true },
+                    ].map(({ label, val, inv }) => (
+                      <div key={label} style={s.evalScore}>
+                        <span style={s.evalScoreLabel}>{label}</span>
+                        <span style={{ ...s.evalScoreVal, color: scoreColor(val, inv) }}>
+                          {val ?? '—'}
+                        </span>
+                      </div>
+                    ))}
                     {ev.gewicht_kg && (
-                      <div style={s.scoreItem}>
-                        <span style={s.scoreLabel}>Gewicht</span>
-                        <span style={{ ...s.scoreValue, color: '#888' }}>{ev.gewicht_kg}kg</span>
+                      <div style={s.evalScore}>
+                        <span style={s.evalScoreLabel}>KG</span>
+                        <span style={{ ...s.evalScoreVal, color: '#555' }}>{ev.gewicht_kg}</span>
                       </div>
                     )}
                   </div>
-                  <span style={s.rowArrow}>→</span>
+                  <span style={s.evalArrow}>›</span>
                 </div>
               ))}
-            </div>
+            </section>
 
             {/* Contact momenten */}
-            <div style={s.section}>
-              <div style={s.sectionHeader}>
-                <span style={s.sectionTitle}>Contact momenten</span>
-                <button style={s.sectionBtn} onClick={() => setContactOpen(o => !o)}>
-                  {contactOpen ? 'annuleren' : '+ log contact'}
+            <section style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionLabel}>Contact</span>
+                <button style={s.sectionAction} onClick={() => setContactOpen(o => !o)}>
+                  {contactOpen ? '× annuleren' : '+ log contact'}
                 </button>
               </div>
 
@@ -341,7 +363,7 @@ export default function LedenDetail() {
                       value={contactNotities}
                       onChange={e => setContactNotities(e.target.value)}
                       placeholder="Optioneel..."
-                      style={{ ...s.input, height: 72, resize: 'vertical' as const }}
+                      style={{ ...s.input, height: 80, resize: 'vertical' as const }}
                     />
                   </div>
                   <button style={s.btnPrimary} onClick={logContact} disabled={savingContact}>
@@ -350,110 +372,119 @@ export default function LedenDetail() {
                 </div>
               )}
 
-              {contacten.length === 0 ? (
-                <div style={s.empty}>Geen contactmomenten.</div>
+              {contacten.length === 0 && !contactOpen ? (
+                <div style={s.emptyState}>
+                  <span style={s.emptyIcon}>○</span>
+                  <span>Nog geen contactmomenten</span>
+                </div>
               ) : contacten.map(c => (
-                <div key={c.id} style={s.row}>
-                  <div style={s.rowMain}>
-                    <div style={s.rowName}>{c.type ?? 'Contact'}</div>
-                    <div style={s.rowMeta}>{formatDate(c.datum)}</div>
-                  </div>
-                  {c.notities && <div style={s.rowNote}>{c.notities}</div>}
+                <div key={c.id} style={s.contactRow}>
+                  <div style={s.contactType}>{c.type ?? 'Contact'}</div>
+                  <div style={s.contactDatum}>{formatDate(c.datum)}</div>
+                  {c.notities && <div style={s.contactNote}>{c.notities}</div>}
                 </div>
               ))}
-            </div>
+            </section>
 
           </div>
 
           {/* Right column */}
           <div style={s.col}>
 
-            {/* Health signals */}
-            <div style={s.section}>
-              <div style={s.sectionHeader}>
-                <span style={s.sectionTitle}>Gezondheid</span>
-                {latestEval && (
-                  <span style={s.sectionMeta}>cyclus {latestEval.cyclus} · {formatDate(latestEval.datum)}</span>
+            {/* Health signals — always visible */}
+            <section style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionLabel}>Gezondheid</span>
+                {latestEval ? (
+                  <span style={s.sectionMeta}>
+                    cyclus {latestEval.cyclus} · {formatDate(latestEval.datum)}
+                  </span>
+                ) : (
+                  <span style={{ ...s.sectionMeta, color: '#333' }}>geen data</span>
                 )}
               </div>
 
-              {!latestEval ? (
-                <div style={s.empty}>Geen evaluatiedata.</div>
-              ) : healthSignals.length === 0 ? (
-                <div style={s.empty}>Geen scores beschikbaar.</div>
-              ) : (
-                <>
-                  {/* Flagged signals first, prominent */}
-                  {flaggedSignals.length > 0 && (
-                    <div style={s.signalGroup}>
-                      {flaggedSignals.map(sig => {
-                        const col = HEALTH_COLORS[sig.status]
-                        return (
-                          <div key={sig.label} style={{
-                            ...s.signalCard,
-                            background: col.bg,
-                            border: `1px solid ${col.border}`,
-                          }}>
-                            <div style={s.signalTop}>
-                              <div style={s.signalLeft}>
-                                <span style={{ ...s.signalDot, background: col.dot }} />
-                                <span style={{ ...s.signalLabel, color: col.label }}>{sig.label}</span>
-                              </div>
-                              <div style={s.signalRight}>
-                                <span style={{ ...s.signalValue, color: col.text }}>
-                                  {sig.value}
-                                </span>
-                                <span style={s.signalUnit}>{sig.unit}</span>
-                              </div>
-                            </div>
-                            <div style={{ ...s.signalReden, color: col.text }}>
-                              {sig.reden}
-                            </div>
-                          </div>
-                        )
-                      })}
+              <div style={s.healthGrid}>
+                {healthSignals.map(sig => {
+                  const col = HEALTH[sig.status]
+                  return (
+                    <div
+                      key={sig.key}
+                      style={{
+                        ...s.healthCard,
+                        background: col.bg,
+                        borderColor: col.border,
+                      }}
+                    >
+                      <div style={s.healthCardTop}>
+                        <span style={{ ...s.healthDot, background: col.dot }} />
+                        <span style={{ ...s.healthLabel, color: sig.status === 'empty' ? '#2a2a2a' : '#888' }}>
+                          {sig.label}
+                        </span>
+                      </div>
+                      <div style={s.healthValueRow}>
+                        <span style={{ ...s.healthValue, color: col.text }}>
+                          {sig.value ?? '—'}
+                        </span>
+                        <span style={{ ...s.healthUnit, color: col.dim }}>
+                          {sig.value !== null ? sig.unit : ''}
+                        </span>
+                      </div>
+                      <div style={{ ...s.healthReden, color: col.dim }}>
+                        {sig.reden}
+                      </div>
                     </div>
-                  )}
+                  )
+                })}
+              </div>
 
-                  {/* Green signals — muted row */}
-                  {healthSignals.filter(s => s.status === 'green').length > 0 && (
-                    <div style={s.greenRow}>
-                      {healthSignals.filter(sig => sig.status === 'green').map(sig => (
-                        <div key={sig.label} style={s.greenItem}>
-                          <span style={s.greenDot} />
-                          <span style={s.greenLabel}>{sig.label}</span>
-                          <span style={s.greenValue}>{sig.value}{sig.unit}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
+              {!latestEval && (
+                <div style={s.healthEmptyNote}>
+                  Scores verschijnen na het eerste evaluatiegesprek
+                </div>
               )}
-            </div>
+            </section>
 
             {/* Open acties */}
-            <div style={s.section}>
-              <div style={s.sectionHeader}>
-                <span style={s.sectionTitle}>Open acties</span>
-                <span style={s.sectionCount}>{acties.length}</span>
+            <section style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionLabel}>Open acties</span>
+                <span style={s.sectionBadge}>{acties.length}</span>
               </div>
+
               {acties.length === 0 ? (
-                <div style={s.empty}>Geen open acties.</div>
-              ) : acties.map(actie => (
-                <div key={actie.id} style={s.actieRow}>
-                  <div style={s.rowMain}>
-                    <div style={s.rowName}>{actie.omschrijving}</div>
-                    <div style={s.rowMeta}>
-                      {formatDate(actie.aangemaakt)}
-                      {actie.deadline && ` · deadline ${formatDate(actie.deadline)}`}
-                    </div>
-                  </div>
-                  <button style={s.doneBtn} onClick={() => markActieAfgerond(actie.id)}>
-                    ✓ Afgerond
-                  </button>
+                <div style={s.emptyState}>
+                  <span style={s.emptyIcon}>✓</span>
+                  <span>Geen open acties</span>
                 </div>
-              ))}
-            </div>
+              ) : acties.map(actie => {
+                const isOverdue = actie.deadline && new Date(actie.deadline) < new Date()
+                return (
+                  <div key={actie.id} style={{
+                    ...s.actieRow,
+                    borderLeftColor: isOverdue ? '#ef4444' : '#1e3a2a',
+                  }}>
+                    <div style={s.actieContent}>
+                      <div style={s.actieName}>{actie.omschrijving}</div>
+                      <div style={s.actieMeta}>
+                        {formatDate(actie.aangemaakt)}
+                        {actie.deadline && (
+                          <span style={{ color: isOverdue ? '#ef4444' : '#444' }}>
+                            {' '}· deadline {formatDate(actie.deadline)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      style={s.doneBtn}
+                      onClick={() => markActieAfgerond(actie.id)}
+                    >
+                      ✓
+                    </button>
+                  </div>
+                )
+              })}
+            </section>
 
           </div>
         </div>
@@ -465,317 +496,399 @@ export default function LedenDetail() {
 const s: Record<string, React.CSSProperties> = {
   main: {
     minHeight: '100vh',
-    background: '#0a0a0a',
-    color: '#e8e6e0',
+    background: '#080808',
+    color: '#d4d0c8',
     fontFamily: '"DM Mono", "Courier New", monospace',
   },
-  header: {
-    borderBottom: '1px solid #1a1a1a',
-    padding: '0 32px',
-    height: 56,
+  loadingState: {
     display: 'flex',
     alignItems: 'center',
-    position: 'sticky',
+    justifyContent: 'center',
+    height: '100vh',
+    color: '#333',
+    fontSize: 13,
+    letterSpacing: '0.1em',
+  },
+
+  // Header
+  header: {
+    borderBottom: '1px solid #141414',
+    height: 52,
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 32px',
+    position: 'sticky' as const,
     top: 0,
-    background: '#0a0a0a',
+    background: '#080808',
     zIndex: 10,
   },
   headerInner: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    maxWidth: 1100,
+    maxWidth: 1140,
     width: '100%',
     margin: '0 auto',
   },
-  wordmark: {
-    fontSize: 12,
-    color: '#444',
-    letterSpacing: '0.05em',
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#333',
+    fontFamily: '"DM Mono", "Courier New", monospace',
+    fontSize: 11,
+    letterSpacing: '0.08em',
     cursor: 'pointer',
+    padding: 0,
   },
-  headerRight: {
+  headerActions: {
     display: 'flex',
+    gap: 10,
     alignItems: 'center',
-    gap: 12,
+  },
+  btnGhost: {
+    background: 'transparent',
+    border: '1px solid #1e1e1e',
+    color: '#444',
+    fontFamily: '"DM Mono", "Courier New", monospace',
+    fontSize: 11,
+    letterSpacing: '0.06em',
+    padding: '7px 14px',
+    borderRadius: 3,
+    cursor: 'pointer',
   },
   btnPrimary: {
-    background: '#fff',
-    border: '1px solid #fff',
-    color: '#0a0a0a',
+    background: '#e8e4dc',
+    border: '1px solid #e8e4dc',
+    color: '#080808',
     fontFamily: '"DM Mono", "Courier New", monospace',
-    fontSize: 12,
-    letterSpacing: '0.05em',
-    padding: '8px 16px',
-    borderRadius: 4,
+    fontSize: 11,
+    letterSpacing: '0.06em',
+    padding: '7px 14px',
+    borderRadius: 3,
     cursor: 'pointer',
-    fontWeight: 600,
+    fontWeight: 700,
   },
-  btnAccent: {
-    background: 'transparent',
-    border: '1px solid #2a2a2a',
-    color: '#888',
-    fontFamily: '"DM Mono", "Courier New", monospace',
-    fontSize: 12,
-    letterSpacing: '0.05em',
-    padding: '8px 16px',
-    borderRadius: 4,
-    cursor: 'pointer',
-  },
+
+  // Identity block
   body: {
-    maxWidth: 1100,
+    maxWidth: 1140,
     margin: '0 auto',
-    padding: '40px 32px 120px',
+    padding: '48px 32px 120px',
   },
-  memberHeader: {
+  identityBlock: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 48,
-    gap: 32,
+    marginBottom: 56,
+    gap: 24,
   },
-  memberName: {
-    fontSize: 22,
-    fontWeight: 600,
-    color: '#fff',
-    marginBottom: 8,
-    letterSpacing: '0.02em',
+  identityLeft: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 20,
   },
-  memberMeta: {
-    fontSize: 12,
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+    background: '#141414',
+    border: '1px solid #1e1e1e',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 14,
+    fontWeight: 700,
     color: '#444',
     letterSpacing: '0.05em',
+    flexShrink: 0,
   },
-  memberContact: {
+  memberName: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: '#f0ece4',
+    margin: '0 0 10px',
+    letterSpacing: '-0.01em',
+  },
+  memberMeta: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: 6,
+  },
+  metaTag: {
+    fontSize: 10,
+    color: '#444',
+    border: '1px solid #1e1e1e',
+    borderRadius: 3,
+    padding: '3px 8px',
+    letterSpacing: '0.06em',
+  },
+  identityRight: {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'flex-end',
     gap: 6,
   },
-  memberContactItem: {
-    fontSize: 12,
-    color: '#555',
+  contactLink: {
+    fontSize: 11,
+    color: '#333',
+    textDecoration: 'none',
     letterSpacing: '0.03em',
   },
+
+  // Grid
   grid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 380px',
-    gap: 32,
+    gridTemplateColumns: '1fr 360px',
+    gap: 40,
     alignItems: 'flex-start',
   },
   col: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: 40,
+    gap: 48,
   },
+
+  // Sections
   section: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: 2,
+    gap: 3,
   },
-  sectionHeader: {
+  sectionHead: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottom: '1px solid #111',
   },
-  sectionTitle: {
-    fontSize: 11,
-    color: '#444',
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase' as const,
-  },
-  sectionCount: {
-    fontSize: 11,
+  sectionLabel: {
+    fontSize: 10,
     color: '#333',
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase' as const,
+    fontWeight: 600,
+  },
+  sectionBadge: {
+    fontSize: 10,
+    color: '#2a2a2a',
+    letterSpacing: '0.05em',
   },
   sectionMeta: {
-    fontSize: 11,
-    color: '#333',
-    letterSpacing: '0.03em',
+    fontSize: 10,
+    color: '#2a2a2a',
+    letterSpacing: '0.04em',
   },
-  sectionBtn: {
-    background: 'transparent',
+  sectionAction: {
+    background: 'none',
     border: 'none',
-    color: '#555',
+    color: '#333',
     fontFamily: '"DM Mono", "Courier New", monospace',
-    fontSize: 11,
-    letterSpacing: '0.05em',
+    fontSize: 10,
+    letterSpacing: '0.06em',
     cursor: 'pointer',
     padding: 0,
   },
+  emptyState: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '20px 0',
+    color: '#222',
+    fontSize: 12,
+    letterSpacing: '0.04em',
+  },
+  emptyIcon: {
+    fontSize: 14,
+    color: '#1e1e1e',
+  },
 
-  // Health signal cards (red/amber)
-  signalGroup: {
+  // Evaluatie rows
+  evalRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    padding: '13px 16px',
+    background: '#0d0d0d',
+    border: '1px solid #111',
+    borderRadius: 5,
+    cursor: 'pointer',
+    marginBottom: 2,
+  },
+  evalLeft: {
+    flex: 1,
+  },
+  evalCyclus: {
+    fontSize: 12,
+    color: '#c8c4bc',
+    marginBottom: 2,
+  },
+  evalDatum: {
+    fontSize: 10,
+    color: '#333',
+    letterSpacing: '0.04em',
+  },
+  evalScores: {
+    display: 'flex',
+    gap: 14,
+  },
+  evalScore: {
     display: 'flex',
     flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 2,
+  },
+  evalScoreLabel: {
+    fontSize: 8,
+    color: '#2a2a2a',
+    letterSpacing: '0.1em',
+  },
+  evalScoreVal: {
+    fontSize: 13,
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  evalArrow: {
+    fontSize: 18,
+    color: '#222',
+  },
+
+  // Contact rows
+  contactRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: '4px 12px',
+    padding: '12px 16px',
+    background: '#0d0d0d',
+    border: '1px solid #111',
+    borderRadius: 5,
+    marginBottom: 2,
+  },
+  contactType: {
+    fontSize: 12,
+    color: '#c8c4bc',
+  },
+  contactDatum: {
+    fontSize: 10,
+    color: '#333',
+    letterSpacing: '0.04em',
+    textAlign: 'right' as const,
+  },
+  contactNote: {
+    fontSize: 11,
+    color: '#444',
+    gridColumn: '1 / -1',
+    letterSpacing: '0.02em',
+    marginTop: 2,
+  },
+
+  // Health signals
+  healthGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
     gap: 6,
-    marginBottom: 6,
   },
-  signalCard: {
+  healthCard: {
     borderRadius: 6,
-    padding: '14px 16px',
+    border: '1px solid',
+    padding: '14px 14px 12px',
     display: 'flex',
     flexDirection: 'column' as const,
     gap: 8,
   },
-  signalTop: {
+  healthCardTop: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 7,
   },
-  signalLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  signalDot: {
-    width: 7,
-    height: 7,
+  healthDot: {
+    width: 6,
+    height: 6,
     borderRadius: '50%',
     flexShrink: 0,
   },
-  signalLabel: {
-    fontSize: 12,
+  healthLabel: {
+    fontSize: 9,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase' as const,
     fontWeight: 600,
-    letterSpacing: '0.05em',
   },
-  signalRight: {
+  healthValueRow: {
     display: 'flex',
     alignItems: 'baseline',
     gap: 3,
   },
-  signalValue: {
-    fontSize: 22,
+  healthValue: {
+    fontSize: 28,
     fontWeight: 700,
     fontVariantNumeric: 'tabular-nums',
     lineHeight: 1,
   },
-  signalUnit: {
+  healthUnit: {
     fontSize: 11,
-    color: '#444',
+    fontWeight: 400,
   },
-  signalReden: {
-    fontSize: 11,
-    letterSpacing: '0.03em',
-    opacity: 0.85,
+  healthReden: {
+    fontSize: 9,
+    letterSpacing: '0.04em',
+    lineHeight: 1.4,
+  },
+  healthEmptyNote: {
+    fontSize: 10,
+    color: '#222',
+    letterSpacing: '0.04em',
+    padding: '10px 0 4px',
+    textAlign: 'center' as const,
   },
 
-  // Green signals — compact muted row
-  greenRow: {
-    display: 'flex',
-    gap: 16,
-    padding: '10px 16px',
-    background: '#0d0d0d',
-    borderRadius: 6,
-    flexWrap: 'wrap' as const,
-  },
-  greenItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-  },
-  greenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    background: '#16a34a',
-    flexShrink: 0,
-  },
-  greenLabel: {
-    fontSize: 11,
-    color: '#555',
-    letterSpacing: '0.05em',
-  },
-  greenValue: {
-    fontSize: 11,
-    color: '#4ade80',
-    fontVariantNumeric: 'tabular-nums',
-  },
-
-  // Shared row styles
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 20,
-    padding: '14px 16px',
-    background: '#0f0f0f',
-    borderRadius: 6,
-    marginBottom: 2,
-  },
+  // Acties
   actieRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 20,
-    padding: '14px 16px',
-    background: '#0f0f0f',
-    borderRadius: 6,
+    gap: 14,
+    padding: '13px 16px',
+    background: '#0d0d0d',
+    border: '1px solid #111',
+    borderLeft: '3px solid #1e3a2a',
+    borderRadius: 5,
     marginBottom: 2,
-    borderLeft: '3px solid #2a2a2a',
   },
-  rowMain: {
+  actieContent: {
     flex: 1,
   },
-  rowName: {
-    fontSize: 13,
-    color: '#e8e6e0',
+  actieName: {
+    fontSize: 12,
+    color: '#c8c4bc',
     marginBottom: 3,
   },
-  rowMeta: {
-    fontSize: 11,
-    color: '#444',
+  actieMeta: {
+    fontSize: 10,
+    color: '#333',
     letterSpacing: '0.03em',
-  },
-  rowNote: {
-    fontSize: 12,
-    color: '#555',
-    flex: 1,
-    letterSpacing: '0.02em',
-  },
-  rowArrow: {
-    fontSize: 14,
-    color: '#333',
-  },
-  scoreRow: {
-    display: 'flex',
-    gap: 16,
-  },
-  scoreItem: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 2,
-    alignItems: 'center',
-  },
-  scoreLabel: {
-    fontSize: 9,
-    color: '#333',
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase' as const,
-  },
-  scoreValue: {
-    fontSize: 13,
-    fontVariantNumeric: 'tabular-nums',
-    fontWeight: 600,
   },
   doneBtn: {
     background: 'transparent',
-    border: '1px solid #2a2a2a',
-    color: '#555',
+    border: '1px solid #1e1e1e',
+    color: '#2a2a2a',
     fontFamily: '"DM Mono", "Courier New", monospace',
-    fontSize: 11,
-    letterSpacing: '0.05em',
-    padding: '6px 12px',
+    fontSize: 12,
+    width: 30,
+    height: 30,
     borderRadius: 4,
     cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
+
+  // Form
   formCard: {
-    background: '#0f0f0f',
-    border: '1px solid #1a1a1a',
-    borderRadius: 6,
-    padding: '20px',
-    marginBottom: 2,
+    background: '#0d0d0d',
+    border: '1px solid #141414',
+    borderRadius: 5,
+    padding: 18,
+    marginBottom: 3,
     display: 'flex',
     flexDirection: 'column' as const,
     gap: 14,
@@ -786,15 +899,15 @@ const s: Record<string, React.CSSProperties> = {
     gap: 6,
   },
   formLabel: {
-    fontSize: 10,
-    color: '#444',
-    letterSpacing: '0.1em',
+    fontSize: 9,
+    color: '#333',
+    letterSpacing: '0.12em',
     textTransform: 'uppercase' as const,
   },
   input: {
-    background: '#0a0a0a',
-    border: '1px solid #2a2a2a',
-    color: '#e8e6e0',
+    background: '#080808',
+    border: '1px solid #1e1e1e',
+    color: '#d4d0c8',
     fontFamily: '"DM Mono", "Courier New", monospace',
     fontSize: 12,
     padding: '8px 12px',
@@ -802,11 +915,5 @@ const s: Record<string, React.CSSProperties> = {
     width: '100%',
     outline: 'none',
     boxSizing: 'border-box' as const,
-  },
-  empty: {
-    color: '#333',
-    fontSize: 13,
-    padding: '24px 0',
-    textAlign: 'center' as const,
   },
 }
