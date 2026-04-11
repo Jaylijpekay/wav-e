@@ -4,6 +4,19 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
+type Lid = {
+  id: string
+  lid_id: string
+  voornaam: string
+  achternaam: string
+  laatste_contact: string | null
+  laatste_evaluatie: string | null
+  slaap: number | null
+  energie: number | null
+  stress: number | null
+  open_acties: number
+}
+
 type Actie = {
   id: string
   lid_id: string
@@ -13,7 +26,7 @@ type Actie = {
   aangemaakt: string
 }
 
-type Lid = {
+type LidDropdown = {
   id: string
   lid_id: string
   voornaam: string
@@ -25,9 +38,53 @@ type Trainer = {
   naam: string
 }
 
+type Signal = {
+  label: string
+  reden: string
+}
+
 const daysSince = (date: string | null): number | null => {
   if (!date) return null
   return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+}
+
+const getSignals = (lid: Lid): Signal[] => {
+  const signals: Signal[] = []
+  const dagsSindsContact = daysSince(lid.laatste_contact)
+  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
+
+  if (dagsSindsContact === null || dagsSindsContact > 14)
+    signals.push({ label: 'Geen contact', reden: dagsSindsContact === null ? 'Nog nooit' : `${dagsSindsContact} dagen geleden` })
+  if (dagsSindsEval === null || dagsSindsEval > 42)
+    signals.push({ label: 'Geen evaluatie', reden: dagsSindsEval === null ? 'Nog nooit' : `${dagsSindsEval} dagen geleden` })
+  if (lid.open_acties > 0)
+    signals.push({ label: 'Open acties', reden: `${lid.open_acties} actie${lid.open_acties > 1 ? 's' : ''}` })
+  if (lid.slaap !== null && lid.slaap < 6)
+    signals.push({ label: 'Slaap rood', reden: `Score ${lid.slaap}/10` })
+  if (lid.energie !== null && lid.energie < 6)
+    signals.push({ label: 'Energie rood', reden: `Score ${lid.energie}/10` })
+  if (lid.stress !== null && lid.stress > 7)
+    signals.push({ label: 'Stress rood', reden: `Score ${lid.stress}/10` })
+
+  return signals
+}
+
+const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
+  const signals = getSignals(lid)
+  if (signals.length === 0) return 'green'
+  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
+  const hasRedLifestyle =
+    (lid.slaap !== null && lid.slaap < 6) ||
+    (lid.energie !== null && lid.energie < 6) ||
+    (lid.stress !== null && lid.stress > 7)
+  if (dagsSindsEval === null || dagsSindsEval > 42 || hasRedLifestyle) return 'red'
+  return 'amber'
+}
+
+const STOPLIGHT_COLORS = {
+  red:   { dot: '#dc2626', bg: '#1a0808', border: '#3a1010', text: '#f87171' },
+  amber: { dot: '#d97706', bg: '#1a1208', border: '#3a2a08', text: '#fbbf24' },
+  green: { dot: '#16a34a', bg: '#081a0e', border: '#0e3018', text: '#4ade80' },
 }
 
 export default function TrainerDashboard() {
@@ -35,9 +92,11 @@ export default function TrainerDashboard() {
   const router = useRouter()
 
   const [trainer, setTrainer] = useState<Trainer | null>(null)
-  const [acties, setActies] = useState<Actie[]>([])
   const [leden, setLeden] = useState<Lid[]>([])
+  const [acties, setActies] = useState<Actie[]>([])
+  const [ledenDropdown, setLedenDropdown] = useState<LidDropdown[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'red' | 'amber' | 'green'>('all')
   const [gesprekOpen, setGesprekOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -60,33 +119,74 @@ export default function TrainerDashboard() {
         .eq('actief', true)
         .order('voornaam')
 
-      setLeden(ledenData ?? [])
-
-      if (ledenData && ledenData.length > 0) {
-        const lidIds = ledenData.map(l => l.id)
-
-        const { data: actiesData } = await supabase
-          .from('acties')
-          .select('id, lid_id, omschrijving, aangemaakt')
-          .in('lid_id', lidIds)
-          .eq('status', 'open')
-          .order('aangemaakt', { ascending: true })
-
-        const enriched: Actie[] = (actiesData ?? []).map(a => {
-          const lid = ledenData.find(l => l.id === a.lid_id)
-          return {
-            id: a.id,
-            lid_id: lid?.lid_id ?? '—',
-            voornaam: lid?.voornaam ?? '—',
-            achternaam: lid?.achternaam ?? '',
-            omschrijving: a.omschrijving,
-            aangemaakt: a.aangemaakt,
-          }
-        })
-
-        setActies(enriched)
+      if (!ledenData || ledenData.length === 0) {
+        setLoading(false)
+        return
       }
 
+      setLedenDropdown(ledenData)
+
+      const lidIds = ledenData.map(l => l.id)
+
+      const { data: contacten } = await supabase
+        .from('contact_momenten')
+        .select('lid_id, datum')
+        .in('lid_id', lidIds)
+        .order('datum', { ascending: false })
+
+      const { data: evaluaties } = await supabase
+        .from('evaluaties')
+        .select('lid_id, datum, slaap, energie, stress, cyclus')
+        .in('lid_id', lidIds)
+        .order('cyclus', { ascending: false })
+
+      const { data: actiesData } = await supabase
+        .from('acties')
+        .select('id, lid_id, omschrijving, aangemaakt')
+        .in('lid_id', lidIds)
+        .eq('status', 'open')
+        .order('aangemaakt', { ascending: true })
+
+      // Build open acties count per lid for stoplight
+      const openActiesPerLid: Record<string, number> = {}
+      for (const a of actiesData ?? []) {
+        openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+      }
+
+      // Enrich leden for stoplight
+      const enrichedLeden: Lid[] = ledenData.map(l => {
+        const lastContact = contacten?.find(c => c.lid_id === l.id)
+        const lastEval = evaluaties?.find(e => e.lid_id === l.id)
+        return {
+          id: l.id,
+          lid_id: l.lid_id,
+          voornaam: l.voornaam,
+          achternaam: l.achternaam,
+          laatste_contact: lastContact?.datum ?? null,
+          laatste_evaluatie: lastEval?.datum ?? null,
+          slaap: lastEval?.slaap ?? null,
+          energie: lastEval?.energie ?? null,
+          stress: lastEval?.stress ?? null,
+          open_acties: openActiesPerLid[l.id] ?? 0,
+        }
+      })
+
+      setLeden(enrichedLeden)
+
+      // Enrich acties with member names
+      const enrichedActies: Actie[] = (actiesData ?? []).map(a => {
+        const lid = ledenData.find(l => l.id === a.lid_id)
+        return {
+          id: a.id,
+          lid_id: lid?.lid_id ?? '—',
+          voornaam: lid?.voornaam ?? '—',
+          achternaam: lid?.achternaam ?? '',
+          omschrijving: a.omschrijving,
+          aangemaakt: a.aangemaakt,
+        }
+      })
+
+      setActies(enrichedActies)
       setLoading(false)
     }
 
@@ -103,10 +203,23 @@ export default function TrainerDashboard() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleGesprekSelect = (lid: Lid) => {
+  const handleGesprekSelect = (lid: LidDropdown) => {
     setGesprekOpen(false)
     router.push(`/gesprek/new?lid_id=${lid.id}`)
   }
+
+  const counts = {
+    red:   leden.filter(l => getStoplight(l) === 'red').length,
+    amber: leden.filter(l => getStoplight(l) === 'amber').length,
+    green: leden.filter(l => getStoplight(l) === 'green').length,
+  }
+
+  const filteredActies = filter === 'all'
+    ? acties
+    : acties.filter(a => {
+        const lid = leden.find(l => l.lid_id === a.lid_id)
+        return lid ? getStoplight(lid) === filter : false
+      })
 
   return (
     <main style={s.main}>
@@ -131,9 +244,9 @@ export default function TrainerDashboard() {
               </button>
               {gesprekOpen && (
                 <div style={s.dropdown}>
-                  {leden.length === 0 ? (
+                  {ledenDropdown.length === 0 ? (
                     <div style={s.dropdownEmpty}>Geen leden gevonden</div>
-                  ) : leden.map(lid => (
+                  ) : ledenDropdown.map(lid => (
                     <div
                       key={lid.id}
                       style={s.dropdownItem}
@@ -152,27 +265,61 @@ export default function TrainerDashboard() {
 
       <div style={s.body}>
 
+        {/* Stoplight summary bar */}
+        {!loading && (
+          <div style={s.summaryBar}>
+            {(['red', 'amber', 'green'] as const).map(sig => {
+              const col = STOPLIGHT_COLORS[sig]
+              const labels = { red: 'Aandacht nodig', amber: 'Let op', green: 'Op koers' }
+              return (
+                <button
+                  key={sig}
+                  style={{
+                    ...s.summaryCard,
+                    background: filter === sig ? col.bg : '#0f0f0f',
+                    border: `1px solid ${filter === sig ? col.border : '#1c1c1c'}`,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setFilter(filter === sig ? 'all' : sig)}
+                >
+                  <span style={{ ...s.summaryDot, background: col.dot }} />
+                  <span style={{ ...s.summaryCount, color: col.text }}>{counts[sig]}</span>
+                  <span style={s.summaryLabel}>{labels[sig]}</span>
+                </button>
+              )
+            })}
+            <div style={s.summaryTotal}>
+              <span style={s.summaryCount}>{leden.length}</span>
+              <span style={s.summaryLabel}>Actieve leden</span>
+            </div>
+          </div>
+        )}
+
+        {/* Open acties */}
         <div style={s.sectionHeader}>
           <span style={s.sectionTitle}>Open acties</span>
-          <span style={s.sectionCount}>{acties.length}</span>
+          <span style={s.sectionCount}>{filteredActies.length}</span>
         </div>
 
         {loading ? (
           <div style={s.empty}>Laden...</div>
-        ) : acties.length === 0 ? (
+        ) : filteredActies.length === 0 ? (
           <div style={s.empty}>Geen open acties.</div>
         ) : (
           <div style={s.list}>
-            {acties.map(actie => {
+            {filteredActies.map(actie => {
               const dagen = daysSince(actie.aangemaakt)
               const isOud = dagen !== null && dagen > 7
+              const lid = leden.find(l => l.lid_id === actie.lid_id)
+              const stoplight = lid ? getStoplight(lid) : 'green'
+              const col = STOPLIGHT_COLORS[stoplight]
 
               return (
                 <div
                   key={actie.id}
                   style={{
                     ...s.row,
-                    borderLeft: `3px solid ${isOud ? '#dc2626' : '#2a2a2a'}`,
+                    borderLeft: `3px solid ${col.dot}`,
                     cursor: 'pointer',
                   }}
                   onClick={() => router.push(`/leden/${actie.lid_id}`)}
@@ -309,6 +456,44 @@ const s: Record<string, React.CSSProperties> = {
     maxWidth: 1100,
     margin: '0 auto',
     padding: '40px 32px 120px',
+  },
+  summaryBar: {
+    display: 'flex',
+    gap: 12,
+    marginBottom: 40,
+    flexWrap: 'wrap' as const,
+  },
+  summaryCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '14px 20px',
+    borderRadius: 8,
+    fontFamily: 'inherit',
+    transition: 'all 0.15s',
+  },
+  summaryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
+  summaryCount: {
+    fontSize: 20,
+    fontWeight: 600,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#555',
+    letterSpacing: '0.05em',
+  },
+  summaryTotal: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '14px 20px',
+    marginLeft: 'auto',
   },
   sectionHeader: {
     display: 'flex',
