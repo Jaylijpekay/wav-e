@@ -12,31 +12,27 @@
   --wave-gray:         #888888;
   --wave-gray-light:   #B4B4B4;
 
-  /* App backgrounds */
-  --bg-base:           #111111;
-  --bg-raised:         #141414;
-  --bg-overlay:        #1a1a1a;
+  /* App backgrounds — Claude UI gray scale */
+  --bg-base:           #1e1e1e;
+  --bg-raised:         #2f2f2f;
+  --bg-overlay:        #383838;
 
   /* Surfaces */
-  --surface-base:      #141414;
-  --surface-raised:    #1a1a1a;
+  --surface-base:      #262626;
+  --surface-raised:    #2f2f2f;
   --surface-hover:     rgba(168, 200, 0, 0.06);
 
   /* Borders */
-  --border-subtle:     #1e1e1e;
-  --border-default:    #2a2a2a;
-  --border-strong:     #3a3a3a;
+  --border-subtle:     #2f2f2f;
+  --border-default:    #383838;
+  --border-strong:     #4a4a4a;
   --border-green:      rgba(168, 200, 0, 0.25);
 
-  /* Text — dark background scale
-     primary   → readable body text
-     secondary → labels, meta, supporting text
-     muted     → hints, placeholders, timestamps
-     disabled  → decorative only, not for reading */
-  --text-primary:      #ECECEC;
-  --text-secondary:    #B4B4B4;
-  --text-muted:        #757575;
-  --text-disabled:     #3a3a3a;
+  /* Text */
+  --text-primary:      #ececec;
+  --text-secondary:    #acacac;
+  --text-muted:        #6e6e6e;
+  --text-disabled:     #4a4a4a;
   --text-green:        #A8C800;
 
   /* Stoplights */
@@ -94,8 +90,8 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 70% 50% at 10% 0%,  rgba(168,200,0,0.05) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(168,200,0,0.04) 0%, transparent 50%);
+    radial-gradient(ellipse 70% 50% at 10% 0%,  rgba(168,200,0,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(168,200,0,0.03) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
@@ -153,7 +149,7 @@ body::before {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(17, 17, 17, 0.92);
+  background: rgba(30, 30, 30, 0.92);
   border-bottom: 1px solid var(--border-green);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
