@@ -66,7 +66,6 @@ export default function LedenDetail() {
   const [acties, setActies] = useState<Actie[]>([])
   const [loading, setLoading] = useState(true)
 
-  // New contact form state
   const [contactOpen, setContactOpen] = useState(false)
   const [contactDatum, setContactDatum] = useState(new Date().toISOString().split('T')[0])
   const [contactType, setContactType] = useState('check-in')
@@ -117,11 +116,15 @@ export default function LedenDetail() {
 
   const markActieAfgerond = async (actieId: string) => {
     const supabase = getSupabase()
-    await supabase
+    const { error } = await supabase
       .from('acties')
       .update({ status: 'afgerond', afgerond: true, afgerond_op: new Date().toISOString() })
       .eq('id', actieId)
-    setActies(prev => prev.filter(a => a.id !== actieId))
+      .select()
+
+    if (!error) {
+      setActies(prev => prev.filter(a => a.id !== actieId))
+    }
   }
 
   const logContact = async () => {
@@ -172,7 +175,6 @@ export default function LedenDetail() {
 
       <div style={s.body}>
 
-        {/* Member info */}
         <div style={s.memberHeader}>
           <div>
             <div style={s.memberName}>{lid.voornaam} {lid.achternaam}</div>
