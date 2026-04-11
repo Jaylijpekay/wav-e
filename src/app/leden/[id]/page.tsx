@@ -42,6 +42,14 @@ type Actie = {
   deadline: string | null
 }
 
+type HealthSignal = {
+  label: string
+  value: number
+  unit?: string
+  status: 'red' | 'amber' | 'green'
+  reden: string
+}
+
 const formatDate = (date: string | null): string => {
   if (!date) return '—'
   return new Date(date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -54,6 +62,66 @@ const scoreColor = (score: number | null, inverted = false): string => {
   if (bad) return '#dc2626'
   if (ok) return '#16a34a'
   return '#888'
+}
+
+// Derive health signals from the most recent evaluation
+// TODO v0.2 — allow trainer to create an actie directly linked to a health signal
+// (e.g. actie.health_signal = 'slaap' | 'energie' | 'stress').
+// Requires: acties.health_signal nullable text column + UI trigger on signal row.
+const getHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
+  if (!ev) return []
+
+  const signals: HealthSignal[] = []
+
+  if (ev.slaap !== null) {
+    signals.push({
+      label: 'Slaap',
+      value: ev.slaap,
+      unit: '/10',
+      status: ev.slaap < 6 ? 'red' : ev.slaap < 7 ? 'amber' : 'green',
+      reden: ev.slaap < 6
+        ? 'Onder drempelwaarde — actie vereist'
+        : ev.slaap < 7
+        ? 'Dicht bij drempelwaarde'
+        : 'Geen zorgen',
+    })
+  }
+
+  if (ev.energie !== null) {
+    signals.push({
+      label: 'Energie',
+      value: ev.energie,
+      unit: '/10',
+      status: ev.energie < 6 ? 'red' : ev.energie < 7 ? 'amber' : 'green',
+      reden: ev.energie < 6
+        ? 'Onder drempelwaarde — actie vereist'
+        : ev.energie < 7
+        ? 'Dicht bij drempelwaarde'
+        : 'Geen zorgen',
+    })
+  }
+
+  if (ev.stress !== null) {
+    signals.push({
+      label: 'Stress',
+      value: ev.stress,
+      unit: '/10',
+      status: ev.stress > 7 ? 'red' : ev.stress > 5 ? 'amber' : 'green',
+      reden: ev.stress > 7
+        ? 'Boven drempelwaarde — actie vereist'
+        : ev.stress > 5
+        ? 'Dicht bij drempelwaarde'
+        : 'Geen zorgen',
+    })
+  }
+
+  return signals
+}
+
+const HEALTH_COLORS = {
+  red:   { bg: '#1a0808', border: '#3a1010', dot: '#dc2626', text: '#f87171', label: '#f87171' },
+  amber: { bg: '#1a1208', border: '#3a2a08', dot: '#d97706', text: '#fbbf24', label: '#fbbf24' },
+  green: { bg: '#081a0e', border: '#0e3018', dot: '#16a34a', text: '#4ade80', label: '#4ade80' },
 }
 
 export default function LedenDetail() {
@@ -148,6 +216,10 @@ export default function LedenDetail() {
     setSavingContact(false)
   }
 
+  const latestEval = evaluaties[0] ?? null
+  const healthSignals = getHealthSignals(latestEval)
+  const flaggedSignals = healthSignals.filter(s => s.status !== 'green')
+
   if (loading) return <main style={s.main}><div style={s.empty}>Laden...</div></main>
   if (!lid) return <main style={s.main}><div style={s.empty}>Lid niet gevonden.</div></main>
 
@@ -157,16 +229,10 @@ export default function LedenDetail() {
         <div style={s.headerInner}>
           <span style={s.wordmark} onClick={() => router.back()}>← terug</span>
           <div style={s.headerRight}>
-            <button
-              style={s.btnAccent}
-              onClick={() => router.push(`/leden/${id}/vooruitgang`)}
-            >
+            <button style={s.btnAccent} onClick={() => router.push(`/leden/${id}/vooruitgang`)}>
               Vooruitgang tonen
             </button>
-            <button
-              style={s.btnPrimary}
-              onClick={() => router.push(`/gesprek/new?lid_id=${lid.id}`)}
-            >
+            <button style={s.btnPrimary} onClick={() => router.push(`/gesprek/new?lid_id=${lid.id}`)}>
               + Nieuw gesprek
             </button>
           </div>
@@ -175,6 +241,7 @@ export default function LedenDetail() {
 
       <div style={s.body}>
 
+        {/* Member info */}
         <div style={s.memberHeader}>
           <div>
             <div style={s.memberName}>{lid.voornaam} {lid.achternaam}</div>
@@ -242,10 +309,7 @@ export default function LedenDetail() {
             <div style={s.section}>
               <div style={s.sectionHeader}>
                 <span style={s.sectionTitle}>Contact momenten</span>
-                <button
-                  style={s.sectionBtn}
-                  onClick={() => setContactOpen(o => !o)}
-                >
+                <button style={s.sectionBtn} onClick={() => setContactOpen(o => !o)}>
                   {contactOpen ? 'annuleren' : '+ log contact'}
                 </button>
               </div>
@@ -263,11 +327,7 @@ export default function LedenDetail() {
                   </div>
                   <div style={s.formRow}>
                     <label style={s.formLabel}>Type</label>
-                    <select
-                      value={contactType}
-                      onChange={e => setContactType(e.target.value)}
-                      style={s.input}
-                    >
+                    <select value={contactType} onChange={e => setContactType(e.target.value)} style={s.input}>
                       <option value="check-in">Check-in</option>
                       <option value="whatsapp">WhatsApp</option>
                       <option value="telefoon">Telefoon</option>
@@ -284,11 +344,7 @@ export default function LedenDetail() {
                       style={{ ...s.input, height: 72, resize: 'vertical' as const }}
                     />
                   </div>
-                  <button
-                    style={s.btnPrimary}
-                    onClick={logContact}
-                    disabled={savingContact}
-                  >
+                  <button style={s.btnPrimary} onClick={logContact} disabled={savingContact}>
                     {savingContact ? 'Opslaan...' : 'Opslaan'}
                   </button>
                 </div>
@@ -302,17 +358,80 @@ export default function LedenDetail() {
                     <div style={s.rowName}>{c.type ?? 'Contact'}</div>
                     <div style={s.rowMeta}>{formatDate(c.datum)}</div>
                   </div>
-                  {c.notities && (
-                    <div style={s.rowNote}>{c.notities}</div>
-                  )}
+                  {c.notities && <div style={s.rowNote}>{c.notities}</div>}
                 </div>
               ))}
             </div>
 
           </div>
 
-          {/* Right column — Acties */}
+          {/* Right column */}
           <div style={s.col}>
+
+            {/* Health signals */}
+            <div style={s.section}>
+              <div style={s.sectionHeader}>
+                <span style={s.sectionTitle}>Gezondheid</span>
+                {latestEval && (
+                  <span style={s.sectionMeta}>cyclus {latestEval.cyclus} · {formatDate(latestEval.datum)}</span>
+                )}
+              </div>
+
+              {!latestEval ? (
+                <div style={s.empty}>Geen evaluatiedata.</div>
+              ) : healthSignals.length === 0 ? (
+                <div style={s.empty}>Geen scores beschikbaar.</div>
+              ) : (
+                <>
+                  {/* Flagged signals first, prominent */}
+                  {flaggedSignals.length > 0 && (
+                    <div style={s.signalGroup}>
+                      {flaggedSignals.map(sig => {
+                        const col = HEALTH_COLORS[sig.status]
+                        return (
+                          <div key={sig.label} style={{
+                            ...s.signalCard,
+                            background: col.bg,
+                            border: `1px solid ${col.border}`,
+                          }}>
+                            <div style={s.signalTop}>
+                              <div style={s.signalLeft}>
+                                <span style={{ ...s.signalDot, background: col.dot }} />
+                                <span style={{ ...s.signalLabel, color: col.label }}>{sig.label}</span>
+                              </div>
+                              <div style={s.signalRight}>
+                                <span style={{ ...s.signalValue, color: col.text }}>
+                                  {sig.value}
+                                </span>
+                                <span style={s.signalUnit}>{sig.unit}</span>
+                              </div>
+                            </div>
+                            <div style={{ ...s.signalReden, color: col.text }}>
+                              {sig.reden}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Green signals — muted row */}
+                  {healthSignals.filter(s => s.status === 'green').length > 0 && (
+                    <div style={s.greenRow}>
+                      {healthSignals.filter(sig => sig.status === 'green').map(sig => (
+                        <div key={sig.label} style={s.greenItem}>
+                          <span style={s.greenDot} />
+                          <span style={s.greenLabel}>{sig.label}</span>
+                          <span style={s.greenValue}>{sig.value}{sig.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Open acties */}
             <div style={s.section}>
               <div style={s.sectionHeader}>
                 <span style={s.sectionTitle}>Open acties</span>
@@ -329,17 +448,14 @@ export default function LedenDetail() {
                       {actie.deadline && ` · deadline ${formatDate(actie.deadline)}`}
                     </div>
                   </div>
-                  <button
-                    style={s.doneBtn}
-                    onClick={() => markActieAfgerond(actie.id)}
-                  >
+                  <button style={s.doneBtn} onClick={() => markActieAfgerond(actie.id)}>
                     ✓ Afgerond
                   </button>
                 </div>
               ))}
             </div>
-          </div>
 
+          </div>
         </div>
       </div>
     </main>
@@ -473,6 +589,11 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 11,
     color: '#333',
   },
+  sectionMeta: {
+    fontSize: 11,
+    color: '#333',
+    letterSpacing: '0.03em',
+  },
   sectionBtn: {
     background: 'transparent',
     border: 'none',
@@ -483,6 +604,96 @@ const s: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: 0,
   },
+
+  // Health signal cards (red/amber)
+  signalGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 6,
+    marginBottom: 6,
+  },
+  signalCard: {
+    borderRadius: 6,
+    padding: '14px 16px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 8,
+  },
+  signalTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  signalLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  signalDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
+  signalLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: '0.05em',
+  },
+  signalRight: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 3,
+  },
+  signalValue: {
+    fontSize: 22,
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: 1,
+  },
+  signalUnit: {
+    fontSize: 11,
+    color: '#444',
+  },
+  signalReden: {
+    fontSize: 11,
+    letterSpacing: '0.03em',
+    opacity: 0.85,
+  },
+
+  // Green signals — compact muted row
+  greenRow: {
+    display: 'flex',
+    gap: 16,
+    padding: '10px 16px',
+    background: '#0d0d0d',
+    borderRadius: 6,
+    flexWrap: 'wrap' as const,
+  },
+  greenItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: '#16a34a',
+    flexShrink: 0,
+  },
+  greenLabel: {
+    fontSize: 11,
+    color: '#555',
+    letterSpacing: '0.05em',
+  },
+  greenValue: {
+    fontSize: 11,
+    color: '#4ade80',
+    fontVariantNumeric: 'tabular-nums',
+  },
+
+  // Shared row styles
   row: {
     display: 'flex',
     alignItems: 'center',
