@@ -96,7 +96,6 @@ export default function TrainerDashboard() {
   const [acties, setActies] = useState<Actie[]>([])
   const [ledenDropdown, setLedenDropdown] = useState<LidDropdown[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'red' | 'amber' | 'green'>('all')
   const [gesprekOpen, setGesprekOpen] = useState(false)
   const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | null>(null)
 
@@ -193,7 +192,6 @@ export default function TrainerDashboard() {
     if (trainerId) load()
   }, [trainerId])
 
-  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (gesprekRef.current && !gesprekRef.current.contains(e.target as Node))
@@ -210,11 +208,6 @@ export default function TrainerDashboard() {
     router.push(`/gesprek/new?lid_id=${lid.id}`)
   }
 
-  const handleStoplightClick = (sig: 'red' | 'amber') => {
-    setOpenStoplight(openStoplight === sig ? null : sig)
-    setFilter(filter === sig ? 'all' : sig)
-  }
-
   const counts = {
     red:   leden.filter(l => getStoplight(l) === 'red').length,
     amber: leden.filter(l => getStoplight(l) === 'amber').length,
@@ -223,13 +216,6 @@ export default function TrainerDashboard() {
 
   const ledenByStoplight = (sig: 'red' | 'amber') =>
     leden.filter(l => getStoplight(l) === sig)
-
-  const filteredActies = filter === 'all'
-    ? acties
-    : acties.filter(a => {
-        const lid = leden.find(l => l.lid_id === a.lid_id)
-        return lid ? getStoplight(lid) === filter : false
-      })
 
   return (
     <main style={s.main}>
@@ -279,7 +265,6 @@ export default function TrainerDashboard() {
         {!loading && (
           <div style={s.summaryBar} ref={stoplightRef}>
 
-            {/* Red — clickable with member dropdown */}
             {(['red', 'amber'] as const).map(sig => {
               const col = STOPLIGHT_COLORS[sig]
               const labels = { red: 'Aandacht nodig', amber: 'Let op' }
@@ -291,11 +276,11 @@ export default function TrainerDashboard() {
                   <button
                     style={{
                       ...s.summaryCard,
-                      background: filter === sig ? col.bg : '#0f0f0f',
-                      border: `1px solid ${filter === sig ? col.border : '#1c1c1c'}`,
-                      cursor: 'pointer',
+                      background: isOpen ? col.bg : '#0f0f0f',
+                      border: `1px solid ${isOpen ? col.border : '#1c1c1c'}`,
+                      cursor: counts[sig] > 0 ? 'pointer' : 'default',
                     }}
-                    onClick={() => handleStoplightClick(sig)}
+                    onClick={() => counts[sig] > 0 && setOpenStoplight(isOpen ? null : sig)}
                   >
                     <span style={{ ...s.summaryDot, background: col.dot }} />
                     <span style={{ ...s.summaryCount, color: col.text }}>{counts[sig]}</span>
@@ -329,23 +314,18 @@ export default function TrainerDashboard() {
             })}
 
             {/* Green — not clickable */}
-            {(() => {
-              const col = STOPLIGHT_COLORS.green
-              return (
-                <button
-                  style={{
-                    ...s.summaryCard,
-                    background: filter === 'green' ? col.bg : '#0f0f0f',
-                    border: `1px solid ${filter === 'green' ? col.border : '#1c1c1c'}`,
-                    cursor: 'default',
-                  }}
-                >
-                  <span style={{ ...s.summaryDot, background: col.dot }} />
-                  <span style={{ ...s.summaryCount, color: col.text }}>{counts.green}</span>
-                  <span style={s.summaryLabel}>Op koers</span>
-                </button>
-              )
-            })()}
+            <button
+              style={{
+                ...s.summaryCard,
+                background: '#0f0f0f',
+                border: '1px solid #1c1c1c',
+                cursor: 'default',
+              }}
+            >
+              <span style={{ ...s.summaryDot, background: STOPLIGHT_COLORS.green.dot }} />
+              <span style={{ ...s.summaryCount, color: STOPLIGHT_COLORS.green.text }}>{counts.green}</span>
+              <span style={s.summaryLabel}>Op koers</span>
+            </button>
 
             <div style={s.summaryTotal}>
               <span style={s.summaryCount}>{leden.length}</span>
@@ -354,19 +334,19 @@ export default function TrainerDashboard() {
           </div>
         )}
 
-        {/* Open acties */}
+        {/* Open acties — always all, never filtered */}
         <div style={s.sectionHeader}>
           <span style={s.sectionTitle}>Open acties</span>
-          <span style={s.sectionCount}>{filteredActies.length}</span>
+          <span style={s.sectionCount}>{acties.length}</span>
         </div>
 
         {loading ? (
           <div style={s.empty}>Laden...</div>
-        ) : filteredActies.length === 0 ? (
+        ) : acties.length === 0 ? (
           <div style={s.empty}>Geen open acties.</div>
         ) : (
           <div style={s.list}>
-            {filteredActies.map(actie => {
+            {acties.map(actie => {
               const dagen = daysSince(actie.aangemaakt)
               const isOud = dagen !== null && dagen > 7
               const lid = leden.find(l => l.lid_id === actie.lid_id)
