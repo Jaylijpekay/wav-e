@@ -1,7 +1,9 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 type Lid = {
@@ -33,9 +35,9 @@ const STOPLIGHT = (key: string, val: number) => {
 }
 
 const COLORS = {
-  red:   { track: '#fca5a5', thumb: '#dc2626', label: '#dc2626' },
-  amber: { track: '#fcd34d', thumb: '#d97706', label: '#d97706' },
-  green: { track: '#86efac', thumb: '#16a34a', label: '#16a34a' },
+  red:   { thumb: '#dc2626', label: '#dc2626', track: '#fca5a5' },
+  amber: { thumb: '#d97706', label: '#d97706', track: '#fcd34d' },
+  green: { thumb: '#16a34a', label: '#16a34a', track: '#86efac' },
 }
 
 export default function GesprekNew() {
@@ -57,6 +59,7 @@ export default function GesprekNew() {
   })
 
   useEffect(() => {
+    const supabase = getSupabase()
     supabase
       .from('leden')
       .select('id, lid_id, voornaam, achternaam')
@@ -68,31 +71,26 @@ export default function GesprekNew() {
       })
   }, [])
 
-  const nextCyclus = async (lidUuid: string) => {
-    const { data } = await supabase
-      .from('evaluaties')
-      .select('cyclus')
-      .eq('lid_id', lidUuid)
-      .order('cyclus', { ascending: false })
-      .limit(1)
-    return data && data.length > 0 ? data[0].cyclus + 1 : 1
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!lidId) { setError('Selecteer een lid.'); return }
     setSaving(true)
     setError(null)
 
-    const selectedLid = leden.find(l => l.id === lidId)
-    if (!selectedLid) { setError('Lid niet gevonden.'); setSaving(false); return }
+    const supabase = getSupabase()
 
-    // Get trainer (first trainer for now — auth will fix this)
     const { data: trainerData } = await supabase.from('trainers').select('id').limit(1)
     const trainerId = trainerData?.[0]?.id
     if (!trainerId) { setError('Geen trainer gevonden.'); setSaving(false); return }
 
-    const cyclus = await nextCyclus(lidId)
+    // Get next cyclus for this member
+    const { data: evalData } = await supabase
+      .from('evaluaties')
+      .select('cyclus')
+      .eq('lid_id', lidId)
+      .order('cyclus', { ascending: false })
+      .limit(1)
+    const cyclus = evalData && evalData.length > 0 ? evalData[0].cyclus + 1 : 1
 
     const { error: insertError } = await supabase.from('evaluaties').insert({
       lid_id: lidId,
@@ -118,7 +116,7 @@ export default function GesprekNew() {
     }
 
     setSuccess(true)
-    setTimeout(() => router.push('/leden'), 1200)
+    setTimeout(() => router.push('/'), 1200)
   }
 
   if (loading) return (
@@ -131,14 +129,13 @@ export default function GesprekNew() {
     <main style={styles.main}>
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <span style={styles.wordmark}>WAV-E</span>
+          <span style={styles.wordmark} onClick={() => router.push('/')}>WAV-E</span>
           <span style={styles.pageTitle}>Nieuw gesprek</span>
         </div>
       </header>
 
       <form onSubmit={handleSubmit} style={styles.form}>
 
-        {/* Member + date */}
         <section style={styles.section}>
           <h2 style={styles.sectionLabel}>Lid & datum</h2>
           <div style={styles.row}>
@@ -173,7 +170,6 @@ export default function GesprekNew() {
 
         <div style={styles.divider} />
 
-        {/* Lifestyle scores */}
         <section style={styles.section}>
           <h2 style={styles.sectionLabel}>Leefstijl scores</h2>
           <div style={styles.sliderGrid}>
@@ -193,10 +189,7 @@ export default function GesprekNew() {
                     max={10}
                     value={val}
                     onChange={e => setScores(s => ({ ...s, [key]: Number(e.target.value) }))}
-                    style={{
-                      ...styles.slider,
-                      accentColor: col.thumb,
-                    }}
+                    style={{ ...styles.slider, accentColor: col.thumb }}
                   />
                   <div style={styles.sliderMeta}>
                     <span style={styles.sliderHint}>{low}</span>
@@ -211,7 +204,6 @@ export default function GesprekNew() {
 
         <div style={styles.divider} />
 
-        {/* Physical */}
         <section style={styles.section}>
           <h2 style={styles.sectionLabel}>Fysiek (optioneel)</h2>
           <div style={styles.row}>
@@ -246,7 +238,6 @@ export default function GesprekNew() {
 
         <div style={styles.divider} />
 
-        {/* Goals + notes */}
         <section style={styles.section}>
           <h2 style={styles.sectionLabel}>Doelen & notities</h2>
           <div style={styles.field}>
@@ -337,6 +328,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     letterSpacing: '0.2em',
     color: '#fff',
+    cursor: 'pointer',
   },
   pageTitle: {
     fontSize: 13,
@@ -348,9 +340,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '0 auto',
     padding: '48px 32px 120px',
   },
-  section: {
-    marginBottom: 0,
-  },
+  section: { marginBottom: 0 },
   sectionLabel: {
     fontSize: 11,
     fontWeight: 600,
@@ -444,7 +434,6 @@ const styles: Record<string, React.CSSProperties> = {
   sliderHint: {
     fontSize: 11,
     color: '#444',
-    letterSpacing: '0.03em',
   },
   stoplightBar: {
     height: 3,
@@ -486,7 +475,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.6,
   },
   errorBox: {
-    background: '#1a0a0a',
+    background: '#1a0808',
     border: '1px solid #441010',
     borderRadius: 6,
     color: '#f87171',
