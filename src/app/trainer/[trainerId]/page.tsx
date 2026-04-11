@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import Navigation from '@/app/components/Navigation'
 
 type Lid = {
   id: string

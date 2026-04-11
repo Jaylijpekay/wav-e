@@ -79,20 +79,45 @@ const buildHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
   ]
 }
 
+// All colour tokens expressed as CSS var() references — no hardcoded hex
 const HEALTH = {
-  red:   { bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)',  dot: '#dc2626', text: '#f87171', dim: '#7f1d1d' },
-  amber: { bg: 'rgba(217,119,6,0.07)', border: 'rgba(217,119,6,0.18)', dot: '#d97706', text: '#fbbf24', dim: '#78350f' },
-  green: { bg: 'rgba(22,163,74,0.07)', border: 'rgba(22,163,74,0.18)', dot: '#16a34a', text: '#4ade80', dim: '#14532d' },
-  empty: { bg: '#141414',              border: '#1e1e1e',               dot: '#2a2a2a', text: '#333',    dim: '#1a1a1a' },
+  red:   {
+    bg:     'rgba(var(--color-red-rgb, 220,38,38), 0.07)',
+    border: 'rgba(var(--color-red-rgb, 220,38,38), 0.18)',
+    dot:    'var(--color-red, #dc2626)',
+    text:   'var(--color-red-text, #f87171)',
+    dim:    'var(--color-red-dim, #7f1d1d)',
+  },
+  amber: {
+    bg:     'rgba(var(--color-amber-rgb, 217,119,6), 0.07)',
+    border: 'rgba(var(--color-amber-rgb, 217,119,6), 0.18)',
+    dot:    'var(--color-amber, #d97706)',
+    text:   'var(--color-amber-text, #fbbf24)',
+    dim:    'var(--color-amber-dim, #78350f)',
+  },
+  green: {
+    bg:     'rgba(var(--color-success-rgb, 22,163,74), 0.07)',
+    border: 'rgba(var(--color-success-rgb, 22,163,74), 0.18)',
+    dot:    'var(--color-success, #16a34a)',
+    text:   'var(--color-success-text, #4ade80)',
+    dim:    'var(--color-success-dim, #14532d)',
+  },
+  empty: {
+    bg:     'var(--bg-surface)',
+    border: 'var(--border-subtle)',
+    dot:    'var(--border-strong)',
+    text:   'var(--border-strong)',
+    dim:    'var(--bg-raised)',
+  },
 }
 
 const scoreColor = (score: number | null, inverted = false): string => {
-  if (score === null) return '#2a2a2a'
+  if (score === null) return 'var(--border-strong)'
   const bad = inverted ? score > 7 : score < 6
   const ok  = inverted ? score <= 5 : score > 7
-  if (bad) return '#ef4444'
-  if (ok)  return '#22c55e'
-  return '#666'
+  if (bad) return 'var(--color-red, #ef4444)'
+  if (ok)  return 'var(--color-success, #22c55e)'
+  return 'var(--text-muted)'
 }
 
 export default function LedenDetail() {
@@ -150,13 +175,33 @@ export default function LedenDetail() {
   const lastContactDays = daysSince(contacten[0]?.datum ?? null)
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Raleway', sans-serif", color: '#2a2a2a', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: 'var(--bg-base)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'var(--font-primary)',
+      color: 'var(--border-strong)',
+      fontSize: '0.8rem',
+      letterSpacing: '0.1em',
+    }}>
       Laden…
     </div>
   )
 
   if (!lid) return (
-    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Raleway', sans-serif", color: '#2a2a2a', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: 'var(--bg-base)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'var(--font-primary)',
+      color: 'var(--border-strong)',
+      fontSize: '0.8rem',
+      letterSpacing: '0.1em',
+    }}>
       Lid niet gevonden.
     </div>
   )
@@ -166,11 +211,12 @@ export default function LedenDetail() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
+        /* ─── Root ─────────────────────────────────────────────────── */
         .ld-root {
           min-height: 100vh;
-          background: #111;
-          color: #c8c6c0;
-          font-family: 'Raleway', sans-serif;
+          background: var(--bg-base);
+          color: var(--text-secondary);
+          font-family: var(--font-primary);
           position: relative;
         }
 
@@ -186,7 +232,7 @@ export default function LedenDetail() {
           z-index: 0;
         }
 
-        /* Header */
+        /* ─── Header ────────────────────────────────────────────────── */
         .ld-header {
           position: sticky;
           top: 0;
@@ -196,7 +242,7 @@ export default function LedenDetail() {
           align-items: center;
           padding: 0 2rem;
           background: rgba(17,17,17,0.92);
-          border-bottom: 1px solid rgba(168,200,0,0.12);
+          border-bottom: 1px solid var(--border-accent);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
         }
@@ -213,8 +259,8 @@ export default function LedenDetail() {
         .ld-back {
           background: none;
           border: none;
-          color: #3a3a3a;
-          font-family: 'Raleway', sans-serif;
+          color: var(--border-strong);
+          font-family: var(--font-primary);
           font-size: 0.72rem;
           font-weight: 500;
           letter-spacing: 0.08em;
@@ -222,48 +268,51 @@ export default function LedenDetail() {
           padding: 0;
           transition: color 0.15s;
         }
-        .ld-back:hover { color: #A8C800; }
+        .ld-back:hover { color: var(--wave-green); }
 
         .ld-header-actions { display: flex; gap: 10px; align-items: center; }
 
         .ld-btn-ghost {
-          font-family: 'Raleway', sans-serif;
+          font-family: var(--font-primary);
           font-size: 0.72rem;
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           padding: 7px 14px;
-          border-radius: 3px;
-          border: 1px solid #1e1e1e;
+          border-radius: var(--radius);
+          border: 1px solid var(--border-subtle);
           background: transparent;
-          color: #3a3a3a;
+          color: var(--border-strong);
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s;
         }
-        .ld-btn-ghost:hover { border-color: rgba(168,200,0,0.3); color: #A8C800; }
+        .ld-btn-ghost:hover {
+          border-color: rgba(168,200,0,0.3);
+          color: var(--wave-green);
+        }
 
         .ld-btn-primary {
-          font-family: 'Raleway', sans-serif;
+          font-family: var(--font-primary);
           font-size: 0.72rem;
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           padding: 7px 14px;
-          border-radius: 3px;
-          border: 1px solid #A8C800;
-          background: #A8C800;
-          color: #111;
+          border-radius: var(--radius);
+          border: 1px solid var(--wave-green);
+          background: var(--wave-green);
+          color: var(--bg-base);
           cursor: pointer;
           transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
         }
         .ld-btn-primary:hover {
           background: #95B400;
-          box-shadow: 0 4px 14px rgba(168,200,0,0.3);
+          box-shadow: var(--shadow-green);
           transform: translateY(-1px);
         }
         .ld-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        /* Body */
+        /* ─── Body ──────────────────────────────────────────────────── */
         .ld-body {
           max-width: 1140px;
           margin: 0 auto;
@@ -272,7 +321,7 @@ export default function LedenDetail() {
           z-index: 1;
         }
 
-        /* Identity */
+        /* ─── Identity ──────────────────────────────────────────────── */
         .ld-identity {
           display: flex;
           align-items: flex-start;
@@ -287,15 +336,15 @@ export default function LedenDetail() {
         .ld-avatar {
           width: 48px;
           height: 48px;
-          border-radius: 3px;
-          background: #1a1a1a;
-          border: 1px solid #222;
+          border-radius: var(--radius);
+          background: var(--bg-raised);
+          border: 1px solid var(--border-subtle);
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 0.9rem;
           font-weight: 700;
-          color: #A8C800;
+          color: var(--wave-green);
           letter-spacing: 0.02em;
           flex-shrink: 0;
         }
@@ -303,7 +352,7 @@ export default function LedenDetail() {
         .ld-member-name {
           font-size: 1.5rem;
           font-weight: 700;
-          color: #e8e6e0;
+          color: var(--text-primary);
           margin: 0 0 10px;
           letter-spacing: -0.02em;
         }
@@ -313,21 +362,33 @@ export default function LedenDetail() {
         .ld-meta-tag {
           font-size: 0.65rem;
           font-weight: 500;
-          color: #3a3a3a;
-          border: 1px solid #1e1e1e;
+          color: var(--border-strong);
+          border: 1px solid var(--border-subtle);
           border-radius: 2px;
           padding: 3px 8px;
           letter-spacing: 0.07em;
           text-transform: uppercase;
         }
-        .ld-meta-tag-warn  { color: #d97706; border-color: rgba(217,119,6,0.25); }
-        .ld-meta-tag-alert { color: #dc2626; border-color: rgba(220,38,38,0.25); }
+        .ld-meta-tag-warn {
+          color: var(--color-amber, #d97706);
+          border-color: rgba(217,119,6,0.25);
+        }
+        .ld-meta-tag-alert {
+          color: var(--color-red, #dc2626);
+          border-color: rgba(220,38,38,0.25);
+        }
 
         .ld-identity-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-        .ld-contact-link { font-size: 0.75rem; color: #2a2a2a; text-decoration: none; letter-spacing: 0.03em; transition: color 0.15s; }
-        .ld-contact-link:hover { color: #A8C800; }
+        .ld-contact-link {
+          font-size: 0.75rem;
+          color: var(--border-strong);
+          text-decoration: none;
+          letter-spacing: 0.03em;
+          transition: color 0.15s;
+        }
+        .ld-contact-link:hover { color: var(--wave-green); }
 
-        /* Grid */
+        /* ─── Grid ──────────────────────────────────────────────────── */
         .ld-grid {
           display: grid;
           grid-template-columns: 1fr 340px;
@@ -337,8 +398,13 @@ export default function LedenDetail() {
 
         .ld-col { display: flex; flex-direction: column; gap: 2.5rem; }
 
-        /* Section */
-        .ld-section { display: flex; flex-direction: column; gap: 3px; animation: ldFadeUp 0.4s ease-out 0.08s both; }
+        /* ─── Section ───────────────────────────────────────────────── */
+        .ld-section {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          animation: ldFadeUp 0.4s ease-out 0.08s both;
+        }
 
         .ld-section-head {
           display: flex;
@@ -346,7 +412,7 @@ export default function LedenDetail() {
           justify-content: space-between;
           margin-bottom: 12px;
           padding-bottom: 10px;
-          border-bottom: 1px solid #181818;
+          border-bottom: 1px solid var(--border-subtle);
         }
 
         .ld-section-label {
@@ -354,25 +420,29 @@ export default function LedenDetail() {
           font-weight: 600;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: #2a2a2a;
+          color: var(--border-strong);
         }
 
         .ld-section-badge {
           font-size: 0.65rem;
-          color: #222;
-          background: #161616;
+          color: var(--border-subtle);
+          background: var(--bg-surface);
           padding: 2px 7px;
           border-radius: 2px;
           font-weight: 600;
         }
 
-        .ld-section-meta { font-size: 0.65rem; color: #2a2a2a; letter-spacing: 0.04em; }
+        .ld-section-meta {
+          font-size: 0.65rem;
+          color: var(--border-strong);
+          letter-spacing: 0.04em;
+        }
 
         .ld-section-action {
           background: none;
           border: none;
-          color: #2a2a2a;
-          font-family: 'Raleway', sans-serif;
+          color: var(--border-strong);
+          font-family: var(--font-primary);
           font-size: 0.65rem;
           font-weight: 600;
           letter-spacing: 0.1em;
@@ -381,69 +451,107 @@ export default function LedenDetail() {
           padding: 0;
           transition: color 0.15s;
         }
-        .ld-section-action:hover { color: #A8C800; }
+        .ld-section-action:hover { color: var(--wave-green); }
 
-        /* Empty state */
+        /* ─── Empty state ───────────────────────────────────────────── */
         .ld-empty {
           display: flex;
           align-items: center;
           gap: 10px;
           padding: 18px 0;
-          color: #1e1e1e;
+          color: var(--border-subtle);
           font-size: 0.8rem;
           letter-spacing: 0.04em;
         }
 
-        /* Table wrapper — bordered, sharp */
+        /* ─── Table block ───────────────────────────────────────────── */
         .ld-table-block {
-          border: 1px solid #1e1e1e;
-          border-radius: 3px;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius);
           overflow: hidden;
         }
 
-        /* Eval rows */
+        /* ─── Eval rows ─────────────────────────────────────────────── */
         .ld-eval-row {
           display: flex;
           align-items: center;
           gap: 16px;
           padding: 13px 16px;
-          background: #141414;
-          border-bottom: 1px solid #1a1a1a;
+          background: var(--bg-surface);
+          border-bottom: 1px solid var(--bg-raised);
           cursor: pointer;
           transition: background 0.15s;
         }
         .ld-eval-row:last-child { border-bottom: none; }
-        .ld-eval-row:hover { background: #181818; }
+        .ld-eval-row:hover { background: var(--bg-raised); }
 
         .ld-eval-left { flex: 1; }
-        .ld-eval-cyclus { font-size: 0.85rem; font-weight: 600; color: #c8c6c0; margin-bottom: 2px; }
-        .ld-eval-datum  { font-size: 0.7rem; color: #2a2a2a; letter-spacing: 0.04em; }
+        .ld-eval-cyclus {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-secondary);
+          margin-bottom: 2px;
+        }
+        .ld-eval-datum {
+          font-size: 0.7rem;
+          color: var(--border-strong);
+          letter-spacing: 0.04em;
+        }
 
         .ld-eval-scores { display: flex; gap: 14px; }
         .ld-eval-score  { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .ld-eval-score-label { font-size: 0.55rem; color: #222; letter-spacing: 0.1em; font-weight: 600; text-transform: uppercase; }
-        .ld-eval-score-val   { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .ld-eval-arrow { font-size: 1.1rem; color: #1e1e1e; }
+        .ld-eval-score-label {
+          font-size: 0.55rem;
+          color: var(--border-subtle);
+          letter-spacing: 0.1em;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+        .ld-eval-score-val {
+          font-size: 0.9rem;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
+        .ld-eval-arrow {
+          font-size: 1.1rem;
+          color: var(--border-subtle);
+        }
 
-        /* Contact rows */
+        /* ─── Contact rows ──────────────────────────────────────────── */
         .ld-contact-row {
           display: grid;
           grid-template-columns: 1fr auto;
           gap: 4px 12px;
           padding: 12px 16px;
-          background: #141414;
-          border-bottom: 1px solid #1a1a1a;
+          background: var(--bg-surface);
+          border-bottom: 1px solid var(--bg-raised);
         }
         .ld-contact-row:last-child { border-bottom: none; }
-        .ld-contact-type  { font-size: 0.82rem; font-weight: 500; color: #c8c6c0; text-transform: capitalize; }
-        .ld-contact-datum { font-size: 0.7rem; color: #2a2a2a; letter-spacing: 0.04em; text-align: right; }
-        .ld-contact-note  { font-size: 0.75rem; color: #3a3a3a; grid-column: 1 / -1; margin-top: 2px; letter-spacing: 0.02em; }
+        .ld-contact-type {
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          text-transform: capitalize;
+        }
+        .ld-contact-datum {
+          font-size: 0.7rem;
+          color: var(--border-strong);
+          letter-spacing: 0.04em;
+          text-align: right;
+        }
+        .ld-contact-note {
+          font-size: 0.75rem;
+          color: var(--border-strong);
+          grid-column: 1 / -1;
+          margin-top: 2px;
+          letter-spacing: 0.02em;
+        }
 
-        /* Form card */
+        /* ─── Form card ─────────────────────────────────────────────── */
         .ld-form-card {
-          background: #141414;
-          border: 1px solid #1e1e1e;
-          border-radius: 3px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius);
           padding: 16px;
           margin-bottom: 3px;
           display: flex;
@@ -453,28 +561,34 @@ export default function LedenDetail() {
         }
 
         .ld-form-row   { display: flex; flex-direction: column; gap: 5px; }
-        .ld-form-label { font-size: 0.6rem; font-weight: 600; color: #2a2a2a; letter-spacing: 0.14em; text-transform: uppercase; }
+        .ld-form-label {
+          font-size: 0.6rem;
+          font-weight: 600;
+          color: var(--border-strong);
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
 
         .ld-input {
-          background: #0d0d0d;
-          border: 1px solid #1e1e1e;
-          color: #c8c6c0;
-          font-family: 'Raleway', sans-serif;
+          background: var(--bg-base);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
+          font-family: var(--font-primary);
           font-size: 0.85rem;
           font-weight: 400;
           padding: 8px 12px;
-          border-radius: 3px;
+          border-radius: var(--radius);
           width: 100%;
           outline: none;
           box-sizing: border-box;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
         .ld-input:focus {
-          border-color: #A8C800;
+          border-color: var(--wave-green);
           box-shadow: 0 0 0 3px rgba(168,200,0,0.08);
         }
 
-        /* Health grid */
+        /* ─── Health grid ───────────────────────────────────────────── */
         .ld-health-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -482,7 +596,7 @@ export default function LedenDetail() {
         }
 
         .ld-health-card {
-          border-radius: 3px;
+          border-radius: var(--radius);
           border: 1px solid;
           padding: 14px 12px 12px;
           display: flex;
@@ -490,48 +604,72 @@ export default function LedenDetail() {
           gap: 8px;
           transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
-
         .ld-health-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+          box-shadow: var(--shadow-float);
         }
 
         .ld-health-card-top { display: flex; align-items: center; gap: 7px; }
         .ld-health-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .ld-health-label { font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; }
+        .ld-health-label {
+          font-size: 0.58rem;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          font-weight: 600;
+        }
         .ld-health-value-row { display: flex; align-items: baseline; gap: 3px; }
-        .ld-health-value { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+        .ld-health-value {
+          font-size: 1.75rem;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+        }
         .ld-health-unit  { font-size: 0.7rem; font-weight: 400; }
         .ld-health-reden { font-size: 0.6rem; letter-spacing: 0.04em; line-height: 1.4; }
-        .ld-health-empty-note { font-size: 0.65rem; color: #1e1e1e; letter-spacing: 0.04em; padding: 10px 0 4px; text-align: center; }
+        .ld-health-empty-note {
+          font-size: 0.65rem;
+          color: var(--border-subtle);
+          letter-spacing: 0.04em;
+          padding: 10px 0 4px;
+          text-align: center;
+        }
 
-        /* Acties */
+        /* ─── Acties ────────────────────────────────────────────────── */
         .ld-actie-row {
           display: flex;
           align-items: center;
           gap: 14px;
           padding: 13px 16px;
-          background: #141414;
-          border-bottom: 1px solid #1a1a1a;
+          background: var(--bg-surface);
+          border-bottom: 1px solid var(--bg-raised);
           border-left: 3px solid transparent;
           transition: background 0.15s;
         }
         .ld-actie-row:last-child { border-bottom: none; }
-        .ld-actie-row:hover { background: #181818; }
+        .ld-actie-row:hover { background: var(--bg-raised); }
 
         .ld-actie-content { flex: 1; }
-        .ld-actie-name { font-size: 0.82rem; font-weight: 500; color: #c8c6c0; margin-bottom: 3px; }
-        .ld-actie-meta { font-size: 0.68rem; color: #2a2a2a; letter-spacing: 0.03em; }
+        .ld-actie-name {
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          margin-bottom: 3px;
+        }
+        .ld-actie-meta {
+          font-size: 0.68rem;
+          color: var(--border-strong);
+          letter-spacing: 0.03em;
+        }
 
         .ld-done-btn {
           background: transparent;
-          border: 1px solid #1e1e1e;
-          color: #2a2a2a;
-          font-family: 'Raleway', sans-serif;
+          border: 1px solid var(--border-subtle);
+          color: var(--border-strong);
+          font-family: var(--font-primary);
           font-size: 0.75rem;
           width: 28px;
           height: 28px;
-          border-radius: 3px;
+          border-radius: var(--radius);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -541,10 +679,11 @@ export default function LedenDetail() {
         }
         .ld-done-btn:hover {
           border-color: rgba(22,163,74,0.4);
-          color: #16a34a;
+          color: var(--color-success, #16a34a);
           background: rgba(22,163,74,0.06);
         }
 
+        /* ─── Animation ─────────────────────────────────────────────── */
         @keyframes ldFadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -587,8 +726,8 @@ export default function LedenDetail() {
               </div>
             </div>
             <div className="ld-identity-right">
-              {lid.email    && <a href={`mailto:${lid.email}`}    className="ld-contact-link">{lid.email}</a>}
-              {lid.telefoon && <a href={`tel:${lid.telefoon}`}    className="ld-contact-link">{lid.telefoon}</a>}
+              {lid.email    && <a href={`mailto:${lid.email}`} className="ld-contact-link">{lid.email}</a>}
+              {lid.telefoon && <a href={`tel:${lid.telefoon}`} className="ld-contact-link">{lid.telefoon}</a>}
             </div>
           </div>
 
@@ -628,7 +767,7 @@ export default function LedenDetail() {
                             {ev.gewicht_kg && (
                               <div className="ld-eval-score">
                                 <span className="ld-eval-score-label">KG</span>
-                                <span className="ld-eval-score-val" style={{ color: '#555' }}>{ev.gewicht_kg}</span>
+                                <span className="ld-eval-score-val" style={{ color: 'var(--text-muted)' }}>{ev.gewicht_kg}</span>
                               </div>
                             )}
                           </div>
@@ -707,7 +846,7 @@ export default function LedenDetail() {
                   <span className="ld-section-label">Gezondheid</span>
                   {latestEval
                     ? <span className="ld-section-meta">cyclus {latestEval.cyclus} · {formatDate(latestEval.datum)}</span>
-                    : <span className="ld-section-meta" style={{ color: '#1e1e1e' }}>geen data</span>
+                    : <span className="ld-section-meta" style={{ color: 'var(--border-subtle)' }}>geen data</span>
                   }
                 </div>
                 <div className="ld-health-grid">
@@ -721,18 +860,27 @@ export default function LedenDetail() {
                       >
                         <div className="ld-health-card-top">
                           <span className="ld-health-dot" style={{ background: col.dot }} />
-                          <span className="ld-health-label" style={{ color: sig.status === 'empty' ? '#222' : '#666' }}>{sig.label}</span>
+                          <span
+                            className="ld-health-label"
+                            style={{ color: sig.status === 'empty' ? 'var(--border-subtle)' : 'var(--text-muted)' }}
+                          >
+                            {sig.label}
+                          </span>
                         </div>
                         <div className="ld-health-value-row">
                           <span className="ld-health-value" style={{ color: col.text }}>{sig.value ?? '—'}</span>
-                          <span className="ld-health-unit" style={{ color: col.dim }}>{sig.value !== null ? sig.unit : ''}</span>
+                          <span className="ld-health-unit"  style={{ color: col.dim }}>{sig.value !== null ? sig.unit : ''}</span>
                         </div>
                         <div className="ld-health-reden" style={{ color: col.dim }}>{sig.reden}</div>
                       </div>
                     )
                   })}
                 </div>
-                {!latestEval && <div className="ld-health-empty-note">Scores verschijnen na het eerste evaluatiegesprek</div>}
+                {!latestEval && (
+                  <div className="ld-health-empty-note">
+                    Scores verschijnen na het eerste evaluatiegesprek
+                  </div>
+                )}
               </section>
 
               {/* Open acties */}
@@ -751,14 +899,18 @@ export default function LedenDetail() {
                           <div
                             key={actie.id}
                             className="ld-actie-row"
-                            style={{ borderLeftColor: isOverdue ? '#dc2626' : 'rgba(22,163,74,0.3)' }}
+                            style={{
+                              borderLeftColor: isOverdue
+                                ? 'var(--color-red, #dc2626)'
+                                : 'rgba(22,163,74,0.3)',
+                            }}
                           >
                             <div className="ld-actie-content">
                               <div className="ld-actie-name">{actie.omschrijving}</div>
                               <div className="ld-actie-meta">
                                 {formatDate(actie.aangemaakt)}
                                 {actie.deadline && (
-                                  <span style={{ color: isOverdue ? '#dc2626' : '#2a2a2a' }}>
+                                  <span style={{ color: isOverdue ? 'var(--color-red, #dc2626)' : 'var(--border-strong)' }}>
                                     {' '}· deadline {formatDate(actie.deadline)}
                                   </span>
                                 )}

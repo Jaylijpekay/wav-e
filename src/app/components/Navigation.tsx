@@ -7,16 +7,14 @@ export default function Navigation() {
   const pathname = usePathname()
 
   const links = [
-    { href: '/',           label: 'Home'     },
-    { href: '/leden',      label: 'Leden'    },
-    { href: '/gesprek/new', label: 'Gesprek' },
+    { href: '/',            label: 'Home'     },
+    { href: '/leden',       label: 'Leden'    },
+    { href: '/gesprek/new', label: 'Gesprek'  },
   ]
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap');
-
         .nav-root {
           position: sticky;
           top: 0;
@@ -25,11 +23,11 @@ export default function Navigation() {
           display: flex;
           align-items: center;
           padding: 0 2rem;
-          background: rgba(17,17,17,0.92);
-          border-bottom: 1px solid rgba(168,200,0,0.12);
+          background: rgba(17, 17, 17, 0.92);
+          border-bottom: 1px solid var(--border-green);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          font-family: 'Raleway', sans-serif;
+          font-family: var(--font-primary);
         }
 
         .nav-inner {
@@ -44,48 +42,35 @@ export default function Navigation() {
         .nav-logo {
           display: flex;
           align-items: baseline;
-          gap: 0;
           cursor: pointer;
           text-decoration: none;
           border: none;
           background: none;
           padding: 0;
-          font-family: 'Raleway', sans-serif;
+          font-family: var(--font-primary);
         }
-        .nav-logo-wav { font-size: 1.05rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
-        .nav-logo-e   { font-size: 1.05rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
+        .nav-logo-wav { font-size: 1.05rem; font-weight: 700; color: var(--wave-gray);  letter-spacing: -0.01em; }
+        .nav-logo-e   { font-size: 1.05rem; font-weight: 700; color: var(--wave-green); letter-spacing: -0.01em; }
 
-        .nav-links {
-          display: flex;
-          align-items: center;
-          gap: 2px;
-        }
+        .nav-links { display: flex; align-items: center; gap: 2px; }
 
         .nav-link {
-          font-family: 'Raleway', sans-serif;
+          font-family: var(--font-primary);
           font-size: 0.7rem;
           font-weight: 600;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #3a3a3a;
+          color: var(--text-muted);
           background: none;
           border: none;
           padding: 6px 12px;
-          border-radius: 3px;
+          border-radius: var(--radius-button);
           cursor: pointer;
           transition: color 0.15s, background 0.15s;
           text-decoration: none;
         }
-
-        .nav-link:hover {
-          color: #A8C800;
-          background: rgba(168,200,0,0.06);
-        }
-
-        .nav-link.active {
-          color: #A8C800;
-          background: rgba(168,200,0,0.08);
-        }
+        .nav-link:hover  { color: var(--wave-green); background: var(--wave-green-dim); }
+        .nav-link.active { color: var(--wave-green); background: var(--wave-green-dim); }
       `}</style>
 
       <nav className="nav-root">

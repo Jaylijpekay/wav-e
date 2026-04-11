@@ -167,7 +167,7 @@ export default function GesprekNew() {
           cursor: pointer;
           text-decoration: none;
         }
-        .gn-wordmark-wav { font-size: 1rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
+        .gn-wordmark-wav { font-size: 1rem; font-weight: 700; color: #B4B4B4; letter-spacing: -0.01em; }
         .gn-wordmark-e   { font-size: 1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
 
         .gn-page-title {
@@ -175,7 +175,7 @@ export default function GesprekNew() {
           font-weight: 500;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #2a2a2a;
+          color: #B4B4B4;
         }
 
         /* Form */
@@ -194,7 +194,7 @@ export default function GesprekNew() {
           font-size: 0.6rem;
           font-weight: 600;
           letter-spacing: 0.18em;
-          color: #2a2a2a;
+          color: #B4B4B4;
           text-transform: uppercase;
           margin-bottom: 1.25rem;
           margin-top: 0;
@@ -203,7 +203,7 @@ export default function GesprekNew() {
 
         .gn-divider {
           height: 1px;
-          background: #181818;
+          background: #2a2a2a;
           margin: 2.5rem 0;
         }
 
@@ -217,7 +217,7 @@ export default function GesprekNew() {
           font-weight: 600;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #2a2a2a;
+          color: #B4B4B4;
           margin-bottom: 7px;
         }
 
@@ -272,7 +272,7 @@ export default function GesprekNew() {
         .gn-slider-label {
           font-size: 0.82rem;
           font-weight: 600;
-          color: #888;
+          color: #B4B4B4;
           letter-spacing: 0.02em;
         }
 
@@ -297,18 +297,21 @@ export default function GesprekNew() {
         }
         .gn-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
+          background: var(--thumb-color, #A8C800);
           cursor: pointer;
           transition: transform 0.15s;
+          box-shadow: 0 0 6px rgba(0,0,0,0.5);
         }
-        .gn-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+        .gn-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
         .gn-slider::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           border: none;
+          background: var(--thumb-color, #A8C800);
           cursor: pointer;
         }
 
@@ -320,7 +323,7 @@ export default function GesprekNew() {
 
         .gn-slider-hint {
           font-size: 0.6rem;
-          color: #2a2a2a;
+          color: #B4B4B4;
           letter-spacing: 0.04em;
         }
 
@@ -337,7 +340,7 @@ export default function GesprekNew() {
           background: #141414;
           border: 1px solid #1e1e1e;
           border-radius: 3px;
-          color: #2a2a2a;
+          color: #B4B4B4;
           padding: 8px 20px;
           font-size: 0.8rem;
           font-family: 'Raleway', sans-serif;
@@ -346,7 +349,7 @@ export default function GesprekNew() {
           letter-spacing: 0.04em;
           transition: all 0.15s;
         }
-        .gn-toggle-btn:hover { border-color: rgba(168,200,0,0.3); color: #888; }
+        .gn-toggle-btn:hover { border-color: rgba(168,200,0,0.3); color: #B4B4B4; }
         .gn-toggle-btn.active {
           background: #1a1a1a;
           border-color: rgba(168,200,0,0.5);
@@ -383,7 +386,7 @@ export default function GesprekNew() {
           border-radius: 3px;
           border: 1px solid #1e1e1e;
           background: transparent;
-          color: #2a2a2a;
+          color: #B4B4B4;
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s;
         }
@@ -476,7 +479,7 @@ export default function GesprekNew() {
                       value={val}
                       onChange={e => setScores(s => ({ ...s, [key]: Number(e.target.value) }))}
                       className="gn-slider"
-                      style={{ accentColor: col.thumb }}
+                      style={{ ['--thumb-color' as string]: col.thumb } as React.CSSProperties}
                     />
                     <div className="gn-slider-meta">
                       <span className="gn-slider-hint">{low}</span>

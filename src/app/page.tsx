@@ -1,225 +1,360 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import Navigation from '@/app/components/Navigation'
+
+type Lid = {
+  id: string
+  lid_id: string
+  voornaam: string
+  achternaam: string
+  laatste_contact: string | null
+  laatste_evaluatie: string | null
+  slaap: number | null
+  energie: number | null
+  stress: number | null
+  open_acties: number
+}
+
+type Actie = {
+  id: string
+  lid_uuid: string
+  lid_id: string
+  voornaam: string
+  achternaam: string
+  omschrijving: string
+  aangemaakt: string
+}
+
+type LidDropdown = {
+  id: string
+  lid_id: string
+  voornaam: string
+  achternaam: string
+}
 
 type Trainer = {
   id: string
   naam: string
 }
 
-export default function Home() {
+type Signal = {
+  label: string
+  reden: string
+}
+
+const daysSince = (date: string | null): number | null => {
+  if (!date) return null
+  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+}
+
+const getSignals = (lid: Lid): Signal[] => {
+  const signals: Signal[] = []
+  const dagsSindsContact = daysSince(lid.laatste_contact)
+  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
+  if (dagsSindsContact === null || dagsSindsContact > 14)
+    signals.push({ label: 'Geen contact', reden: dagsSindsContact === null ? 'Nog nooit' : `${dagsSindsContact} dagen geleden` })
+  if (dagsSindsEval === null || dagsSindsEval > 42)
+    signals.push({ label: 'Geen evaluatie', reden: dagsSindsEval === null ? 'Nog nooit' : `${dagsSindsEval} dagen geleden` })
+  if (lid.open_acties > 0)
+    signals.push({ label: 'Open acties', reden: `${lid.open_acties} actie${lid.open_acties > 1 ? 's' : ''}` })
+  if (lid.slaap !== null && lid.slaap < 6)
+    signals.push({ label: 'Slaap rood', reden: `Score ${lid.slaap}/10` })
+  if (lid.energie !== null && lid.energie < 6)
+    signals.push({ label: 'Energie rood', reden: `Score ${lid.energie}/10` })
+  if (lid.stress !== null && lid.stress > 7)
+    signals.push({ label: 'Stress rood', reden: `Score ${lid.stress}/10` })
+  return signals
+}
+
+const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
+  const signals = getSignals(lid)
+  if (signals.length === 0) return 'green'
+  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
+  const hasRedLifestyle =
+    (lid.slaap !== null && lid.slaap < 6) ||
+    (lid.energie !== null && lid.energie < 6) ||
+    (lid.stress !== null && lid.stress > 7)
+  if (dagsSindsEval === null || dagsSindsEval > 42 || hasRedLifestyle) return 'red'
+  return 'amber'
+}
+
+const STOPLIGHT = {
+  red:   {
+    dot:    'var(--color-red, #dc2626)',
+    bg:     'rgba(var(--color-red-rgb, 220,38,38), 0.08)',
+    border: 'rgba(var(--color-red-rgb, 220,38,38), 0.2)',
+    text:   'var(--color-red-text, #f87171)',
+  },
+  amber: {
+    dot:    'var(--color-amber, #d97706)',
+    bg:     'rgba(var(--color-amber-rgb, 217,119,6), 0.08)',
+    border: 'rgba(var(--color-amber-rgb, 217,119,6), 0.2)',
+    text:   'var(--color-amber-text, #fbbf24)',
+  },
+  green: {
+    dot:    'var(--color-success, #16a34a)',
+    bg:     'rgba(var(--color-success-rgb, 22,163,74), 0.08)',
+    border: 'rgba(var(--color-success-rgb, 22,163,74), 0.2)',
+    text:   'var(--color-success-text, #4ade80)',
+  },
+}
+
+export default function TrainerDashboard() {
+  const { trainerId } = useParams()
   const router = useRouter()
-  const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [selectedTrainer, setSelectedTrainer] = useState<string>('')
+
+  const [trainer, setTrainer] = useState<Trainer | null>(null)
+  const [leden, setLeden] = useState<Lid[]>([])
+  const [acties, setActies] = useState<Actie[]>([])
+  const [ledenDropdown, setLedenDropdown] = useState<LidDropdown[]>([])
   const [loading, setLoading] = useState(true)
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+  const [gesprekOpen, setGesprekOpen] = useState(false)
+  const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | null>(null)
+
+  const gesprekRef = useRef<HTMLDivElement>(null)
+  const stoplightRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const load = async () => {
       const supabase = getSupabase()
-      const { data } = await supabase
-        .from('trainers')
-        .select('id, naam')
-        .order('naam')
-      setTrainers(data ?? [])
+      const { data: trainerData } = await supabase.from('trainers').select('id, naam').eq('id', trainerId).single()
+      setTrainer(trainerData)
+
+      const { data: ledenData } = await supabase
+        .from('leden').select('id, lid_id, voornaam, achternaam')
+        .eq('trainer_id', trainerId).eq('actief', true).order('voornaam')
+
+      if (!ledenData || ledenData.length === 0) { setLoading(false); return }
+      setLedenDropdown(ledenData)
+
+      const lidIds = ledenData.map(l => l.id)
+      const { data: contacten } = await supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false })
+      const { data: evaluaties } = await supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false })
+      const { data: actiesData } = await supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true })
+
+      const openActiesPerLid: Record<string, number> = {}
+      for (const a of actiesData ?? []) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+
+      const enrichedLeden: Lid[] = ledenData.map(l => {
+        const lastContact = contacten?.find(c => c.lid_id === l.id)
+        const lastEval = evaluaties?.find(e => e.lid_id === l.id)
+        return {
+          id: l.id, lid_id: l.lid_id, voornaam: l.voornaam, achternaam: l.achternaam,
+          laatste_contact: lastContact?.datum ?? null,
+          laatste_evaluatie: lastEval?.datum ?? null,
+          slaap: lastEval?.slaap ?? null,
+          energie: lastEval?.energie ?? null,
+          stress: lastEval?.stress ?? null,
+          open_acties: openActiesPerLid[l.id] ?? 0,
+        }
+      })
+
+      setLeden(enrichedLeden)
+      setActies((actiesData ?? []).map(a => {
+        const lid = ledenData.find(l => l.id === a.lid_id)
+        return {
+          id: a.id, lid_uuid: a.lid_id, lid_id: lid?.lid_id ?? '—',
+          voornaam: lid?.voornaam ?? '—', achternaam: lid?.achternaam ?? '',
+          omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+        }
+      }))
       setLoading(false)
     }
-    load()
+    if (trainerId) load()
+  }, [trainerId])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (gesprekRef.current && !gesprekRef.current.contains(e.target as Node)) setGesprekOpen(false)
+      if (stoplightRef.current && !stoplightRef.current.contains(e.target as Node)) setOpenStoplight(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleTrainerSelect = (id: string) => {
-    setSelectedTrainer(id)
-    if (id) router.push(`/trainer/${id}`)
+  const handleGesprekSelect = (lid: LidDropdown) => {
+    setGesprekOpen(false)
+    router.push(`/gesprek/new?lid_id=${lid.id}`)
   }
+
+  const counts = {
+    red:   leden.filter(l => getStoplight(l) === 'red').length,
+    amber: leden.filter(l => getStoplight(l) === 'amber').length,
+    green: leden.filter(l => getStoplight(l) === 'green').length,
+  }
+
+  const ledenByStoplight = (sig: 'red' | 'amber') => leden.filter(l => getStoplight(l) === sig)
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
-        .home-root {
+        .td-root {
           min-height: 100vh;
-          background: #111;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: 'Raleway', sans-serif;
-          padding: 40px 24px;
+          background: var(--bg-base);
+          color: var(--text-secondary);
+          font-family: var(--font-primary);
           position: relative;
-          overflow: hidden;
         }
 
-        /* Ambient glow */
-        .home-root::before {
+        .td-root::before {
           content: '';
           position: fixed;
           top: -20%;
-          left: -10%;
-          width: 60%;
-          height: 60%;
-          background: radial-gradient(ellipse, rgba(168,200,0,0.07) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        .home-root::after {
-          content: '';
-          position: fixed;
-          bottom: -20%;
           right: -10%;
-          width: 50%;
-          height: 50%;
+          width: 55%;
+          height: 55%;
           background: radial-gradient(ellipse, rgba(168,200,0,0.05) 0%, transparent 70%);
           pointer-events: none;
+          z-index: 0;
         }
 
-        /* Wordmark */
-        .wordmark {
-          text-align: center;
-          animation: fadeUp 0.5s ease-out both;
-        }
-        .wordmark-wav {
-          font-size: 2.25rem;
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: #5A5A5A;
-        }
-        .wordmark-e {
-          font-size: 2.25rem;
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: #A8C800;
-        }
-        .wordmark-studios {
-          display: block;
-          font-size: 0.65rem;
-          font-weight: 500;
-          letter-spacing: 0.28em;
-          text-transform: uppercase;
-          color: #3a3a3a;
-          margin-top: 0.2rem;
-        }
-
-        /* Grid */
-        .nav-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1px;
-          width: 100%;
-          max-width: 520px;
-          background: #1f1f1f;
-          border: 1px solid #1f1f1f;
-          border-radius: 4px;
-          overflow: hidden;
-          box-shadow:
-            0 0 0 1px rgba(168,200,0,0.08),
-            0 8px 32px rgba(0,0,0,0.4),
-            0 2px 8px rgba(0,0,0,0.3);
-          animation: fadeUp 0.5s ease-out 0.1s both;
-        }
-
-        /* Cards */
-        .nav-card {
-          background: #141414;
-          padding: 28px 24px;
+        /* ── Header ── */
+        .td-header {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: rgba(17,17,17,0.92);
+          border-bottom: 1px solid var(--border-accent);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          height: 56px;
           display: flex;
-          flex-direction: column;
-          gap: 6px;
-          cursor: pointer;
-          transition: background 0.2s ease, box-shadow 0.2s ease;
-          position: relative;
-          overflow: hidden;
+          align-items: center;
+          padding: 0 2rem;
         }
 
-        .nav-card::before {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: #A8C800;
-          transform: scaleX(0);
-          transform-origin: left;
-          transition: transform 0.25s ease;
-        }
-
-        .nav-card:hover {
-          background: #181818;
-        }
-
-        .nav-card:hover::before {
-          transform: scaleX(1);
-        }
-
-        .nav-card:hover .card-arrow {
-          color: #A8C800;
-          transform: translateX(3px);
-        }
-
-        .nav-card:hover .card-label {
-          color: #fff;
-        }
-
-        .card-label {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #c8c6c0;
-          letter-spacing: 0.03em;
-          transition: color 0.2s ease;
-        }
-
-        .card-desc {
-          font-size: 0.72rem;
-          color: #3a3a3a;
-          letter-spacing: 0.04em;
-          font-weight: 400;
-        }
-
-        .card-arrow {
-          font-size: 1rem;
-          color: #2a2a2a;
-          margin-top: 14px;
-          transition: color 0.2s ease, transform 0.2s ease;
-          display: inline-block;
-        }
-
-        /* Trainer select card */
-        .trainer-select {
-          margin-top: 14px;
-          background: #0d0d0d;
-          border: 1px solid #2a2a2a;
-          color: #c8c6c0;
-          font-family: 'Raleway', sans-serif;
-          font-size: 0.8rem;
-          font-weight: 500;
-          padding: 10px 12px;
-          border-radius: 3px;
+        .td-header-inner {
+          max-width: 1100px;
           width: 100%;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .td-wordmark {
+          display: flex;
+          align-items: baseline;
+          gap: 0;
           cursor: pointer;
-          appearance: none;
-          outline: none;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          text-decoration: none;
+        }
+        .td-wordmark-wav { font-size: 1.1rem; font-weight: 700; color: var(--wave-gray); letter-spacing: -0.01em; }
+        .td-wordmark-e   { font-size: 1.1rem; font-weight: 700; color: var(--wave-green); letter-spacing: -0.01em; }
+
+        .td-header-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
 
-        .trainer-select:focus {
-          border-color: #A8C800;
-          box-shadow: 0 0 0 3px rgba(168,200,0,0.1);
-        }
-
-        .trainer-select option {
-          background: #141414;
-          color: #c8c6c0;
-        }
-
-        /* Eindhoven tag */
-        .location-tag {
-          font-size: 0.62rem;
+        .td-trainer-name {
+          font-size: 0.75rem;
           font-weight: 500;
-          letter-spacing: 0.18em;
+          color: var(--border-strong);
+          letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #2a2a2a;
-          animation: fadeUp 0.5s ease-out 0.2s both;
+          margin-right: 4px;
+        }
+
+        .td-btn-secondary {
+          font-family: var(--font-primary);
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 7px 14px;
+          border-radius: var(--radius);
+          border: 1px solid var(--border-strong);
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+        .td-btn-secondary:hover {
+          border-color: rgba(168,200,0,0.4);
+          color: var(--wave-green);
+          background: rgba(168,200,0,0.06);
+        }
+
+        .td-btn-primary {
+          font-family: var(--font-primary);
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 7px 14px;
+          border-radius: var(--radius);
+          border: 1px solid var(--wave-green);
+          background: var(--wave-green);
+          color: var(--bg-base);
+          cursor: pointer;
+          transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+        .td-btn-primary:hover {
+          background: #95B400;
+          box-shadow: var(--shadow-green);
+          transform: translateY(-1px);
+        }
+
+        /* ── Dropdown ── */
+        .td-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          border-radius: 4px;
+          min-width: 240px;
+          z-index: 200;
+          overflow: hidden;
+          box-shadow: var(--shadow-float);
+          animation: dropIn 0.15s ease-out both;
+        }
+
+        @keyframes dropIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .td-dropdown-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 11px 16px;
+          cursor: pointer;
+          border-bottom: 1px solid var(--border-subtle);
+          transition: background 0.1s;
+        }
+        .td-dropdown-item:last-child { border-bottom: none; }
+        .td-dropdown-item:hover { background: rgba(168,200,0,0.06); }
+
+        .td-dropdown-name  { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+        .td-dropdown-meta  { font-size: 0.72rem; color: var(--border-strong); letter-spacing: 0.05em; }
+        .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: var(--border-strong); text-align: center; }
+
+        /* ── Body ── */
+        .td-body {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 2.5rem 2rem 6rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        /* ── Stoplight bar ── */
+        .td-summary-bar {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 2.5rem;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          animation: fadeUp 0.4s ease-out both;
         }
 
         @keyframes fadeUp {
@@ -227,90 +362,285 @@ export default function Home() {
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* Float animation for the grid as a whole */
-        @keyframes floatGrid {
-          0%, 100% { transform: translateY(0px);  box-shadow: 0 0 0 1px rgba(168,200,0,0.08), 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3); }
-          50%       { transform: translateY(-5px); box-shadow: 0 0 0 1px rgba(168,200,0,0.13), 0 16px 48px rgba(0,0,0,0.45), 0 4px 16px rgba(0,0,0,0.25); }
+        .td-summary-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 18px;
+          border-radius: var(--radius);
+          font-family: var(--font-primary);
+          transition: all 0.2s ease;
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-surface);
         }
 
-        .nav-grid {
-          animation: fadeUp 0.5s ease-out 0.1s both, floatGrid 6s ease-in-out 0.6s infinite;
+        .td-summary-card.clickable:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-float);
+        }
+
+        .td-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .td-summary-count {
+          font-size: 1.2rem;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .td-summary-label {
+          font-size: 0.7rem;
+          color: var(--border-strong);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-weight: 500;
+        }
+
+        .td-summary-chevron {
+          font-size: 0.6rem;
+          color: var(--border-strong);
+          margin-left: 2px;
+        }
+
+        .td-summary-total {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 18px;
+          margin-left: auto;
+        }
+
+        /* ── Section header ── */
+        .td-section-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 1rem;
+          animation: fadeUp 0.4s ease-out 0.1s both;
+        }
+
+        .td-section-title {
+          font-size: 0.65rem;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--border-strong);
+        }
+
+        .td-section-count {
+          font-size: 0.65rem;
+          color: var(--border-subtle);
+          background: var(--bg-raised);
+          padding: 2px 7px;
+          border-radius: 2px;
+          font-weight: 600;
+        }
+
+        /* ── Acties list ── */
+        .td-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius);
+          overflow: hidden;
+          animation: fadeUp 0.4s ease-out 0.15s both;
+        }
+
+        .td-row {
+          display: flex;
+          align-items: center;
+          gap: 2rem;
+          padding: 16px 20px;
+          background: var(--bg-surface);
+          border-left: 3px solid transparent;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .td-row:hover { background: var(--bg-raised); }
+
+        .td-row-main   { min-width: 190px; flex: 0 0 190px; }
+        .td-row-name   { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 3px; }
+        .td-row-lid-id { font-size: 0.7rem; color: var(--border-strong); letter-spacing: 0.05em; }
+        .td-row-actie  { flex: 1; font-size: 0.82rem; color: var(--text-muted); }
+        .td-row-dagen  { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
+
+        .td-empty {
+          color: var(--border-strong);
+          font-size: 0.85rem;
+          padding: 4rem 0;
+          text-align: center;
+          letter-spacing: 0.05em;
+        }
+
+        /* ── Stoplight dropdown panel ── */
+        .td-stoplight-panel {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          border-radius: 4px;
+          min-width: 220px;
+          z-index: 200;
+          overflow: hidden;
+          box-shadow: var(--shadow-float);
+          animation: dropIn 0.15s ease-out both;
         }
       `}</style>
 
-      <main className="home-root">
-        <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, position: 'relative', zIndex: 1 }}>
-
-          {/* Wordmark */}
-          <div className="wordmark">
-            <div>
-              <span className="wordmark-wav">wav-e</span>
-              <span className="wordmark-e"> studios</span>
+      <div className="td-root">
+        {/* Header */}
+        <header className="td-header">
+          <div className="td-header-inner">
+            <div className="td-wordmark" onClick={() => router.push('/')}>
+              <span className="td-wordmark-wav">wav-e</span>
+              <span className="td-wordmark-e"> studios</span>
             </div>
-            <span className="wordmark-studios">EMS coaching intelligence</span>
-          </div>
 
-          {/* 2×2 nav grid */}
-          <div className="nav-grid">
-
-            {/* Personal trainer */}
-            <div className="nav-card">
-              <div className="card-label">Personal trainer</div>
-              <div className="card-desc">Open jouw dashboard</div>
-              <select
-                className="trainer-select"
-                value={selectedTrainer}
-                onChange={e => handleTrainerSelect(e.target.value)}
-                disabled={loading}
+            <div className="td-header-right">
+              {trainer?.naam && (
+                <span className="td-trainer-name">{trainer.naam}</span>
+              )}
+              <button
+                className="td-btn-secondary"
+                onClick={() => router.push(`/trainer/${trainerId}/leden`)}
               >
-                <option value="">
-                  {loading ? 'Laden…' : 'Selecteer trainer →'}
-                </option>
-                {trainers.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.naam}
-                  </option>
-                ))}
-              </select>
-            </div>
+                Mijn leden
+              </button>
 
-            {/* Management */}
-            <div
-              className="nav-card"
-              onClick={() => router.push('/management')}
-            >
-              <div className="card-label">Management</div>
-              <div className="card-desc">Studio-breed overzicht</div>
-              <span className="card-arrow">→</span>
+              <div style={{ position: 'relative' }} ref={gesprekRef}>
+                <button className="td-btn-primary" onClick={() => setGesprekOpen(o => !o)}>
+                  + Nieuw gesprek
+                </button>
+                {gesprekOpen && (
+                  <div className="td-dropdown">
+                    {ledenDropdown.length === 0
+                      ? <div className="td-dropdown-empty">Geen leden gevonden</div>
+                      : ledenDropdown.map(lid => (
+                        <div key={lid.id} className="td-dropdown-item" onClick={() => handleGesprekSelect(lid)}>
+                          <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
+                          <span className="td-dropdown-meta">{lid.lid_id}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
+        </header>
 
-            {/* Nieuw lid */}
-            <div
-              className="nav-card"
-              onClick={() => router.push('/nieuw-lid')}
-            >
-              <div className="card-label">Nieuw lid</div>
-              <div className="card-desc">Lid toevoegen</div>
-              <span className="card-arrow">→</span>
+        <div className="td-body">
+          {/* Stoplight summary bar */}
+          {!loading && (
+            <div className="td-summary-bar" ref={stoplightRef}>
+              {(['red', 'amber'] as const).map(sig => {
+                const col = STOPLIGHT[sig]
+                const labels = { red: 'Aandacht nodig', amber: 'Let op' }
+                const isOpen = openStoplight === sig
+                const members = ledenByStoplight(sig)
+                const isClickable = counts[sig] > 0
+
+                return (
+                  <div key={sig} style={{ position: 'relative' }}>
+                    <button
+                      className={`td-summary-card${isClickable ? ' clickable' : ''}`}
+                      style={{
+                        background: isOpen ? col.bg : 'var(--bg-surface)',
+                        borderColor: isOpen ? col.border : 'var(--border-subtle)',
+                        cursor: isClickable ? 'pointer' : 'default',
+                      }}
+                      onClick={() => isClickable && setOpenStoplight(isOpen ? null : sig)}
+                    >
+                      <span className="td-dot" style={{ background: col.dot }} />
+                      <span className="td-summary-count" style={{ color: col.text }}>{counts[sig]}</span>
+                      <span className="td-summary-label">{labels[sig]}</span>
+                      {isClickable && (
+                        <span className="td-summary-chevron">{isOpen ? '▲' : '▼'}</span>
+                      )}
+                    </button>
+
+                    {isOpen && members.length > 0 && (
+                      <div className="td-stoplight-panel">
+                        {members.map(lid => (
+                          <div
+                            key={lid.id}
+                            className="td-dropdown-item"
+                            onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
+                          >
+                            <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
+                            <span className="td-dropdown-meta" style={{ color: col.text }}>{lid.lid_id}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Green — not clickable */}
+              <button className="td-summary-card" style={{ cursor: 'default' }}>
+                <span className="td-dot" style={{ background: STOPLIGHT.green.dot }} />
+                <span className="td-summary-count" style={{ color: STOPLIGHT.green.text }}>{counts.green}</span>
+                <span className="td-summary-label">Op koers</span>
+              </button>
+
+              <div className="td-summary-total">
+                <span className="td-summary-count" style={{ color: 'var(--border-strong)' }}>{leden.length}</span>
+                <span className="td-summary-label">Actieve leden</span>
+              </div>
             </div>
+          )}
 
-            {/* Admin */}
-            <div
-              className="nav-card"
-              onClick={() => router.push('/admin')}
-            >
-              <div className="card-label">Admin</div>
-              <div className="card-desc">Instellingen & beheer</div>
-              <span className="card-arrow">→</span>
-            </div>
-
+          {/* Open acties */}
+          <div className="td-section-header">
+            <span className="td-section-title">Open acties</span>
+            <span className="td-section-count">{acties.length}</span>
           </div>
 
-          {/* Location */}
-          <div className="location-tag">Eindhoven</div>
+          {loading ? (
+            <div className="td-empty">Laden…</div>
+          ) : acties.length === 0 ? (
+            <div className="td-empty">Geen open acties.</div>
+          ) : (
+            <div className="td-list">
+              {acties.map(actie => {
+                const dagen = daysSince(actie.aangemaakt)
+                const isOud = dagen !== null && dagen > 7
+                const lid = leden.find(l => l.id === actie.lid_uuid)
+                const stoplight = lid ? getStoplight(lid) : 'green'
+                const col = STOPLIGHT[stoplight]
 
+                return (
+                  <div
+                    key={actie.id}
+                    className="td-row"
+                    style={{ borderLeftColor: col.dot }}
+                    onClick={() => router.push(`/leden/${actie.lid_uuid}`)}
+                  >
+                    <div className="td-row-main">
+                      <div className="td-row-name">{actie.voornaam} {actie.achternaam}</div>
+                      <div className="td-row-lid-id">{actie.lid_id}</div>
+                    </div>
+                    <div className="td-row-actie">{actie.omschrijving}</div>
+                    <div
+                      className="td-row-dagen"
+                      style={{ color: isOud ? 'var(--color-red, #dc2626)' : 'var(--border-strong)' }}
+                    >
+                      {dagen === null ? '—' : `${dagen}d`}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
-      </main>
+      </div>
     </>
   )
 }
