@@ -19,7 +19,8 @@ type Lid = {
 
 type Actie = {
   id: string
-  lid_id: string
+  lid_uuid: string      // UUID → used for routing to /leden/[id]
+  lid_id: string        // human-readable WE-004 → used for display only
   voornaam: string
   achternaam: string
   omschrijving: string
@@ -177,7 +178,8 @@ export default function TrainerDashboard() {
         const lid = ledenData.find(l => l.id === a.lid_id)
         return {
           id: a.id,
-          lid_id: lid?.lid_id ?? '—',
+          lid_uuid: a.lid_id,           // a.lid_id from DB = UUID (FK → leden.id)
+          lid_id: lid?.lid_id ?? '—',   // human-readable WE-004, display only
           voornaam: lid?.voornaam ?? '—',
           achternaam: lid?.achternaam ?? '',
           omschrijving: a.omschrijving,
@@ -300,7 +302,7 @@ export default function TrainerDashboard() {
                           style={s.dropdownItem}
                           onClick={() => {
                             setOpenStoplight(null)
-                            router.push(`/leden/${lid.id}`)
+                            router.push(`/leden/${lid.id}`)  // lid.id = UUID ✓
                           }}
                         >
                           <span style={s.dropdownName}>{lid.voornaam} {lid.achternaam}</span>
@@ -334,7 +336,7 @@ export default function TrainerDashboard() {
           </div>
         )}
 
-        {/* Open acties — always all, never filtered */}
+        {/* Open acties */}
         <div style={s.sectionHeader}>
           <span style={s.sectionTitle}>Open acties</span>
           <span style={s.sectionCount}>{acties.length}</span>
@@ -349,7 +351,7 @@ export default function TrainerDashboard() {
             {acties.map(actie => {
               const dagen = daysSince(actie.aangemaakt)
               const isOud = dagen !== null && dagen > 7
-              const lid = leden.find(l => l.lid_id === actie.lid_id)
+              const lid = leden.find(l => l.id === actie.lid_uuid)
               const stoplight = lid ? getStoplight(lid) : 'green'
               const col = STOPLIGHT_COLORS[stoplight]
 
@@ -361,7 +363,7 @@ export default function TrainerDashboard() {
                     borderLeft: `3px solid ${col.dot}`,
                     cursor: 'pointer',
                   }}
-                  onClick={() => router.push(`/leden/${actie.lid_id}`)}
+                  onClick={() => router.push(`/leden/${actie.lid_uuid}`)}  // UUID ✓
                 >
                   <div style={s.rowMain}>
                     <div style={s.rowName}>
