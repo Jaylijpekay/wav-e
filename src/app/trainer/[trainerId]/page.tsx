@@ -98,7 +98,10 @@ export default function TrainerDashboard() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'red' | 'amber' | 'green'>('all')
   const [gesprekOpen, setGesprekOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | null>(null)
+
+  const gesprekRef = useRef<HTMLDivElement>(null)
+  const stoplightRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -147,13 +150,11 @@ export default function TrainerDashboard() {
         .eq('status', 'open')
         .order('aangemaakt', { ascending: true })
 
-      // Build open acties count per lid for stoplight
       const openActiesPerLid: Record<string, number> = {}
       for (const a of actiesData ?? []) {
         openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
       }
 
-      // Enrich leden for stoplight
       const enrichedLeden: Lid[] = ledenData.map(l => {
         const lastContact = contacten?.find(c => c.lid_id === l.id)
         const lastEval = evaluaties?.find(e => e.lid_id === l.id)
@@ -173,7 +174,6 @@ export default function TrainerDashboard() {
 
       setLeden(enrichedLeden)
 
-      // Enrich acties with member names
       const enrichedActies: Actie[] = (actiesData ?? []).map(a => {
         const lid = ledenData.find(l => l.id === a.lid_id)
         return {
@@ -193,11 +193,13 @@ export default function TrainerDashboard() {
     if (trainerId) load()
   }, [trainerId])
 
+  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (gesprekRef.current && !gesprekRef.current.contains(e.target as Node))
         setGesprekOpen(false)
-      }
+      if (stoplightRef.current && !stoplightRef.current.contains(e.target as Node))
+        setOpenStoplight(null)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -208,11 +210,19 @@ export default function TrainerDashboard() {
     router.push(`/gesprek/new?lid_id=${lid.id}`)
   }
 
+  const handleStoplightClick = (sig: 'red' | 'amber') => {
+    setOpenStoplight(openStoplight === sig ? null : sig)
+    setFilter(filter === sig ? 'all' : sig)
+  }
+
   const counts = {
     red:   leden.filter(l => getStoplight(l) === 'red').length,
     amber: leden.filter(l => getStoplight(l) === 'amber').length,
     green: leden.filter(l => getStoplight(l) === 'green').length,
   }
+
+  const ledenByStoplight = (sig: 'red' | 'amber') =>
+    leden.filter(l => getStoplight(l) === sig)
 
   const filteredActies = filter === 'all'
     ? acties
@@ -235,7 +245,7 @@ export default function TrainerDashboard() {
               Mijn leden
             </button>
 
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <div style={{ position: 'relative' }} ref={gesprekRef}>
               <button
                 style={s.btnPrimary}
                 onClick={() => setGesprekOpen(o => !o)}
@@ -267,27 +277,76 @@ export default function TrainerDashboard() {
 
         {/* Stoplight summary bar */}
         {!loading && (
-          <div style={s.summaryBar}>
-            {(['red', 'amber', 'green'] as const).map(sig => {
+          <div style={s.summaryBar} ref={stoplightRef}>
+
+            {/* Red — clickable with member dropdown */}
+            {(['red', 'amber'] as const).map(sig => {
               const col = STOPLIGHT_COLORS[sig]
-              const labels = { red: 'Aandacht nodig', amber: 'Let op', green: 'Op koers' }
+              const labels = { red: 'Aandacht nodig', amber: 'Let op' }
+              const isOpen = openStoplight === sig
+              const members = ledenByStoplight(sig)
+
               return (
-                <button
-                  key={sig}
-                  style={{
-                    ...s.summaryCard,
-                    background: filter === sig ? col.bg : '#0f0f0f',
-                    border: `1px solid ${filter === sig ? col.border : '#1c1c1c'}`,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setFilter(filter === sig ? 'all' : sig)}
-                >
-                  <span style={{ ...s.summaryDot, background: col.dot }} />
-                  <span style={{ ...s.summaryCount, color: col.text }}>{counts[sig]}</span>
-                  <span style={s.summaryLabel}>{labels[sig]}</span>
-                </button>
+                <div key={sig} style={{ position: 'relative' }}>
+                  <button
+                    style={{
+                      ...s.summaryCard,
+                      background: filter === sig ? col.bg : '#0f0f0f',
+                      border: `1px solid ${filter === sig ? col.border : '#1c1c1c'}`,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleStoplightClick(sig)}
+                  >
+                    <span style={{ ...s.summaryDot, background: col.dot }} />
+                    <span style={{ ...s.summaryCount, color: col.text }}>{counts[sig]}</span>
+                    <span style={s.summaryLabel}>{labels[sig]}</span>
+                    {counts[sig] > 0 && (
+                      <span style={{ ...s.summaryLabel, color: '#333', marginLeft: 4 }}>
+                        {isOpen ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </button>
+
+                  {isOpen && members.length > 0 && (
+                    <div style={{ ...s.dropdown, top: 'calc(100% + 6px)', left: 0, right: 'auto', minWidth: 220 }}>
+                      {members.map(lid => (
+                        <div
+                          key={lid.id}
+                          style={s.dropdownItem}
+                          onClick={() => {
+                            setOpenStoplight(null)
+                            router.push(`/leden/${lid.id}`)
+                          }}
+                        >
+                          <span style={s.dropdownName}>{lid.voornaam} {lid.achternaam}</span>
+                          <span style={{ ...s.dropdownMeta, color: col.text }}>{lid.lid_id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )
             })}
+
+            {/* Green — not clickable */}
+            {(() => {
+              const col = STOPLIGHT_COLORS.green
+              return (
+                <button
+                  style={{
+                    ...s.summaryCard,
+                    background: filter === 'green' ? col.bg : '#0f0f0f',
+                    border: `1px solid ${filter === 'green' ? col.border : '#1c1c1c'}`,
+                    cursor: 'default',
+                  }}
+                >
+                  <span style={{ ...s.summaryDot, background: col.dot }} />
+                  <span style={{ ...s.summaryCount, color: col.text }}>{counts.green}</span>
+                  <span style={s.summaryLabel}>Op koers</span>
+                </button>
+              )
+            })()}
+
             <div style={s.summaryTotal}>
               <span style={s.summaryCount}>{leden.length}</span>
               <span style={s.summaryLabel}>Actieve leden</span>
@@ -462,6 +521,7 @@ const s: Record<string, React.CSSProperties> = {
     gap: 12,
     marginBottom: 40,
     flexWrap: 'wrap' as const,
+    alignItems: 'flex-start',
   },
   summaryCard: {
     display: 'flex',
