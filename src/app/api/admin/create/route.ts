@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 
@@ -11,8 +13,24 @@ function getServiceClient() {
   )
 }
 
+async function getSessionUserId(): Promise<string | null> {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id ?? null
+}
+
 export async function POST(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
+  const userId = await getSessionUserId()
   if (userId !== ADMIN_UUID) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -33,7 +51,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceClient()
 
-  // Create auth user
   const { data: { user }, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -44,7 +61,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: createError?.message ?? 'Aanmaken mislukt' }, { status: 500 })
   }
 
-  // Insert role row
   const { error: roleError } = await supabase
     .from('user_roles')
     .insert({
@@ -54,7 +70,6 @@ export async function POST(req: NextRequest) {
     })
 
   if (roleError) {
-    // Clean up auth user if role insert fails
     await supabase.auth.admin.deleteUser(user.id)
     return NextResponse.json({ error: roleError.message }, { status: 500 })
   }

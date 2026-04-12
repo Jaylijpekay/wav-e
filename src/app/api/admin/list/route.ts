@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 
@@ -11,25 +13,37 @@ function getServiceClient() {
   )
 }
 
+async function getSessionUserId(): Promise<string | null> {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id ?? null
+}
+
 export async function GET(req: NextRequest) {
-  // Gate: only the hardcoded admin UUID may call this
-  const userId = req.headers.get('x-user-id')
+  const userId = await getSessionUserId()
   if (userId !== ADMIN_UUID) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const supabase = getServiceClient()
 
-  // Fetch all auth users
   const { data: { users }, error } = await supabase.auth.admin.listUsers()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Fetch all role rows
   const { data: roles } = await supabase
     .from('user_roles')
     .select('user_id, role, trainer_id')
 
-  // Fetch all trainers for name lookup
   const { data: trainers } = await supabase
     .from('trainers')
     .select('id, voornaam, achternaam')
