@@ -1,16 +1,62 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { getSupabase } from '@/lib/supabase'
+
+type NavRole = 'trainer' | 'management' | 'admin' | null
 
 export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
+  const [role, setRole] = useState<NavRole>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
-  const links = [
-    { href: '/',            label: 'Home'     },
-    { href: '/leden',       label: 'Leden'    },
-    { href: '/gesprek/new', label: 'Gesprek'  },
+  useEffect(() => {
+    const load = async () => {
+      const supabase = getSupabase()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
+      if (user.id === ADMIN_UUID) { setRole('admin'); return }
+
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+
+      setRole((data?.role as NavRole) ?? null)
+    }
+    load()
+  }, [])
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    const supabase = getSupabase()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const trainerLinks = [
+    { href: '/leden',       label: 'Leden'   },
+    { href: '/gesprek/new', label: 'Gesprek' },
   ]
+
+  const managementLinks = [
+    { href: '/management', label: 'Management' },
+  ]
+
+  const adminLinks = [
+    { href: '/admin', label: 'Admin' },
+  ]
+
+  const links =
+    role === 'trainer'    ? trainerLinks    :
+    role === 'management' ? managementLinks :
+    role === 'admin'      ? adminLinks      :
+    []
 
   return (
     <>
@@ -52,7 +98,7 @@ export default function Navigation() {
         .nav-logo-wav { font-size: 1.05rem; font-weight: 700; color: var(--wave-gray);  letter-spacing: -0.01em; }
         .nav-logo-e   { font-size: 1.05rem; font-weight: 700; color: var(--wave-green); letter-spacing: -0.01em; }
 
-        .nav-links { display: flex; align-items: center; gap: 2px; }
+        .nav-right { display: flex; align-items: center; gap: 2px; }
 
         .nav-link {
           font-family: var(--font-primary);
@@ -67,10 +113,27 @@ export default function Navigation() {
           border-radius: var(--radius-button);
           cursor: pointer;
           transition: color 0.15s, background 0.15s;
-          text-decoration: none;
         }
         .nav-link:hover  { color: var(--wave-green); background: var(--wave-green-dim); }
         .nav-link.active { color: var(--wave-green); background: var(--wave-green-dim); }
+
+        .nav-logout {
+          font-family: var(--font-primary);
+          font-size: 0.7rem;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          background: none;
+          border: 1px solid var(--border-subtle);
+          padding: 5px 12px;
+          border-radius: var(--radius-button);
+          cursor: pointer;
+          transition: color 0.15s, border-color 0.15s;
+          margin-left: 8px;
+        }
+        .nav-logout:hover:not(:disabled) { color: #f87171; border-color: rgba(248,113,113,0.4); }
+        .nav-logout:disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>
 
       <nav className="nav-root">
@@ -80,7 +143,7 @@ export default function Navigation() {
             <span className="nav-logo-e"> studios</span>
           </button>
 
-          <div className="nav-links">
+          <div className="nav-right">
             {links.map(link => (
               <button
                 key={link.href}
@@ -90,6 +153,16 @@ export default function Navigation() {
                 {link.label}
               </button>
             ))}
+
+            {role && (
+              <button
+                className="nav-logout"
+                onClick={handleLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut ? '…' : 'Uitloggen'}
+              </button>
+            )}
           </div>
         </div>
       </nav>
