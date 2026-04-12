@@ -9,7 +9,11 @@ const PUBLIC_ROUTES = ['/login']
 
 const MANAGEMENT_ONLY_ROUTES = ['/management']
 
+const ADMIN_ONLY_ROUTES = ['/admin', '/api/admin']
+
 const CONSOLE_ROUTE = '/console'
+
+const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 
 // ============================================================
 // MIDDLEWARE
@@ -20,8 +24,6 @@ export async function middleware(request: NextRequest) {
 
   // ----------------------------------------------------------
   // 1. CONSOLE TOKEN PATH
-  // Device hits /console?token=abc123 — no session required.
-  // Validate the token via DB function, inject trainer context.
   // ----------------------------------------------------------
 
   if (pathname.startsWith(CONSOLE_ROUTE)) {
@@ -32,7 +34,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Validate token using a service-role client (bypasses RLS)
     const supabaseAdmin = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -43,27 +44,21 @@ export async function middleware(request: NextRequest) {
       .rpc('validate_console_token', { p_token: token })
 
     if (error || !data) {
-      // Token invalid or revoked — back to login
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Token valid — stamp last used (fire and forget)
     supabaseAdmin.rpc('touch_console_token', { p_token: token })
 
-    // Pass trainer_id downstream via header
-    // Pages/API routes read x-console-trainer-id to scope queries
     const response = NextResponse.next()
     response.headers.set('x-console-trainer-id', data as string)
     response.headers.set('x-auth-mode', 'console')
 
-    // Persist token in cookie so device doesn't need ?token= on
-    // every navigation after the first load
     if (!request.cookies.get('console_token')) {
       response.cookies.set('console_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 365, // 1 year — revoke via DB, not expiry
+        maxAge: 60 * 60 * 24 * 365,
       })
     }
 
@@ -71,7 +66,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // ----------------------------------------------------------
-  // 2. PUBLIC ROUTES — no auth needed
+  // 2. PUBLIC ROUTES
   // ----------------------------------------------------------
 
   if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
@@ -79,8 +74,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // ----------------------------------------------------------
-  // 3. SESSION-BASED AUTH PATH
-  // All other routes require a valid Supabase session.
+  // 3. SESSION-BASED AUTH
   // ----------------------------------------------------------
 
   let response = NextResponse.next()
@@ -94,7 +88,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value)
           })
           response = NextResponse.next({ request })
@@ -106,15 +100,30 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session — required by @supabase/ssr on every request
   const { data: { user } } = await supabase.auth.getUser()
 
-  // No session → login
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Fetch role for this user
+  // ----------------------------------------------------------
+  // 4. ADMIN GATE — superuser UUID only
+  // ----------------------------------------------------------
+
+  if (ADMIN_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
+    if (user.id !== ADMIN_UUID) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    // Pass user id for API route auth checks
+    response.headers.set('x-user-id', user.id)
+    response.headers.set('x-auth-mode', 'session')
+    return response
+  }
+
+  // ----------------------------------------------------------
+  // 5. ROLE-BASED ROUTE GUARDS
+  // ----------------------------------------------------------
+
   const { data: roleRow } = await supabase
     .from('user_roles')
     .select('role, trainer_id')
@@ -123,19 +132,12 @@ export async function middleware(request: NextRequest) {
 
   const role = roleRow?.role
 
-  // ----------------------------------------------------------
-  // 4. ROLE-BASED ROUTE GUARDS
-  // ----------------------------------------------------------
-
-  // Management-only routes — block trainers
   if (MANAGEMENT_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
-    if (role !== 'management') {
+    if (role !== 'management' && user.id !== ADMIN_UUID) {
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
-  // Trainer-only routes — block management
-  // Management has no business on trainer-specific pages
   const TRAINER_ONLY_ROUTES = ['/gesprek', '/leden']
   if (TRAINER_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
     if (role !== 'trainer') {
@@ -143,7 +145,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Pass role + trainer_id downstream via headers
+  response.headers.set('x-user-id', user.id)
   response.headers.set('x-user-role', role ?? '')
   response.headers.set('x-user-trainer-id', roleRow?.trainer_id ?? '')
   response.headers.set('x-auth-mode', 'session')
@@ -152,7 +154,7 @@ export async function middleware(request: NextRequest) {
 }
 
 // ============================================================
-// MATCHER — run middleware on all routes except static assets
+// MATCHER
 // ============================================================
 
 export const config = {
