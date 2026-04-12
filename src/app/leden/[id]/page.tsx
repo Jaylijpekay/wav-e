@@ -24,8 +24,15 @@ type Evaluatie = {
   slaap: number | null
   energie: number | null
   stress: number | null
+  voeding: number | null
+  beweging: number | null
+  tevredenheid: number | null
+  motivatie: number | null
   gewicht_kg: number | null
   vetpercentage: number | null
+  spiermassa_kg: number | null
+  visceraal_vet: number | null
+  buikomvang_cm: number | null
 }
 
 type ContactMoment = {
@@ -73,9 +80,13 @@ const buildHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
     return { key, label, value, unit, status, reden, inverted }
   }
   return [
-    make('slaap',   'Slaap',   ev?.slaap   ?? null, '/10', false),
-    make('energie', 'Energie', ev?.energie ?? null, '/10', false),
-    make('stress',  'Stress',  ev?.stress  ?? null, '/10', true),
+    make('slaap',        'Slaap',         ev?.slaap        ?? null, '/10', false),
+    make('energie',      'Energie',       ev?.energie      ?? null, '/10', false),
+    make('stress',       'Stress',        ev?.stress       ?? null, '/10', true),
+    make('voeding',      'Voeding',       ev?.voeding      ?? null, '/10', false),
+    make('beweging',     'Beweging',      ev?.beweging     ?? null, '/10', false),
+    make('tevredenheid', 'Tevredenheid',  ev?.tevredenheid ?? null, '/10', false),
+    make('motivatie',    'Motivatie',     ev?.motivatie    ?? null, '/10', false),
   ]
 }
 
@@ -141,7 +152,7 @@ export default function LedenDetail() {
       const supabase = getSupabase()
       const { data: lidData } = await supabase.from('leden').select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, startdatum, actief').eq('id', id).single()
       setLid(lidData)
-      const { data: evalData } = await supabase.from('evaluaties').select('id, cyclus, datum, slaap, energie, stress, gewicht_kg, vetpercentage').eq('lid_id', id).order('cyclus', { ascending: false })
+      const { data: evalData } = await supabase.from('evaluaties').select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm').eq('lid_id', id).order('cyclus', { ascending: false })
       setEvaluaties(evalData ?? [])
       const { data: contactData } = await supabase.from('contact_momenten').select('id, datum, type, notities').eq('lid_id', id).order('datum', { ascending: false })
       setContacten(contactData ?? [])
