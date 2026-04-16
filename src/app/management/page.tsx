@@ -21,7 +21,6 @@ type TrainerStats = {
   rood: number
   amber: number
   open_acties: number
-  laatste_contact: string | null
 }
 
 type ConsoleToken = {
@@ -77,13 +76,8 @@ const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
   return 'green'
 }
 
-const formatDate = (date: string | null): string => {
-  if (!date) return '—'
-  return new Date(date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
-const daysSinceLabel = (date: string | null): string => {
-  if (!date) return 'Nooit gebruikt'
+const daysSinceLabel = (date: string | null, neverLabel = 'Nooit gebruikt'): string => {
+  if (!date) return neverLabel
   const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
   if (d === 0) return 'Vandaag'
   if (d === 1) return 'Gisteren'
@@ -96,119 +90,147 @@ const consoleUrl = (token: string): string => {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  actief:   '#4ade80',
-  bevroren: '#60a5fa',
+  actief:    '#4ade80',
+  bevroren:  '#60a5fa',
   'on hold': '#fbbf24',
-  on_hold:  '#fbbf24',
-  stopt:    '#f87171',
-  inactief: '#555',
+  on_hold:   '#fbbf24',
+  stopt:     '#f87171',
+  inactief:  '#555',
 }
 
-// ── Action assignment modal ────────────────────────────────────────────
+const inputStyle: React.CSSProperties = {
+  background: 'var(--bg-raised)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 8,
+  padding: '9px 12px',
+  color: 'var(--text-primary)',
+  fontSize: 14,
+  width: '100%',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+}
 
-function ActieModal({
-  trainer,
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={labelStyle}>{label}</label>
+      {children}
+    </div>
+  )
+}
+
+// ── Add Lid Modal ──────────────────────────────────────────────────────
+
+function AddLidModal({
+  trainers,
+  nextLidId,
   onClose,
   onSaved,
 }: {
-  trainer: Trainer
+  trainers: Trainer[]
+  nextLidId: string
   onClose: () => void
   onSaved: () => void
 }) {
-  const [omschrijving, setOmschrijving] = useState('')
-  const [deadline, setDeadline]         = useState('')
-  const [saving, setSaving]             = useState(false)
-  const [error, setError]               = useState<string | null>(null)
+  const [lidId,      setLidId]      = useState(nextLidId)
+  const [voornaam,   setVoornaam]   = useState('')
+  const [achternaam, setAchternaam] = useState('')
+  const [email,      setEmail]      = useState('')
+  const [telefoon,   setTelefoon]   = useState('')
+  const [trainerId,  setTrainerId]  = useState('')
+  const [startdatum, setStartdatum] = useState(new Date().toISOString().split('T')[0])
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
 
   const save = async () => {
     setError(null)
-    if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
+    if (!lidId.trim())      { setError('Lid-ID is verplicht'); return }
+    if (!voornaam.trim())   { setError('Voornaam is verplicht'); return }
+    if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
+    if (!trainerId)         { setError('Selecteer een trainer'); return }
+
     setSaving(true)
     const supabase = getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error: err } = await supabase.from('acties').insert({
-      trainer_id:    trainer.id,
-      lid_id:        null,
-      type:          'custom',
-      omschrijving:  omschrijving.trim(),
-      deadline:      deadline || null,
-      status:        'open',
-      bron:          'management',
-      afgerond:      false,
-      aangemaakt_door: user?.id ?? null,
+    const { error: err } = await supabase.from('leden').insert({
+      lid_id:     lidId.trim().toUpperCase(),
+      voornaam:   voornaam.trim(),
+      achternaam: achternaam.trim(),
+      email:      email.trim() || null,
+      telefoon:   telefoon.trim() || null,
+      trainer_id: trainerId,
+      startdatum,
+      source:     'manual',
+      actief:     true,
+      status:     'Actief',
     })
     setSaving(false)
-    if (err) { setError(err.message); return }
+
+    if (err) {
+      setError(err.message.includes('unique') ? `Lid-ID "${lidId}" bestaat al` : err.message)
+      return
+    }
     onSaved()
     onClose()
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.7)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backdropFilter: 'blur(4px)',
-    }}
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 12,
-        padding: '28px',
-        width: '100%', maxWidth: 460,
-        display: 'flex', flexDirection: 'column', gap: 18,
-      }}>
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
+
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
-            Actie toewijzen
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-            → {trainer.voornaam} {trainer.achternaam}
-          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Nieuw lid toevoegen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Handmatige invoer · bron: manual</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Omschrijving
-          </label>
-          <textarea
-            value={omschrijving}
-            onChange={e => setOmschrijving(e.target.value)}
-            placeholder="Wat moet deze trainer doen?"
-            rows={3}
-            style={{
-              background: 'var(--bg-raised)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 8,
-              padding: '9px 12px',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              resize: 'vertical',
-              fontFamily: 'inherit',
-            }}
-          />
+        {/* Row 1: lid_id + startdatum */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Lid-ID">
+            <input type="text" value={lidId} onChange={e => setLidId(e.target.value)} placeholder="WE-006" style={inputStyle} />
+          </Field>
+          <Field label="Startdatum">
+            <input type="date" value={startdatum} onChange={e => setStartdatum(e.target.value)} style={inputStyle} />
+          </Field>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Deadline (optioneel)
-          </label>
-          <input
-            type="date"
-            value={deadline}
-            onChange={e => setDeadline(e.target.value)}
-            style={{
-              background: 'var(--bg-raised)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 8,
-              padding: '9px 12px',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-            }}
-          />
+        {/* Row 2: voornaam + achternaam */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Voornaam">
+            <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)} placeholder="Jana" style={inputStyle} />
+          </Field>
+          <Field label="Achternaam">
+            <input type="text" value={achternaam} onChange={e => setAchternaam(e.target.value)} placeholder="de Wit" style={inputStyle} />
+          </Field>
         </div>
+
+        {/* Row 3: email + telefoon */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Email (optioneel)">
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jana@example.com" style={inputStyle} />
+          </Field>
+          <Field label="Telefoon (optioneel)">
+            <input type="tel" value={telefoon} onChange={e => setTelefoon(e.target.value)} placeholder="06 12345678" style={inputStyle} />
+          </Field>
+        </div>
+
+        {/* Trainer */}
+        <Field label="Trainer">
+          <select value={trainerId} onChange={e => setTrainerId(e.target.value)} style={{ ...inputStyle, color: trainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            <option value="">Selecteer trainer…</option>
+            {trainers.filter(t => t.actief).map(t => (
+              <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>
+            ))}
+          </select>
+        </Field>
 
         {error && (
           <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
@@ -217,26 +239,62 @@ function ActieModal({
         )}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: '1px solid var(--border-subtle)',
-              borderRadius: 8, padding: '9px 18px',
-              color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             Annuleren
           </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            style={{
-              background: 'var(--color-accent, #6366f1)', color: '#fff',
-              border: 'none', borderRadius: 8,
-              padding: '9px 18px', fontSize: 13, fontWeight: 600,
-              cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1,
-            }}
-          >
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Opslaan…' : 'Lid toevoegen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Actie Modal ────────────────────────────────────────────────────────
+
+function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: () => void; onSaved: () => void }) {
+  const [omschrijving, setOmschrijving] = useState('')
+  const [deadline,     setDeadline]     = useState('')
+  const [saving,       setSaving]       = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+
+  const save = async () => {
+    setError(null)
+    if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
+    setSaving(true)
+    const supabase = getSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error: err } = await supabase.from('acties').insert({
+      trainer_id: trainer.id, lid_id: null, type: 'custom',
+      omschrijving: omschrijving.trim(), deadline: deadline || null,
+      status: 'open', bron: 'management', afgerond: false,
+      aangemaakt_door: user?.id ?? null,
+    })
+    setSaving(false)
+    if (err) { setError(err.message); return }
+    onSaved(); onClose()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Actie toewijzen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {trainer.voornaam} {trainer.achternaam}</div>
+        </div>
+        <Field label="Omschrijving">
+          <textarea value={omschrijving} onChange={e => setOmschrijving(e.target.value)} placeholder="Wat moet deze trainer doen?" rows={3}
+            style={{ ...inputStyle, resize: 'vertical' }} />
+        </Field>
+        <Field label="Deadline (optioneel)">
+          <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={inputStyle} />
+        </Field>
+        {error && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuleren</button>
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Opslaan…' : 'Toewijzen'}
           </button>
         </div>
@@ -245,25 +303,21 @@ function ActieModal({
   )
 }
 
-// ── Console panel ──────────────────────────────────────────────────────
+// ── Console Panel ──────────────────────────────────────────────────────
 
 function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
-  const [tokens, setTokens]       = useState<ConsoleToken[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [formOpen, setFormOpen]   = useState(false)
-  const [newNaam, setNewNaam]     = useState('')
-  const [newTrainerId, setNewTrainerId] = useState('')
-  const [saving, setSaving]       = useState(false)
-  const [copiedId, setCopiedId]   = useState<string | null>(null)
+  const [tokens, setTokens]               = useState<ConsoleToken[]>([])
+  const [loading, setLoading]             = useState(true)
+  const [formOpen, setFormOpen]           = useState(false)
+  const [newNaam, setNewNaam]             = useState('')
+  const [newTrainerId, setNewTrainerId]   = useState('')
+  const [saving, setSaving]               = useState(false)
+  const [copiedId, setCopiedId]           = useState<string | null>(null)
 
   const loadTokens = useCallback(async () => {
     const supabase = getSupabase()
-    const { data } = await supabase
-      .from('console_tokens')
-      .select('id, token, naam, actief, trainer_id, aangemaakt_op, laatst_gebruikt')
-      .order('aangemaakt_op', { ascending: false })
-    const enriched = (data ?? []).map(t => ({ ...t, trainer: trainers.find(tr => tr.id === t.trainer_id) }))
-    setTokens(enriched)
+    const { data } = await supabase.from('console_tokens').select('id, token, naam, actief, trainer_id, aangemaakt_op, laatst_gebruikt').order('aangemaakt_op', { ascending: false })
+    setTokens((data ?? []).map(t => ({ ...t, trainer: trainers.find(tr => tr.id === t.trainer_id) })))
     setLoading(false)
   }, [trainers])
 
@@ -279,18 +333,13 @@ function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
     loadTokens()
   }
 
-  const revokeToken     = async (id: string) => { const s = getSupabase(); await s.from('console_tokens').update({ actief: false }).eq('id', id); loadTokens() }
-  const reactivateToken = async (id: string) => { const s = getSupabase(); await s.from('console_tokens').update({ actief: true  }).eq('id', id); loadTokens() }
+  const revokeToken     = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: false }).eq('id', id); loadTokens() }
+  const reactivateToken = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: true  }).eq('id', id); loadTokens() }
 
   const copyUrl = (t: ConsoleToken) => {
     navigator.clipboard.writeText(consoleUrl(t.token))
     setCopiedId(t.id)
     setTimeout(() => setCopiedId(null), 2000)
-  }
-
-  const inputStyle: React.CSSProperties = {
-    background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
-    borderRadius: 8, padding: '9px 12px', color: 'var(--text-primary)', fontSize: 14,
   }
 
   return (
@@ -309,18 +358,18 @@ function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Naam apparaat</label>
-              <input type="text" value={newNaam} onChange={e => setNewNaam(e.target.value)} placeholder="bijv. iPad Studio Vloer" style={inputStyle} />
+              <label style={labelStyle}>Naam apparaat</label>
+              <input type="text" value={newNaam} onChange={e => setNewNaam(e.target.value)} placeholder="bijv. iPad Studio Vloer" style={{ ...inputStyle, width: 'auto' }} />
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Trainer</label>
-              <select value={newTrainerId} onChange={e => setNewTrainerId(e.target.value)} style={{ ...inputStyle, color: newTrainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+              <label style={labelStyle}>Trainer</label>
+              <select value={newTrainerId} onChange={e => setNewTrainerId(e.target.value)} style={{ ...inputStyle, width: 'auto', color: newTrainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 <option value="">Selecteer trainer…</option>
                 {trainers.filter(t => t.actief).map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
               </select>
             </div>
           </div>
-          <button onClick={createToken} disabled={saving || !newNaam.trim() || !newTrainerId} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', alignSelf: 'flex-start', opacity: saving || !newNaam.trim() || !newTrainerId ? 0.5 : 1 }}>
+          <button onClick={createToken} disabled={saving || !newNaam.trim() || !newTrainerId} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start', opacity: saving || !newNaam.trim() || !newTrainerId ? 0.5 : 1 }}>
             {saving ? 'Aanmaken…' : 'Aanmaken'}
           </button>
         </div>
@@ -347,21 +396,29 @@ function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
   )
 }
 
-// ── Main page ──────────────────────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────────────
 
 export default function ManagementPage() {
   const [trainers, setTrainers]           = useState<Trainer[]>([])
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
+  const [nextLidId, setNextLidId]         = useState('WE-001')
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
+  const [showAddLid, setShowAddLid]       = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
 
   const load = useCallback(async () => {
     const supabase = getSupabase()
 
-    const [{ data: trainerData }, { data: ledenRaw }, { data: contacten }, { data: evaluaties }, { data: actiesData }] = await Promise.all([
+    const [
+      { data: trainerData },
+      { data: ledenRaw },
+      { data: contacten },
+      { data: evaluaties },
+      { data: actiesData },
+    ] = await Promise.all([
       supabase.from('trainers').select('id, voornaam, achternaam, naam, email, actief').order('achternaam'),
       supabase.from('leden').select('id, lid_id, voornaam, achternaam, actief, status, trainer_id').order('achternaam'),
       supabase.from('contact_momenten').select('lid_id, datum').order('datum', { ascending: false }),
@@ -369,7 +426,6 @@ export default function ManagementPage() {
       supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
     ])
 
-    // Enrich leden with last contact + eval signals
     const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
       const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
       const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
@@ -383,26 +439,26 @@ export default function ManagementPage() {
       }
     })
 
-    // Compute per-trainer stats
+    // Per-trainer stats
     const stats: Record<string, TrainerStats> = {}
     for (const t of trainerData ?? []) {
       const tLeden = enrichedLeden.filter(l => l.trainer_id === t.id && l.actief)
-      const openActies = (actiesData ?? []).filter(a => a.trainer_id === t.id).length
-      const lastContacts = tLeden
-        .map(l => l.laatste_contact)
-        .filter(Boolean)
-        .sort()
-        .reverse()
-
       stats[t.id] = {
-        trainer_id:      t.id,
-        totaal:          tLeden.length,
-        rood:            tLeden.filter(l => getStoplight(l) === 'red').length,
-        amber:           tLeden.filter(l => getStoplight(l) === 'amber').length,
-        open_acties:     openActies,
-        laatste_contact: lastContacts[0] ?? null,
+        trainer_id:  t.id,
+        totaal:      tLeden.length,
+        rood:        tLeden.filter(l => getStoplight(l) === 'red').length,
+        amber:       tLeden.filter(l => getStoplight(l) === 'amber').length,
+        open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
       }
     }
+
+    // Compute next lid_id
+    const ids = (ledenRaw ?? [])
+      .map(l => l.lid_id)
+      .filter(id => /^WE-\d+$/.test(id))
+      .map(id => parseInt(id.replace('WE-', ''), 10))
+    const maxId = ids.length > 0 ? Math.max(...ids) : 0
+    setNextLidId(`WE-${String(maxId + 1).padStart(3, '0')}`)
 
     setTrainers(trainerData ?? [])
     setLeden(enrichedLeden)
@@ -413,11 +469,11 @@ export default function ManagementPage() {
   useEffect(() => { load() }, [load])
 
   const counts: StudioCounts = {
-    actief:   leden.filter(l => l.status === 'actief').length,
-    bevroren: leden.filter(l => l.status === 'bevroren').length,
-    on_hold:  leden.filter(l => l.status === 'on_hold').length,
-    stopt:    leden.filter(l => l.status === 'stopt').length,
-    inactief: leden.filter(l => l.status === 'inactief' || !l.actief).length,
+    actief:   leden.filter(l => l.status?.toLowerCase() === 'actief').length,
+    bevroren: leden.filter(l => l.status?.toLowerCase() === 'bevroren').length,
+    on_hold:  leden.filter(l => l.status?.toLowerCase() === 'on_hold' || l.status?.toLowerCase() === 'on hold').length,
+    stopt:    leden.filter(l => l.status?.toLowerCase() === 'stopt').length,
+    inactief: leden.filter(l => l.status?.toLowerCase() === 'inactief' || !l.actief).length,
   }
 
   const visibleLeden = leden.filter(l =>
@@ -438,9 +494,14 @@ export default function ManagementPage() {
       <Navigation />
 
       {actieTrainer && (
-        <ActieModal
-          trainer={actieTrainer}
-          onClose={() => setActieTrainer(null)}
+        <ActieModal trainer={actieTrainer} onClose={() => setActieTrainer(null)} onSaved={() => setRefreshKey(k => k + 1)} />
+      )}
+
+      {showAddLid && (
+        <AddLidModal
+          trainers={trainers}
+          nextLidId={nextLidId}
+          onClose={() => setShowAddLid(false)}
           onSaved={() => setRefreshKey(k => k + 1)}
         />
       )}
@@ -448,9 +509,17 @@ export default function ManagementPage() {
       <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px 24px', maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
 
         {/* Title */}
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Management</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Management</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
+          </div>
+          <button
+            onClick={() => setShowAddLid(true)}
+            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            + Lid toevoegen
+          </button>
         </div>
 
         {/* Studio counts */}
@@ -469,19 +538,18 @@ export default function ManagementPage() {
           ))}
         </section>
 
-        {/* Trainers section */}
+        {/* Trainers */}
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainers</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{trainers.filter(t => t.actief).length} actief</div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 1, background: 'var(--border-subtle)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 1, background: 'var(--border-subtle)' }}>
             {trainers.map(t => {
-              const s = trainerStats[t.id] ?? { totaal: 0, rood: 0, amber: 0, open_acties: 0, laatste_contact: null }
+              const s = trainerStats[t.id] ?? { totaal: 0, rood: 0, amber: 0, open_acties: 0 }
               return (
                 <div key={t.id} style={{ background: 'var(--bg-surface)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Trainer identity */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t.voornaam} {t.achternaam}</div>
@@ -492,7 +560,7 @@ export default function ManagementPage() {
                     )}
                   </div>
 
-                  {/* Stats row */}
+                  {/* Stats */}
                   <div style={{ display: 'flex', gap: 16 }}>
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{s.totaal}</div>
@@ -518,24 +586,9 @@ export default function ManagementPage() {
                     )}
                   </div>
 
-                  {/* Last contact */}
-                  <div style={{ fontSize: 11, color: '#333' }}>
-                    Laatste contact: <span style={{ color: '#444' }}>{daysSinceLabel(s.laatste_contact)}</span>
-                  </div>
-
-                  {/* Assign action button */}
                   <button
                     onClick={() => setActieTrainer(t)}
-                    style={{
-                      background: 'none',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 6, padding: '6px 12px',
-                      color: 'var(--text-muted)', fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', alignSelf: 'flex-start',
-                      transition: 'border-color 0.15s, color 0.15s',
-                    }}
-                    onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = 'var(--text-primary)'; (e.target as HTMLButtonElement).style.borderColor = '#444' }}
-                    onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = 'var(--text-muted)'; (e.target as HTMLButtonElement).style.borderColor = 'var(--border-subtle)' }}
+                    style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
                   >
                     + Actie toewijzen
                   </button>
@@ -552,11 +605,7 @@ export default function ManagementPage() {
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden · {visibleLeden.length}</div>
-            <select
-              value={trainerFilter}
-              onChange={e => setTrainerFilter(e.target.value)}
-              style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}
-            >
+            <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
               <option value="allen">Alle trainers</option>
               {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
             </select>
@@ -577,7 +626,7 @@ export default function ManagementPage() {
                   <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center' }}>
                     <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{l.voornaam} {l.achternaam}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status ?? ''] ?? 'var(--text-muted)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
