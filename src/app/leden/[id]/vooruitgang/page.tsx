@@ -63,21 +63,7 @@ function sigCol(inv: boolean, val: number) {
   return       { fill: '#eef6d6', stroke: '#88c000', text: '#3a5e00' }
 }
 
-function overallTrend(evals: Evaluatie[]) {
-  if (evals.length < 2) return null
-  const first = evals[0], last = evals[evals.length - 1]
-  let pos = 0, neg = 0
-  METRICS.forEach(m => {
-    const f = first[m.key as keyof Evaluatie] as number | null
-    const l = last[m.key as keyof Evaluatie] as number | null
-    if (f === null || l === null) return
-    const diff = m.inv ? f - l : l - f
-    if (diff > 0) pos++; else if (diff < 0) neg++
-  })
-  if (pos >= neg + 2) return { label: '↑ Positieve trend', color: '#3a6e00' }
-  if (neg >= pos + 2) return { label: '↓ Aandacht nodig',  color: '#a03030' }
-  return { label: '→ Stabiel verloop', color: '#888' }
-}
+
 
 // ── Ring component ─────────────────────────────────────────────────────
 
@@ -213,21 +199,24 @@ function MetricChart({
   const latestVal = vals[selectedIdx]
   const col = latestVal !== null ? sigCol(metric.inv, latestVal) : { fill: '#f5f5f5', stroke: '#ccc', text: '#aaa' }
 
-  // delta first → last
-  const firstVal = vals.find(v => v !== null) ?? null
-  const lastVal  = [...vals].reverse().find(v => v !== null) ?? null
+  // delta: selected cyclus → last cyclus
+  const selectedVal = vals[selectedIdx] ?? null
+  const lastVal     = [...vals].reverse().find(v => v !== null) ?? null
   let deltaEl: React.ReactNode = null
-  if (firstVal !== null && lastVal !== null && firstVal !== lastVal) {
-    const diff = lastVal - firstVal
+  if (selectedVal !== null && lastVal !== null && selectedIdx !== evals.length - 1) {
+    const diff = lastVal - selectedVal
     const improved = metric.inv ? diff < 0 : diff > 0
     const sign = diff > 0 ? '+' : '−'
     deltaEl = (
-      <span style={{ fontSize: 12, fontWeight: 500, color: improved ? '#3a6e00' : '#a03030', minWidth: 32, textAlign: 'right' }}>
+      <span style={{ fontSize: 12, fontWeight: 500, color: improved ? '#3a6e00' : '#a03030', minWidth: 32, textAlign: 'right' }}
+        title={`C${evals[selectedIdx].cyclus} → C${evals[evals.length-1].cyclus}`}>
         {sign}{Math.abs(diff)}
       </span>
     )
-  } else {
+  } else if (selectedVal !== null && lastVal !== null) {
     deltaEl = <span style={{ fontSize: 12, color: '#ccc', minWidth: 32, textAlign: 'right' }}>±0</span>
+  } else {
+    deltaEl = <span style={{ minWidth: 32 }} />
   }
 
   // SVG paths
@@ -436,7 +425,6 @@ export default function VooruitgangPage() {
   )
 
   const selectedEval = evals[selectedIdx]
-  const trend = overallTrend(evals)
 
   return (
     <>
@@ -541,9 +529,7 @@ export default function VooruitgangPage() {
 
           {/* Footer */}
           <div className="vg-footer-strip">
-            {trend && (
-              <span style={{ fontSize: 12, fontWeight: 500, color: trend.color }}>{trend.label}</span>
-            )}
+<span />
             <span style={{ fontSize: 11, color: '#bbb' }}>
               {evals[0] ? formatDate(evals[0].datum) : ''} – {formatDate(selectedEval.datum)}
             </span>
