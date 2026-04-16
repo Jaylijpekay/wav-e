@@ -270,7 +270,7 @@ function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: 
       trainer_id: trainer.id, lid_id: null, type: 'custom',
       omschrijving: omschrijving.trim(), deadline: deadline || null,
       status: 'open', bron: 'management', afgerond: false,
-      aangemaakt_door: user?.id ?? null,
+      aangemaakt_door: null,
     })
     setSaving(false)
     if (err) { setError(err.message); return }
