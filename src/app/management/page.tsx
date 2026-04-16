@@ -410,6 +410,25 @@ export default function ManagementPage() {
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
   const [showAddLid, setShowAddLid]       = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
+  const [deactivating, setDeactivating]   = useState<string | null>(null)
+
+  const deactivateTrainer = async (t: Trainer) => {
+    if (!confirm(`Deactiveer trainer ${t.voornaam} ${t.achternaam}?\n\nDeze trainer wordt op inactief gezet. Hun data blijft bewaard.`)) return
+    setDeactivating(t.id)
+    const supabase = getSupabase()
+    await supabase.from('trainers').update({ actief: false }).eq('id', t.id)
+    setDeactivating(null)
+    setRefreshKey(k => k + 1)
+  }
+
+  const deactivateLid = async (l: Lid) => {
+    if (!confirm(`Deactiveer lid ${l.voornaam} ${l.achternaam}?\n\nDit lid wordt op inactief gezet. Hun data blijft bewaard.`)) return
+    setDeactivating(l.id)
+    const supabase = getSupabase()
+    await supabase.from('leden').update({ actief: false, status: 'inactief' }).eq('id', l.id)
+    setDeactivating(null)
+    setRefreshKey(k => k + 1)
+  }
 
   const load = useCallback(async () => {
     const supabase = getSupabase()
@@ -550,7 +569,7 @@ export default function ManagementPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', ''].map(h => (
+                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', '', ''].map(h => (
                   <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -584,6 +603,17 @@ export default function ManagementPage() {
                         + Actie
                       </button>
                     </td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      {t.actief && (
+                        <button
+                          onClick={() => deactivateTrainer(t)}
+                          disabled={deactivating === t.id}
+                          style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                        >
+                          {deactivating === t.id ? '…' : 'Deactiveer'}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -608,8 +638,8 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Naam', 'Trainer', 'Status', 'Lid-ID'].map(h => (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px auto', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Naam', 'Trainer', 'Status', 'Lid-ID', ''].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
               </div>
@@ -618,17 +648,27 @@ export default function ManagementPage() {
                 return (
                   <div
                     key={l.id}
-                    onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px auto', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{l.voornaam} {l.achternaam}</span>
+                    <span onClick={() => router.push(`/leden/${l.id}`)} style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, cursor: 'pointer' }}>{l.voornaam} {l.achternaam}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
+                    <span style={{ textAlign: 'right' }}>
+                      {l.actief && (
+                        <button
+                          onClick={e => { e.stopPropagation(); deactivateLid(l) }}
+                          disabled={deactivating === l.id}
+                          style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '4px 10px', color: '#f87171', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                        >
+                          {deactivating === l.id ? '…' : 'Deactiveer'}
+                        </button>
+                      )}
+                    </span>
                   </div>
                 )
               })}
