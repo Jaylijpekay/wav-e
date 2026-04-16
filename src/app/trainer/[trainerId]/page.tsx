@@ -19,12 +19,13 @@ type Lid = {
 
 type Actie = {
   id: string
-  lid_uuid: string
+  lid_uuid: string | null
   lid_id: string
   voornaam: string
   achternaam: string
   omschrijving: string
   aangemaakt: string
+  is_management: boolean
 }
 
 type LidDropdown = {
@@ -104,7 +105,8 @@ export default function TrainerDashboard() {
   useEffect(() => {
     const load = async () => {
       const supabase = getSupabase()
-      const { data: trainerData } = await supabase.from('trainers').select('id, naam').eq('id', trainerId).single()
+      const { data: trainerData } = await supabase
+        .from('trainers').select('id, naam').eq('id', trainerId).single()
       setTrainer(trainerData)
 
       const { data: ledenData } = await supabase
@@ -115,9 +117,18 @@ export default function TrainerDashboard() {
       setLedenDropdown(ledenData)
 
       const lidIds = ledenData.map(l => l.id)
-      const { data: contacten } = await supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false })
-      const { data: evaluaties } = await supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false })
-      const { data: actiesData } = await supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true })
+
+      const [
+        { data: contacten },
+        { data: evaluaties },
+        { data: actiesData },
+        { data: trainerActies },
+      ] = await Promise.all([
+        supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
+        supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
+        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
+        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').eq('trainer_id', trainerId as string).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
+      ])
 
       const openActiesPerLid: Record<string, number> = {}
       for (const a of actiesData ?? []) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
@@ -137,14 +148,25 @@ export default function TrainerDashboard() {
       })
 
       setLeden(enrichedLeden)
-      setActies((actiesData ?? []).map(a => {
+
+      const memberActies: Actie[] = (actiesData ?? []).map(a => {
         const lid = ledenData.find(l => l.id === a.lid_id)
         return {
           id: a.id, lid_uuid: a.lid_id, lid_id: lid?.lid_id ?? '—',
           voornaam: lid?.voornaam ?? '—', achternaam: lid?.achternaam ?? '',
           omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+          is_management: false,
         }
+      })
+
+      const mgmtActies: Actie[] = (trainerActies ?? []).map(a => ({
+        id: a.id, lid_uuid: null, lid_id: '',
+        voornaam: 'Management', achternaam: '',
+        omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+        is_management: true,
       }))
+
+      setActies([...mgmtActies, ...memberActies])
       setLoading(false)
     }
     if (trainerId) load()
@@ -447,12 +469,28 @@ export default function TrainerDashboard() {
         }
 
         .td-row:hover { background: #181818; }
+        .td-row.no-nav { cursor: default; }
 
         .td-row-main { min-width: 190px; flex: 0 0 190px; }
         .td-row-name { font-size: 0.875rem; font-weight: 600; color: #c8c6c0; margin-bottom: 3px; }
         .td-row-lid-id { font-size: 0.7rem; color: #3a3a3a; letter-spacing: 0.05em; }
         .td-row-actie { flex: 1; font-size: 0.82rem; color: #555; }
         .td-row-dagen { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
+
+        /* Management actie badge */
+        .td-mgmt-badge {
+          font-size: 0.58rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #818cf8;
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.2);
+          border-radius: 2px;
+          padding: 2px 6px;
+          margin-top: 3px;
+          display: inline-block;
+        }
 
         .td-empty {
           color: #2a2a2a;
@@ -597,20 +635,25 @@ export default function TrainerDashboard() {
               {acties.map(actie => {
                 const dagen = daysSince(actie.aangemaakt)
                 const isOud = dagen !== null && dagen > 7
-                const lid = leden.find(l => l.id === actie.lid_uuid)
+                const lid = actie.lid_uuid ? leden.find(l => l.id === actie.lid_uuid) : null
                 const stoplight = lid ? getStoplight(lid) : 'green'
-                const col = STOPLIGHT[stoplight]
+                const col = actie.is_management
+                  ? { dot: '#6366f1' }
+                  : STOPLIGHT[stoplight]
 
                 return (
                   <div
                     key={actie.id}
-                    className="td-row"
+                    className={`td-row${actie.is_management ? ' no-nav' : ''}`}
                     style={{ borderLeftColor: col.dot }}
-                    onClick={() => router.push(`/leden/${actie.lid_uuid}`)}
+                    onClick={() => { if (actie.lid_uuid) router.push(`/leden/${actie.lid_uuid}`) }}
                   >
                     <div className="td-row-main">
                       <div className="td-row-name">{actie.voornaam} {actie.achternaam}</div>
-                      <div className="td-row-lid-id">{actie.lid_id}</div>
+                      {actie.is_management
+                        ? <span className="td-mgmt-badge">Van management</span>
+                        : <div className="td-row-lid-id">{actie.lid_id}</div>
+                      }
                     </div>
                     <div className="td-row-actie">{actie.omschrijving}</div>
                     <div
