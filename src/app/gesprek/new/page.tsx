@@ -52,6 +52,7 @@ export default function GesprekNew() {
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
   const [gewicht, setGewicht] = useState('')
   const [vetpercentage, setVetpercentage] = useState('')
+  const [spiermassa, setSpiermassa] = useState('')
   const [doelen, setDoelen] = useState<boolean | null>(null)
   const [notities, setNotities] = useState('')
   const [scores, setScores] = useState<Record<string, number>>({
@@ -97,6 +98,7 @@ export default function GesprekNew() {
       voeding: scores.voeding, beweging: scores.beweging, motivatie: scores.motivatie,
       gewicht_kg: gewicht ? parseFloat(gewicht) : null,
       vetpercentage: vetpercentage ? parseFloat(vetpercentage) : null,
+      spiermassa_kg: spiermassa ? parseFloat(spiermassa) : null,
       doelen_behaald: doelen,
       notities: notities || null,
       aangemaakt_door: user?.id ?? null,
@@ -507,6 +509,10 @@ export default function GesprekNew() {
               <div className="gn-field">
                 <label className="gn-label">Vetpercentage (%)</label>
                 <input type="number" step="0.1" min="0" max="100" placeholder="18.0" className="gn-input" value={vetpercentage} onChange={e => setVetpercentage(e.target.value)} />
+              </div>
+              <div className="gn-field">
+                <label className="gn-label">Spiermassa (kg)</label>
+                <input type="number" step="0.1" min="0" max="200" placeholder="35.0" className="gn-input" value={spiermassa} onChange={e => setSpiermassa(e.target.value)} />
               </div>
             </div>
           </section>
