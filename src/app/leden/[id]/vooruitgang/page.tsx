@@ -200,8 +200,8 @@ function MetricChart({
   selectedIdx: number
   onSelect: (i: number) => void
 }) {
-  const W = 460, H = 56
-  const padL = 6, padR = 6, padT = 10, padB = 18
+  const W = 460, H = 100
+  const padL = 6, padR = 6, padT = 10, padB = 22
   const chartW = W - padL - padR
   const chartH = H - padT - padB
   const n = evals.length
