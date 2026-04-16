@@ -32,13 +32,12 @@ type Lid = {
 // ── Config ─────────────────────────────────────────────────────────────
 
 const METRICS = [
-  { key: 'slaap',        label: 'Slaap',        icon: '🌙', inv: false, color: '#4a90d9', tip: (v: number) => v >= 7 ? 'Goed hersteld ✓' : v >= 6 ? 'Bijna op niveau' : 'Slaaptekort — aandacht!' },
-  { key: 'energie',      label: 'Energie',      icon: '⚡', inv: false, color: '#d4a017', tip: (v: number) => v >= 7 ? 'Vol energie ✓' : v >= 6 ? 'Redelijk' : 'Energieniveau laag' },
-  { key: 'stress',       label: 'Stress',       icon: '🧠', inv: true,  color: '#d94040', tip: (v: number) => v <= 5 ? 'Lekker ontspannen ✓' : v <= 7 ? 'Beheersbaar' : 'Hoge stressbelasting!' },
-  { key: 'voeding',      label: 'Voeding',      icon: '🥗', inv: false, color: '#52a84a', tip: (v: number) => v >= 7 ? 'Voeding op orde ✓' : v >= 6 ? 'Goed bezig' : 'Ruimte voor verbetering' },
-  { key: 'beweging',     label: 'Beweging',     icon: '🏃', inv: false, color: '#1ab3a0', tip: (v: number) => v >= 7 ? 'Actief bezig ✓' : v >= 6 ? 'Goed' : 'Meer beweging gewenst' },
-  { key: 'motivatie',    label: 'Motivatie',    icon: '🎯', inv: false, color: '#9b6fd4', tip: (v: number) => v >= 8 ? 'Hoog gemotiveerd ✓' : v >= 6 ? 'Betrokken' : 'Motivatie aandacht' },
-  { key: 'tevredenheid', label: 'Tevredenheid', icon: '✨', inv: false, color: '#e07b40', tip: (v: number) => v >= 7 ? 'Tevreden ✓' : v >= 6 ? 'Neutraal' : 'Ontevreden' },
+  { key: 'slaap',    label: 'Slaap',    icon: '🌙', inv: false, color: '#4a90d9', tip: (v: number) => v >= 7 ? 'Goed hersteld ✓'       : v >= 6 ? 'Bijna op niveau'  : 'Slaaptekort — aandacht!' },
+  { key: 'energie',  label: 'Energie',  icon: '⚡', inv: false, color: '#d4a017', tip: (v: number) => v >= 7 ? 'Vol energie ✓'          : v >= 6 ? 'Redelijk'          : 'Energieniveau laag'      },
+  { key: 'stress',   label: 'Stress',   icon: '🧠', inv: true,  color: '#d94040', tip: (v: number) => v <= 5 ? 'Lekker ontspannen ✓'    : v <= 7 ? 'Beheersbaar'       : 'Hoge stressbelasting!'   },
+  { key: 'voeding',  label: 'Voeding',  icon: '🥗', inv: false, color: '#52a84a', tip: (v: number) => v >= 7 ? 'Voeding op orde ✓'      : v >= 6 ? 'Goed bezig'        : 'Ruimte voor verbetering' },
+  { key: 'beweging', label: 'Beweging', icon: '🏃', inv: false, color: '#1ab3a0', tip: (v: number) => v >= 7 ? 'Actief bezig ✓'         : v >= 6 ? 'Goed'              : 'Meer beweging gewenst'   },
+  { key: 'motivatie',label: 'Motivatie',icon: '🎯', inv: false, color: '#9b6fd4', tip: (v: number) => v >= 8 ? 'Hoog gemotiveerd ✓'     : v >= 6 ? 'Betrokken'         : 'Motivatie aandacht'      },
 ] as const
 
 type MetricKey = typeof METRICS[number]['key']
@@ -432,7 +431,7 @@ export default function VooruitgangPage() {
         .vg-cyc-btn { padding: 4px 14px; border-radius: 20px; border: 1.5px solid #dde0d8; background: #fafafa; color: #888; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: Raleway, sans-serif; white-space: nowrap; }
         .vg-cyc-btn:hover { border-color: #92b800; color: #4a6e00; background: #f4f7ec; }
         .vg-cyc-btn.active { border-color: #7aad00; background: #eef5d0; color: #3a5e00; }
-        .vg-rings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 20px 24px; border-bottom: 1px solid #f0f0f0; }
+        .vg-rings { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 20px 24px; border-bottom: 1px solid #f0f0f0; }
         .vg-tabs { display: flex; gap: 4px; padding: 14px 24px 0; }
         .vg-tab { padding: 6px 16px; border-radius: 8px 8px 0 0; border: 1px solid transparent; background: transparent; color: #aaa; font-family: Raleway, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.15s; border-bottom: none; }
         .vg-tab.active { background: #f8faf3; border-color: #e5ecd0; color: #4a6e00; }
@@ -473,9 +472,9 @@ export default function VooruitgangPage() {
             ))}
           </div>
 
-          {/* Rings */}
+          {/* Rings — all 6 leefstijl metrics */}
           <div className="vg-rings">
-            {METRICS.slice(0, 4).map(m => (
+            {METRICS.map(m => (
               <Ring
                 key={m.key}
                 metric={m}
