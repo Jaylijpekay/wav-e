@@ -601,8 +601,8 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Naam', 'Trainer', 'Status', 'Lid-ID'].map(h => (
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 120px 100px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['', 'Naam', 'Trainer', 'Status', 'Lid-ID'].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
               </div>
@@ -612,10 +612,11 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
+                    style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
+                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: { red: '#dc2626', amber: '#d97706', green: '#16a34a' }[getStoplight(l)], flexShrink: 0 }} />
                     <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{l.voornaam} {l.achternaam}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
