@@ -145,12 +145,10 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // /gesprek is trainer-only.
-  // /leden (exact) is trainer-only — the member list belongs to the trainer view.
-  // /leden/[id] and deeper routes are accessible to management too (read-only detail).
-  const isTrainerOnly =
-    pathname.startsWith('/gesprek') ||
-    pathname === '/leden'
+  // /leden (exact list) is trainer-only — management has their own overview.
+  // /leden/[id] and deeper + /gesprek are accessible to both trainer and management
+  // (Karim is management but also acts as trainer).
+  const isTrainerOnly = pathname === '/leden'
 
   if (isTrainerOnly && role !== 'trainer' && user.id !== ADMIN_UUID) {
     return NextResponse.redirect(new URL('/management', request.url))

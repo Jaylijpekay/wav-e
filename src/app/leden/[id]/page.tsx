@@ -146,10 +146,13 @@ export default function LedenDetail() {
   const [contactType, setContactType] = useState('check-in')
   const [contactNotities, setContactNotities] = useState('')
   const [savingContact, setSavingContact] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       const supabase = getSupabase()
+      const { data: roleData } = await supabase.rpc('get_my_role')
+      setRole(roleData ?? null)
       const { data: lidData } = await supabase.from('leden').select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, startdatum, actief').eq('id', id).single()
       setLid(lidData)
       const { data: evalData } = await supabase.from('evaluaties').select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm').eq('lid_id', id).order('cyclus', { ascending: false })
