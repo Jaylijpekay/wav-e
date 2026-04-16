@@ -22,7 +22,7 @@ type Evaluatie = {
   buikomvang_cm: number | null
   doelen_behaald: boolean | null
   notities: string | null
-  trainer: { voornaam: string; achternaam: string } | null
+  trainer: { voornaam: string; achternaam: string }[] | null
 }
 
 type Lid = {
@@ -133,7 +133,7 @@ export default function EvaluatieDetail() {
     </div>
   )
 
-  const trainerName = ev.trainer ? `${ev.trainer.voornaam} ${ev.trainer.achternaam}` : '—'
+  const trainerName = ev.trainer?.[0] ? `${ev.trainer[0].voornaam} ${ev.trainer[0].achternaam}` : '—'
 
   return (
     <>

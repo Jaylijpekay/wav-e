@@ -148,7 +148,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (TRAINER_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
-    if (role !== 'trainer') {
+    if (role !== 'trainer' && user.id !== ADMIN_UUID) {
       return NextResponse.redirect(new URL('/management', request.url))
     }
   }
