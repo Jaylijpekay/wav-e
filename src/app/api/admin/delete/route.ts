@@ -40,15 +40,36 @@ export async function DELETE(req: NextRequest) {
   if (!target_user_id) {
     return NextResponse.json({ error: 'target_user_id verplicht' }, { status: 400 })
   }
-
   if (target_user_id === ADMIN_UUID) {
     return NextResponse.json({ error: 'Admin account kan niet verwijderd worden' }, { status: 403 })
   }
 
   const supabase = getServiceClient()
 
+  // 1. Fetch user_roles to determine role and trainer_id before deleting
+  const { data: roleRow } = await supabase
+    .from('user_roles')
+    .select('role, trainer_id')
+    .eq('user_id', target_user_id)
+    .single()
+
+  // 2. Delete profile row from the correct table
+  if (roleRow?.role === 'trainer' && roleRow.trainer_id) {
+    await supabase.from('trainers').delete().eq('id', roleRow.trainer_id)
+  }
+
+  if (roleRow?.role === 'management') {
+    // management_gebruikers is keyed by email — fetch email from auth first
+    const { data: { user: authUser } } = await supabase.auth.admin.getUserById(target_user_id)
+    if (authUser?.email) {
+      await supabase.from('management_gebruikers').delete().eq('email', authUser.email)
+    }
+  }
+
+  // 3. Delete user_roles row
   await supabase.from('user_roles').delete().eq('user_id', target_user_id)
 
+  // 4. Delete auth user
   const { error } = await supabase.auth.admin.deleteUser(target_user_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

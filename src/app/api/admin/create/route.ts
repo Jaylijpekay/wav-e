@@ -35,22 +35,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { email, password, role, trainer_id } = await req.json()
+  const { email, password, role, voornaam, achternaam } = await req.json()
 
   if (!email || !password || !role) {
-    return NextResponse.json({ error: 'email, password en role zijn verplicht' }, { status: 400 })
+    return NextResponse.json({ error: 'Email, wachtwoord en rol zijn verplicht' }, { status: 400 })
   }
-
   if (!['management', 'trainer'].includes(role)) {
     return NextResponse.json({ error: 'Ongeldige rol' }, { status: 400 })
   }
-
-  if (role === 'trainer' && !trainer_id) {
-    return NextResponse.json({ error: 'trainer_id verplicht voor trainer rol' }, { status: 400 })
+  if (!voornaam?.trim() || !achternaam?.trim()) {
+    return NextResponse.json({ error: 'Voornaam en achternaam zijn verplicht' }, { status: 400 })
   }
 
   const supabase = getServiceClient()
 
+  // 1. Create auth user
   const { data: { user }, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -61,17 +60,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: createError?.message ?? 'Aanmaken mislukt' }, { status: 500 })
   }
 
-  const { error: roleError } = await supabase
-    .from('user_roles')
-    .insert({
-      user_id: user.id,
-      role,
-      trainer_id: role === 'trainer' ? trainer_id : null,
-    })
+  // 2a. Trainer → trainers table
+  if (role === 'trainer') {
+    const { data: trainerRow, error: trainerErr } = await supabase
+      .from('trainers')
+      .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, rol: 'trainer', actief: true })
+      .select('id')
+      .single()
 
-  if (roleError) {
-    await supabase.auth.admin.deleteUser(user.id)
-    return NextResponse.json({ error: roleError.message }, { status: 500 })
+    if (trainerErr || !trainerRow) {
+      await supabase.auth.admin.deleteUser(user.id)
+      return NextResponse.json({ error: trainerErr?.message ?? 'Trainer aanmaken mislukt' }, { status: 500 })
+    }
+
+    const { error: roleErr } = await supabase
+      .from('user_roles')
+      .insert({ user_id: user.id, role: 'trainer', trainer_id: trainerRow.id })
+
+    if (roleErr) {
+      await supabase.from('trainers').delete().eq('id', trainerRow.id)
+      await supabase.auth.admin.deleteUser(user.id)
+      return NextResponse.json({ error: roleErr.message }, { status: 500 })
+    }
+  }
+
+  // 2b. Management → management_gebruikers table
+  if (role === 'management') {
+    const { data: mgmtRow, error: mgmtErr } = await supabase
+      .from('management_gebruikers')
+      .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, actief: true })
+      .select('id')
+      .single()
+
+    if (mgmtErr || !mgmtRow) {
+      await supabase.auth.admin.deleteUser(user.id)
+      return NextResponse.json({ error: mgmtErr?.message ?? 'Management aanmaken mislukt' }, { status: 500 })
+    }
+
+    const { error: roleErr } = await supabase
+      .from('user_roles')
+      .insert({ user_id: user.id, role: 'management', trainer_id: null })
+
+    if (roleErr) {
+      await supabase.from('management_gebruikers').delete().eq('id', mgmtRow.id)
+      await supabase.auth.admin.deleteUser(user.id)
+      return NextResponse.json({ error: roleErr.message }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ success: true, user_id: user.id })

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@supabase/supabase-js'
 
 // ============================================================
 // TYPES
@@ -14,12 +13,6 @@ type UserRow = {
   role: 'admin' | 'management' | 'trainer' | null
   trainer_id: string | null
   trainer_naam: string | null
-}
-
-type Trainer = {
-  id: string
-  voornaam: string
-  achternaam: string
 }
 
 // ============================================================
@@ -37,17 +30,42 @@ function RoleBadge({ role }: { role: string | null }) {
   if (!s) return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
   return (
     <span style={{
-      fontSize: 11,
-      fontWeight: 700,
-      padding: '3px 10px',
-      borderRadius: 20,
-      background: s.bg,
-      color: s.color,
-      letterSpacing: '0.04em',
-      textTransform: 'uppercase',
+      fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+      background: s.bg, color: s.color, letterSpacing: '0.04em', textTransform: 'uppercase',
     }}>
       {s.label}
     </span>
+  )
+}
+
+// ============================================================
+// SHARED STYLES
+// ============================================================
+
+const inputStyle: React.CSSProperties = {
+  background: 'var(--bg-raised)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 8,
+  padding: '9px 12px',
+  color: 'var(--text-primary)',
+  fontSize: 14,
+  width: '100%',
+  boxSizing: 'border-box',
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={labelStyle}>{label}</label>
+      {children}
+    </div>
   )
 }
 
@@ -56,56 +74,58 @@ function RoleBadge({ role }: { role: string | null }) {
 // ============================================================
 
 export default function AdminPage() {
-  const [users, setUsers] = useState<UserRow[]>([])
-  const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [users, setUsers]         = useState<UserRow[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [showForm, setShowForm]   = useState(false)
+  const [deleting, setDeleting]   = useState<string | null>(null)
 
-  // New user form state
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'management' | 'trainer'>('management')
-  const [trainerId, setTrainerId] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
+  // Form
+  const [voornaam,   setVoornaam]   = useState('')
+  const [achternaam, setAchternaam] = useState('')
+  const [email,      setEmail]      = useState('')
+  const [password,   setPassword]   = useState('')
+  const [role,       setRole]       = useState<'trainer' | 'management'>('trainer')
+  const [saving,     setSaving]     = useState(false)
+  const [formError,  setFormError]  = useState<string | null>(null)
+  const [formOk,     setFormOk]     = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [usersRes, trainersRes] = await Promise.all([
-      fetch('/api/admin/list'),
-      fetch('/api/admin/trainers'),
-    ])
-    const usersData = await usersRes.json()
-    const trainersData = await trainersRes.json()
-    setUsers(usersData.users ?? [])
-    setTrainers(trainersData.trainers ?? [])
+    const res = await fetch('/api/admin/list')
+    const data = await res.json()
+    setUsers(data.users ?? [])
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
+  const resetForm = () => {
+    setVoornaam(''); setAchternaam(''); setEmail(''); setPassword('')
+    setRole('trainer'); setFormError(null); setFormOk(null)
+  }
+
   const createUser = async () => {
-    setFormError(null)
+    setFormError(null); setFormOk(null)
+    if (!voornaam.trim() || !achternaam.trim()) { setFormError('Voornaam en achternaam zijn verplicht'); return }
     if (!email || !password) { setFormError('Email en wachtwoord zijn verplicht'); return }
-    if (role === 'trainer' && !trainerId) { setFormError('Selecteer een trainer'); return }
+
     setSaving(true)
     const res = await fetch('/api/admin/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, role, trainer_id: trainerId || null }),
+      body: JSON.stringify({ voornaam, achternaam, email, password, role }),
     })
     const data = await res.json()
     setSaving(false)
+
     if (!res.ok) { setFormError(data.error); return }
-    setEmail(''); setPassword(''); setRole('management'); setTrainerId('')
-    setShowForm(false)
+    setFormOk(`${voornaam} ${achternaam} aangemaakt als ${role}.`)
+    resetForm()
     load()
   }
 
   const deleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`Verwijder gebruiker ${userEmail}? Dit kan niet ongedaan worden gemaakt.`)) return
+    if (!confirm(`Verwijder gebruiker ${userEmail}?\n\nDit verwijdert ook het bijbehorende profiel. Niet ongedaan te maken.`)) return
     setDeleting(userId)
     const res = await fetch('/api/admin/delete', {
       method: 'DELETE',
@@ -121,11 +141,8 @@ export default function AdminPage() {
 
       {/* Header */}
       <div style={{
-        borderBottom: '1px solid var(--border-subtle)',
-        padding: '20px 32px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        borderBottom: '1px solid var(--border-subtle)', padding: '20px 32px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'var(--bg-surface)',
       }}>
         <div>
@@ -133,16 +150,12 @@ export default function AdminPage() {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Gebruikersbeheer · Wav-e</div>
         </div>
         <button
-          onClick={() => { setShowForm(f => !f); setFormError(null) }}
+          onClick={() => { setShowForm(f => !f); resetForm() }}
           style={{
             background: showForm ? 'var(--bg-raised)' : 'var(--color-accent, #6366f1)',
             color: showForm ? 'var(--text-muted)' : '#fff',
             border: showForm ? '1px solid var(--border-subtle)' : 'none',
-            borderRadius: 8,
-            padding: '9px 18px',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
+            borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }}
         >
           {showForm ? '× Annuleren' : '+ Nieuwe gebruiker'}
@@ -151,116 +164,68 @@ export default function AdminPage() {
 
       <div style={{ padding: '32px', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
+        {/* Success banner (outside form, persists after form closes) */}
+        {formOk && !showForm && (
+          <div style={{ fontSize: 13, color: '#4ade80', padding: '10px 16px', background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)' }}>
+            ✓ {formOk}
+          </div>
+        )}
+
         {/* Create form */}
         {showForm && (
           <div style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 12,
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
+            background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
+            borderRadius: 12, padding: '24px', display: 'flex', flexDirection: 'column', gap: 16,
           }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Nieuwe gebruiker aanmaken</div>
 
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="naam@wav-e.nl"
-                  style={{
-                    background: 'var(--bg-raised)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: '9px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: 14,
-                  }}
-                />
-              </div>
-              <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wachtwoord</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Min. 8 tekens"
-                  style={{
-                    background: 'var(--bg-raised)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: '9px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: 14,
-                  }}
-                />
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol</label>
-                <select
-                  value={role}
-                  onChange={e => { setRole(e.target.value as 'management' | 'trainer'); setTrainerId('') }}
-                  style={{
-                    background: 'var(--bg-raised)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: '9px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: 14,
-                  }}
-                >
-                  <option value="management">Management</option>
-                  <option value="trainer">Trainer</option>
-                </select>
-              </div>
+            {/* Row 1: naam */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Voornaam">
+                <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)}
+                  placeholder="Robin" style={inputStyle} />
+              </Field>
+              <Field label="Achternaam">
+                <input type="text" value={achternaam} onChange={e => setAchternaam(e.target.value)}
+                  placeholder="de Vries" style={inputStyle} />
+              </Field>
             </div>
 
-            {role === 'trainer' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Koppel aan trainer</label>
-                <select
-                  value={trainerId}
-                  onChange={e => setTrainerId(e.target.value)}
-                  style={{
-                    background: 'var(--bg-raised)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: '9px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: 14,
-                  }}
-                >
-                  <option value="">Selecteer trainer…</option>
-                  {trainers.map(t => (
-                    <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>
-                  ))}
+            {/* Row 2: credentials + rol */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: 12 }}>
+              <Field label="Email">
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="naam@wav-e.nl" style={inputStyle} />
+              </Field>
+              <Field label="Wachtwoord">
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Min. 8 tekens" style={inputStyle} />
+              </Field>
+              <Field label="Rol">
+                <select value={role} onChange={e => setRole(e.target.value as 'trainer' | 'management')} style={inputStyle}>
+                  <option value="trainer">Trainer</option>
+                  <option value="management">Management</option>
                 </select>
-              </div>
-            )}
+              </Field>
+            </div>
 
             {formError && (
-              <div style={{ fontSize: 13, color: 'var(--color-red, #f87171)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
+              <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
                 {formError}
+              </div>
+            )}
+            {formOk && (
+              <div style={{ fontSize: 13, color: '#4ade80', padding: '8px 12px', background: 'rgba(22,163,74,0.07)', borderRadius: 8 }}>
+                ✓ {formOk}
               </div>
             )}
 
             <button
-              onClick={createUser}
-              disabled={saving}
+              onClick={createUser} disabled={saving}
               style={{
-                background: 'var(--color-accent, #6366f1)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                padding: '10px 20px',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: saving ? 'default' : 'pointer',
-                alignSelf: 'flex-start',
+                background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 600,
+                cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1, alignSelf: 'flex-start',
               }}
             >
               {saving ? 'Aanmaken…' : 'Aanmaken'}
@@ -269,20 +234,10 @@ export default function AdminPage() {
         )}
 
         {/* User list */}
-        <div style={{
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 12,
-          overflow: 'hidden',
-        }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{
-            padding: '16px 24px',
-            borderBottom: '1px solid var(--border-subtle)',
-            fontSize: 11,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--text-muted)',
+            padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)',
+            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)',
           }}>
             Gebruikers ({users.length})
           </div>
@@ -294,16 +249,15 @@ export default function AdminPage() {
           ) : (
             users.map((u, i) => (
               <div key={u.id} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                padding: '14px 24px',
+                display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px',
                 borderBottom: i < users.length - 1 ? '1px solid var(--border-subtle)' : 'none',
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{u.email}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {u.trainer_naam ?? u.email}
+                  </div>
                   {u.trainer_naam && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>→ {u.trainer_naam}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{u.email}</div>
                   )}
                 </div>
                 <RoleBadge role={u.role} />
@@ -312,14 +266,10 @@ export default function AdminPage() {
                     onClick={() => deleteUser(u.id, u.email ?? '')}
                     disabled={deleting === u.id}
                     style={{
-                      background: 'none',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 6,
-                      color: 'var(--color-red, #f87171)',
-                      padding: '4px 10px',
-                      fontSize: 12,
+                      background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6,
+                      color: '#f87171', padding: '5px 12px', fontSize: 12, fontWeight: 600,
                       cursor: deleting === u.id ? 'default' : 'pointer',
-                      opacity: deleting === u.id ? 0.5 : 1,
+                      opacity: deleting === u.id ? 0.5 : 1, transition: 'opacity 0.15s',
                     }}
                   >
                     {deleting === u.id ? '…' : 'Verwijder'}
