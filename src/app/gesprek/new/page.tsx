@@ -11,6 +11,13 @@ type Lid = {
   lid_id: string
   voornaam: string
   achternaam: string
+  trainer_id: string
+}
+
+type Trainer = {
+  id: string
+  voornaam: string
+  achternaam: string
 }
 
 type SliderField = {
@@ -43,6 +50,7 @@ const COLORS = {
 export default function GesprekNew() {
   const router = useRouter()
   const [leden, setLeden] = useState<Lid[]>([])
+  const [role, setRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,19 +68,21 @@ export default function GesprekNew() {
   })
 
   useEffect(() => {
+    const load = async () => {
     const params = new URLSearchParams(window.location.search)
     const prefill = params.get('lid_id')
     if (prefill) setLidId(prefill)
 
-    getSupabase()
-      .from('leden')
-      .select('id, lid_id, voornaam, achternaam')
-      .eq('actief', true)
-      .order('achternaam')
-      .then(({ data }) => {
-        setLeden(data ?? [])
-        setLoading(false)
-      })
+    const supabase = getSupabase()
+    const [{ data: ledenData }, { data: roleData }] = await Promise.all([
+      supabase.from('leden').select('id, lid_id, voornaam, achternaam, trainer_id').eq('actief', true).order('achternaam'),
+      supabase.rpc('get_my_role'),
+    ])
+    setLeden(ledenData ?? [])
+    setRole(roleData ?? null)
+    setLoading(false)
+    }
+    load()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,9 +93,9 @@ export default function GesprekNew() {
 
     const supabase = getSupabase()
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: trainerData } = await supabase.from('trainers').select('id').limit(1)
-    const trainerId = trainerData?.[0]?.id
-    if (!trainerId) { setError('Geen trainer gevonden.'); setSaving(false); return }
+    const selectedLid = leden.find(l => l.id === lidId)
+    const trainerId = selectedLid?.trainer_id
+    if (!trainerId) { setError('Geen trainer gekoppeld aan dit lid.'); setSaving(false); return }
 
     const { data: evalData } = await supabase
       .from('evaluaties').select('cyclus').eq('lid_id', lidId)
