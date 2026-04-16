@@ -11,6 +11,8 @@ const MANAGEMENT_ONLY_ROUTES = ['/management']
 
 const ADMIN_ONLY_ROUTES = ['/admin', '/api/admin']
 
+const TRAINER_ONLY_ROUTES = ['/gesprek', '/leden']
+
 const CONSOLE_ROUTE = '/console'
 
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
@@ -114,7 +116,6 @@ export async function middleware(request: NextRequest) {
     if (user.id !== ADMIN_UUID) {
       return NextResponse.redirect(new URL('/', request.url))
     }
-    // Pass user id for API route auth checks
     response.headers.set('x-user-id', user.id)
     response.headers.set('x-auth-mode', 'session')
     return response
@@ -132,13 +133,20 @@ export async function middleware(request: NextRequest) {
 
   const role = roleRow?.role
 
+  // Root redirect — send each role to their home
+  if (pathname === '/') {
+    if (user.id === ADMIN_UUID) return NextResponse.redirect(new URL('/admin', request.url))
+    if (role === 'management') return NextResponse.redirect(new URL('/management', request.url))
+    if (role === 'trainer') return NextResponse.redirect(new URL('/leden', request.url))
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
   if (MANAGEMENT_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
     if (role !== 'management' && user.id !== ADMIN_UUID) {
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
-  const TRAINER_ONLY_ROUTES = ['/gesprek', '/leden']
   if (TRAINER_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
     if (role !== 'trainer') {
       return NextResponse.redirect(new URL('/management', request.url))
