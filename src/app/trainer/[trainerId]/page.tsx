@@ -630,43 +630,105 @@ export default function TrainerDashboard() {
             <div className="td-empty">Laden…</div>
           ) : acties.length === 0 ? (
             <div className="td-empty">Geen open acties.</div>
-          ) : (
-            <div className="td-list">
-              {acties.map(actie => {
-                const dagen = daysSince(actie.aangemaakt)
-                const isOud = dagen !== null && dagen > 7
-                const lid = actie.lid_uuid ? leden.find(l => l.id === actie.lid_uuid) : null
-                const stoplight = lid ? getStoplight(lid) : 'green'
-                const col = actie.is_management
-                  ? { dot: '#6366f1' }
-                  : STOPLIGHT[stoplight]
+          ) : (() => {
+            // Split management vs member acties
+            const mgmt   = acties.filter(a => a.is_management)
+            const member = acties.filter(a => !a.is_management)
 
-                return (
-                  <div
-                    key={actie.id}
-                    className={`td-row${actie.is_management ? ' no-nav' : ''}`}
-                    style={{ borderLeftColor: col.dot }}
-                    onClick={() => { if (actie.lid_uuid) router.push(`/leden/${actie.lid_uuid}`) }}
-                  >
-                    <div className="td-row-main">
-                      <div className="td-row-name">{actie.voornaam} {actie.achternaam}</div>
-                      {actie.is_management
-                        ? <span className="td-mgmt-badge">Van management</span>
-                        : <div className="td-row-lid-id">{actie.lid_id}</div>
-                      }
+            // Group member acties by lid_uuid, preserving stoplight order (red → amber → green)
+            const lidOrder = leden
+              .slice()
+              .sort((a, b) => {
+                const order = { red: 0, amber: 1, green: 2 }
+                return order[getStoplight(a)] - order[getStoplight(b)]
+              })
+              .map(l => l.id)
+
+            const groups: Record<string, Actie[]> = {}
+            for (const a of member) {
+              if (!a.lid_uuid) continue
+              if (!groups[a.lid_uuid]) groups[a.lid_uuid] = []
+              groups[a.lid_uuid].push(a)
+            }
+
+            const sortedLidIds = Object.keys(groups).sort(
+              (a, b) => lidOrder.indexOf(a) - lidOrder.indexOf(b)
+            )
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                {/* Management group */}
+                {mgmt.length > 0 && (
+                  <div className="td-list">
+                    <div style={{ padding: '8px 20px 6px', background: '#111', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block' }} />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#818cf8' }}>Management</span>
+                      <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{mgmt.length}</span>
                     </div>
-                    <div className="td-row-actie">{actie.omschrijving}</div>
-                    <div
-                      className="td-row-dagen"
-                      style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}
-                    >
-                      {dagen === null ? '—' : `${dagen}d`}
-                    </div>
+                    {mgmt.map(actie => {
+                      const dagen = daysSince(actie.aangemaakt)
+                      const isOud = dagen !== null && dagen > 7
+                      return (
+                        <div key={actie.id} className="td-row no-nav" style={{ borderLeftColor: '#6366f1' }}>
+                          <div className="td-row-actie" style={{ color: '#888' }}>{actie.omschrijving}</div>
+                          <div className="td-row-dagen" style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}>
+                            {dagen === null ? '—' : `${dagen}d`}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
-            </div>
-          )}
+                )}
+
+                {/* Per-lid groups */}
+                {sortedLidIds.map(lidUuid => {
+                  const lidActies = groups[lidUuid]
+                  const lid = leden.find(l => l.id === lidUuid)
+                  const sig = lid ? getStoplight(lid) : 'green'
+                  const col = STOPLIGHT[sig]
+
+                  return (
+                    <div key={lidUuid} className="td-list">
+                      {/* Group header — clickable → member page */}
+                      <div
+                        style={{ padding: '8px 20px 6px', background: '#111', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                        onClick={() => router.push(`/leden/${lidUuid}`)}
+                      >
+                        <span style={{ width: 3, height: 12, background: col.dot, borderRadius: 2, display: 'inline-block' }} />
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: col.text }}>
+                          {lid ? `${lid.voornaam} ${lid.achternaam}` : '—'}
+                        </span>
+                        <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{lidActies.length}</span>
+                        <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 'auto', letterSpacing: '0.06em' }}>
+                          {lid?.lid_id}
+                        </span>
+                      </div>
+
+                      {/* Acties under this lid */}
+                      {lidActies.map(actie => {
+                        const dagen = daysSince(actie.aangemaakt)
+                        const isOud = dagen !== null && dagen > 7
+                        return (
+                          <div
+                            key={actie.id}
+                            className="td-row"
+                            style={{ borderLeftColor: col.dot }}
+                            onClick={() => router.push(`/leden/${lidUuid}`)}
+                          >
+                            <div className="td-row-actie">{actie.omschrijving}</div>
+                            <div className="td-row-dagen" style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}>
+                              {dagen === null ? '—' : `${dagen}d`}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       </div>
     </>

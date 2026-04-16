@@ -1,635 +1,735 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import Navigation from '@/app/components/Navigation'
-
-// ── Types ──────────────────────────────────────────────────────────────
-
-type Trainer = {
-  id: string
-  voornaam: string
-  achternaam: string
-  naam: string
-  email: string
-  actief: boolean
-}
-
-type TrainerStats = {
-  trainer_id: string
-  totaal: number
-  rood: number
-  amber: number
-  open_acties: number
-}
-
-type ConsoleToken = {
-  id: string
-  token: string
-  naam: string
-  actief: boolean
-  trainer_id: string
-  aangemaakt_op: string
-  laatst_gebruikt: string | null
-  trainer?: Trainer
-}
 
 type Lid = {
   id: string
   lid_id: string
   voornaam: string
   achternaam: string
-  actief: boolean
-  status: string | null
-  trainer_id: string
   laatste_contact: string | null
   laatste_evaluatie: string | null
   slaap: number | null
   energie: number | null
   stress: number | null
+  open_acties: number
 }
 
-type StudioCounts = {
-  actief: number
-  bevroren: number
-  on_hold: number
-  stopt: number
-  inactief: number
+type Actie = {
+  id: string
+  lid_uuid: string | null
+  lid_id: string
+  voornaam: string
+  achternaam: string
+  omschrijving: string
+  aangemaakt: string
+  is_management: boolean
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────
+type LidDropdown = {
+  id: string
+  lid_id: string
+  voornaam: string
+  achternaam: string
+}
+
+type Trainer = {
+  id: string
+  naam: string
+}
+
+type Signal = {
+  label: string
+  reden: string
+}
 
 const daysSince = (date: string | null): number | null => {
   if (!date) return null
   return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
 }
 
-const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
+const getSignals = (lid: Lid): Signal[] => {
+  const signals: Signal[] = []
   const dagsSindsContact = daysSince(lid.laatste_contact)
-  const dagsSindsEval    = daysSince(lid.laatste_evaluatie)
-  const hasRedLifestyle  =
-    (lid.slaap   !== null && lid.slaap   < 6) ||
+  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
+  if (dagsSindsContact === null || dagsSindsContact > 14)
+    signals.push({ label: 'Geen contact', reden: dagsSindsContact === null ? 'Nog nooit' : `${dagsSindsContact} dagen geleden` })
+  if (dagsSindsEval === null || dagsSindsEval > 42)
+    signals.push({ label: 'Geen evaluatie', reden: dagsSindsEval === null ? 'Nog nooit' : `${dagsSindsEval} dagen geleden` })
+  if (lid.open_acties > 0)
+    signals.push({ label: 'Open acties', reden: `${lid.open_acties} actie${lid.open_acties > 1 ? 's' : ''}` })
+  if (lid.slaap !== null && lid.slaap < 6)
+    signals.push({ label: 'Slaap rood', reden: `Score ${lid.slaap}/10` })
+  if (lid.energie !== null && lid.energie < 6)
+    signals.push({ label: 'Energie rood', reden: `Score ${lid.energie}/10` })
+  if (lid.stress !== null && lid.stress > 7)
+    signals.push({ label: 'Stress rood', reden: `Score ${lid.stress}/10` })
+  return signals
+}
+
+const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
+  const signals = getSignals(lid)
+  if (signals.length === 0) return 'green'
+  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
+  const hasRedLifestyle =
+    (lid.slaap !== null && lid.slaap < 6) ||
     (lid.energie !== null && lid.energie < 6) ||
-    (lid.stress  !== null && lid.stress  > 7)
+    (lid.stress !== null && lid.stress > 7)
   if (dagsSindsEval === null || dagsSindsEval > 42 || hasRedLifestyle) return 'red'
-  if (dagsSindsContact === null || dagsSindsContact > 14) return 'amber'
-  return 'green'
+  return 'amber'
 }
 
-const daysSinceLabel = (date: string | null, neverLabel = 'Nooit gebruikt'): string => {
-  if (!date) return neverLabel
-  const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
-  if (d === 0) return 'Vandaag'
-  if (d === 1) return 'Gisteren'
-  return `${d} dagen geleden`
+const STOPLIGHT = {
+  red:   { dot: '#dc2626', bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.2)',   text: '#f87171' },
+  amber: { dot: '#d97706', bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.2)',   text: '#fbbf24' },
+  green: { dot: '#16a34a', bg: 'rgba(22,163,74,0.08)',   border: 'rgba(22,163,74,0.2)',   text: '#4ade80' },
 }
 
-const consoleUrl = (token: string): string => {
-  if (typeof window === 'undefined') return ''
-  return `${window.location.origin}/console?token=${token}`
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  actief:    '#4ade80',
-  bevroren:  '#60a5fa',
-  'on hold': '#fbbf24',
-  on_hold:   '#fbbf24',
-  stopt:     '#f87171',
-  inactief:  '#555',
-}
-
-const inputStyle: React.CSSProperties = {
-  background: 'var(--bg-raised)',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 8,
-  padding: '9px 12px',
-  color: 'var(--text-primary)',
-  fontSize: 14,
-  width: '100%',
-  boxSizing: 'border-box',
-  fontFamily: 'inherit',
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={labelStyle}>{label}</label>
-      {children}
-    </div>
-  )
-}
-
-// ── Add Lid Modal ──────────────────────────────────────────────────────
-
-function AddLidModal({
-  trainers,
-  nextLidId,
-  onClose,
-  onSaved,
-}: {
-  trainers: Trainer[]
-  nextLidId: string
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [lidId,      setLidId]      = useState(nextLidId)
-  const [voornaam,   setVoornaam]   = useState('')
-  const [achternaam, setAchternaam] = useState('')
-  const [email,      setEmail]      = useState('')
-  const [telefoon,   setTelefoon]   = useState('')
-  const [trainerId,  setTrainerId]  = useState('')
-  const [startdatum, setStartdatum] = useState(new Date().toISOString().split('T')[0])
-  const [saving,     setSaving]     = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-
-  const save = async () => {
-    setError(null)
-    if (!lidId.trim())      { setError('Lid-ID is verplicht'); return }
-    if (!voornaam.trim())   { setError('Voornaam is verplicht'); return }
-    if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
-    if (!trainerId)         { setError('Selecteer een trainer'); return }
-
-    setSaving(true)
-    const supabase = getSupabase()
-    const { error: err } = await supabase.from('leden').insert({
-      lid_id:     lidId.trim().toUpperCase(),
-      voornaam:   voornaam.trim(),
-      achternaam: achternaam.trim(),
-      email:      email.trim() || null,
-      telefoon:   telefoon.trim() || null,
-      trainer_id: trainerId,
-      startdatum,
-      source:     'manual',
-      actief:     true,
-      status:     'Actief',
-    })
-    setSaving(false)
-
-    if (err) {
-      setError(err.message.includes('unique') ? `Lid-ID "${lidId}" bestaat al` : err.message)
-      return
-    }
-    onSaved()
-    onClose()
-  }
-
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Nieuw lid toevoegen</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Handmatige invoer · bron: manual</div>
-        </div>
-
-        {/* Row 1: lid_id + startdatum */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Lid-ID">
-            <input type="text" value={lidId} onChange={e => setLidId(e.target.value)} placeholder="WE-006" style={inputStyle} />
-          </Field>
-          <Field label="Startdatum">
-            <input type="date" value={startdatum} onChange={e => setStartdatum(e.target.value)} style={inputStyle} />
-          </Field>
-        </div>
-
-        {/* Row 2: voornaam + achternaam */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Voornaam">
-            <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)} placeholder="Jana" style={inputStyle} />
-          </Field>
-          <Field label="Achternaam">
-            <input type="text" value={achternaam} onChange={e => setAchternaam(e.target.value)} placeholder="de Wit" style={inputStyle} />
-          </Field>
-        </div>
-
-        {/* Row 3: email + telefoon */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Email (optioneel)">
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jana@example.com" style={inputStyle} />
-          </Field>
-          <Field label="Telefoon (optioneel)">
-            <input type="tel" value={telefoon} onChange={e => setTelefoon(e.target.value)} placeholder="06 12345678" style={inputStyle} />
-          </Field>
-        </div>
-
-        {/* Trainer */}
-        <Field label="Trainer">
-          <select value={trainerId} onChange={e => setTrainerId(e.target.value)} style={{ ...inputStyle, color: trainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-            <option value="">Selecteer trainer…</option>
-            {trainers.filter(t => t.actief).map(t => (
-              <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>
-            ))}
-          </select>
-        </Field>
-
-        {error && (
-          <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
-            {error}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            Annuleren
-          </button>
-          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Opslaan…' : 'Lid toevoegen'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Actie Modal ────────────────────────────────────────────────────────
-
-function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: () => void; onSaved: () => void }) {
-  const [omschrijving, setOmschrijving] = useState('')
-  const [deadline,     setDeadline]     = useState('')
-  const [saving,       setSaving]       = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
-
-  const save = async () => {
-    setError(null)
-    if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
-    setSaving(true)
-    const supabase = getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error: err } = await supabase.from('acties').insert({
-      trainer_id: trainer.id, lid_id: null, type: 'custom',
-      omschrijving: omschrijving.trim(), deadline: deadline || null,
-      status: 'open', bron: 'management', afgerond: false,
-      aangemaakt_door: user?.id ?? null,
-    })
-    setSaving(false)
-    if (err) { setError(err.message); return }
-    onSaved(); onClose()
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Actie toewijzen</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {trainer.voornaam} {trainer.achternaam}</div>
-        </div>
-        <Field label="Omschrijving">
-          <textarea value={omschrijving} onChange={e => setOmschrijving(e.target.value)} placeholder="Wat moet deze trainer doen?" rows={3}
-            style={{ ...inputStyle, resize: 'vertical' }} />
-        </Field>
-        <Field label="Deadline (optioneel)">
-          <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={inputStyle} />
-        </Field>
-        {error && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuleren</button>
-          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Opslaan…' : 'Toewijzen'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Console Panel ──────────────────────────────────────────────────────
-
-function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
-  const [tokens, setTokens]               = useState<ConsoleToken[]>([])
-  const [loading, setLoading]             = useState(true)
-  const [formOpen, setFormOpen]           = useState(false)
-  const [newNaam, setNewNaam]             = useState('')
-  const [newTrainerId, setNewTrainerId]   = useState('')
-  const [saving, setSaving]               = useState(false)
-  const [copiedId, setCopiedId]           = useState<string | null>(null)
-
-  const loadTokens = useCallback(async () => {
-    const supabase = getSupabase()
-    const { data } = await supabase.from('console_tokens').select('id, token, naam, actief, trainer_id, aangemaakt_op, laatst_gebruikt').order('aangemaakt_op', { ascending: false })
-    setTokens((data ?? []).map(t => ({ ...t, trainer: trainers.find(tr => tr.id === t.trainer_id) })))
-    setLoading(false)
-  }, [trainers])
-
-  useEffect(() => { loadTokens() }, [loadTokens])
-
-  const createToken = async () => {
-    if (!newNaam.trim() || !newTrainerId) return
-    setSaving(true)
-    const supabase = getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('console_tokens').insert({ naam: newNaam.trim(), trainer_id: newTrainerId, aangemaakt_door: user!.id })
-    setNewNaam(''); setNewTrainerId(''); setFormOpen(false); setSaving(false)
-    loadTokens()
-  }
-
-  const revokeToken     = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: false }).eq('id', id); loadTokens() }
-  const reactivateToken = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: true  }).eq('id', id); loadTokens() }
-
-  const copyUrl = (t: ConsoleToken) => {
-    navigator.clipboard.writeText(consoleUrl(t.token))
-    setCopiedId(t.id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
-
-  return (
-    <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: formOpen || tokens.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Studio consoles</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Apparaten met toegang zonder trainer-login</div>
-        </div>
-        <button onClick={() => setFormOpen(o => !o)} style={{ background: formOpen ? 'none' : 'var(--color-accent, #6366f1)', color: formOpen ? 'var(--text-muted)' : '#fff', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {formOpen ? '× Annuleren' : '+ Nieuwe console'}
-        </button>
-      </div>
-
-      {formOpen && (
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle}>Naam apparaat</label>
-              <input type="text" value={newNaam} onChange={e => setNewNaam(e.target.value)} placeholder="bijv. iPad Studio Vloer" style={{ ...inputStyle, width: 'auto' }} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle}>Trainer</label>
-              <select value={newTrainerId} onChange={e => setNewTrainerId(e.target.value)} style={{ ...inputStyle, width: 'auto', color: newTrainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                <option value="">Selecteer trainer…</option>
-                {trainers.filter(t => t.actief).map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
-              </select>
-            </div>
-          </div>
-          <button onClick={createToken} disabled={saving || !newNaam.trim() || !newTrainerId} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start', opacity: saving || !newNaam.trim() || !newTrainerId ? 0.5 : 1 }}>
-            {saving ? 'Aanmaken…' : 'Aanmaken'}
-          </button>
-        </div>
-      )}
-
-      {!loading && tokens.map(t => (
-        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px', borderBottom: '1px solid var(--border-subtle)', opacity: t.actief ? 1 : 0.45 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{t.naam}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              {t.trainer ? `${t.trainer.voornaam} ${t.trainer.achternaam}` : '—'} · {daysSinceLabel(t.laatst_gebruikt)}
-            </div>
-          </div>
-          <button onClick={() => copyUrl(t)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? '#4ade80' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            {copiedId === t.id ? 'Gekopieerd' : 'Kopieer URL'}
-          </button>
-          {t.actief
-            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Intrekken</button>
-            : <button onClick={() => reactivateToken(t.id)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Heractiveren</button>
-          }
-        </div>
-      ))}
-    </section>
-  )
-}
-
-// ── Main Page ──────────────────────────────────────────────────────────
-
-export default function ManagementPage() {
+export default function TrainerDashboard() {
+  const { trainerId } = useParams()
   const router = useRouter()
-  const [trainers, setTrainers]           = useState<Trainer[]>([])
-  const [leden, setLeden]                 = useState<Lid[]>([])
-  const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
-  const [nextLidId, setNextLidId]         = useState('WE-001')
-  const [loading, setLoading]             = useState(true)
-  const [trainerFilter, setTrainerFilter] = useState<string>('allen')
-  const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
-  const [showAddLid, setShowAddLid]       = useState(false)
-  const [refreshKey, setRefreshKey]       = useState(0)
 
-  const load = useCallback(async () => {
-    const supabase = getSupabase()
+  const [trainer, setTrainer] = useState<Trainer | null>(null)
+  const [leden, setLeden] = useState<Lid[]>([])
+  const [acties, setActies] = useState<Actie[]>([])
+  const [ledenDropdown, setLedenDropdown] = useState<LidDropdown[]>([])
+  const [loading, setLoading] = useState(true)
+  const [gesprekOpen, setGesprekOpen] = useState(false)
+  const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | null>(null)
 
-    const [
-      { data: trainerData },
-      { data: ledenRaw },
-      { data: contacten },
-      { data: evaluaties },
-      { data: actiesData },
-    ] = await Promise.all([
-      supabase.from('trainers').select('id, voornaam, achternaam, naam, email, actief').order('achternaam'),
-      supabase.from('leden').select('id, lid_id, voornaam, achternaam, actief, status, trainer_id').order('achternaam'),
-      supabase.from('contact_momenten').select('lid_id, datum').order('datum', { ascending: false }),
-      supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').order('cyclus', { ascending: false }),
-      supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
-    ])
+  const gesprekRef = useRef<HTMLDivElement>(null)
+  const stoplightRef = useRef<HTMLDivElement>(null)
 
-    const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
-      const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
-      const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
-      return {
-        ...l,
-        laatste_contact:   lastContact?.datum ?? null,
-        laatste_evaluatie: lastEval?.datum    ?? null,
-        slaap:             lastEval?.slaap    ?? null,
-        energie:           lastEval?.energie  ?? null,
-        stress:            lastEval?.stress   ?? null,
-      }
-    })
+  useEffect(() => {
+    const load = async () => {
+      const supabase = getSupabase()
+      const { data: trainerData } = await supabase
+        .from('trainers').select('id, naam').eq('id', trainerId).single()
+      setTrainer(trainerData)
 
-    // Per-trainer stats
-    const stats: Record<string, TrainerStats> = {}
-    for (const t of trainerData ?? []) {
-      const tLeden = enrichedLeden.filter(l => l.trainer_id === t.id && l.actief)
-      stats[t.id] = {
-        trainer_id:  t.id,
-        totaal:      tLeden.length,
-        rood:        tLeden.filter(l => getStoplight(l) === 'red').length,
-        amber:       tLeden.filter(l => getStoplight(l) === 'amber').length,
-        open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
-      }
+      const { data: ledenData } = await supabase
+        .from('leden').select('id, lid_id, voornaam, achternaam')
+        .eq('trainer_id', trainerId).eq('actief', true).order('voornaam')
+
+      if (!ledenData || ledenData.length === 0) { setLoading(false); return }
+      setLedenDropdown(ledenData)
+
+      const lidIds = ledenData.map(l => l.id)
+
+      const [
+        { data: contacten },
+        { data: evaluaties },
+        { data: actiesData },
+        { data: trainerActies },
+      ] = await Promise.all([
+        supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
+        supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
+        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
+        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').eq('trainer_id', trainerId as string).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
+      ])
+
+      const openActiesPerLid: Record<string, number> = {}
+      for (const a of actiesData ?? []) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+
+      const enrichedLeden: Lid[] = ledenData.map(l => {
+        const lastContact = contacten?.find(c => c.lid_id === l.id)
+        const lastEval = evaluaties?.find(e => e.lid_id === l.id)
+        return {
+          id: l.id, lid_id: l.lid_id, voornaam: l.voornaam, achternaam: l.achternaam,
+          laatste_contact: lastContact?.datum ?? null,
+          laatste_evaluatie: lastEval?.datum ?? null,
+          slaap: lastEval?.slaap ?? null,
+          energie: lastEval?.energie ?? null,
+          stress: lastEval?.stress ?? null,
+          open_acties: openActiesPerLid[l.id] ?? 0,
+        }
+      })
+
+      setLeden(enrichedLeden)
+
+      const memberActies: Actie[] = (actiesData ?? []).map(a => {
+        const lid = ledenData.find(l => l.id === a.lid_id)
+        return {
+          id: a.id, lid_uuid: a.lid_id, lid_id: lid?.lid_id ?? '—',
+          voornaam: lid?.voornaam ?? '—', achternaam: lid?.achternaam ?? '',
+          omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+          is_management: false,
+        }
+      })
+
+      const mgmtActies: Actie[] = (trainerActies ?? []).map(a => ({
+        id: a.id, lid_uuid: null, lid_id: '',
+        voornaam: 'Management', achternaam: '',
+        omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+        is_management: true,
+      }))
+
+      setActies([...mgmtActies, ...memberActies])
+      setLoading(false)
     }
+    if (trainerId) load()
+  }, [trainerId])
 
-    // Compute next lid_id
-    const ids = (ledenRaw ?? [])
-      .map(l => l.lid_id)
-      .filter(id => /^WE-\d+$/.test(id))
-      .map(id => parseInt(id.replace('WE-', ''), 10))
-    const maxId = ids.length > 0 ? Math.max(...ids) : 0
-    setNextLidId(`WE-${String(maxId + 1).padStart(3, '0')}`)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (gesprekRef.current && !gesprekRef.current.contains(e.target as Node)) setGesprekOpen(false)
+      if (stoplightRef.current && !stoplightRef.current.contains(e.target as Node)) setOpenStoplight(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
-    setTrainers(trainerData ?? [])
-    setLeden(enrichedLeden)
-    setTrainerStats(stats)
-    setLoading(false)
-  }, [refreshKey])
-
-  useEffect(() => { load() }, [load])
-
-  const counts: StudioCounts = {
-    actief:   leden.filter(l => l.status?.toLowerCase() === 'actief').length,
-    bevroren: leden.filter(l => l.status?.toLowerCase() === 'bevroren').length,
-    on_hold:  leden.filter(l => l.status?.toLowerCase() === 'on_hold' || l.status?.toLowerCase() === 'on hold').length,
-    stopt:    leden.filter(l => l.status?.toLowerCase() === 'stopt').length,
-    inactief: leden.filter(l => l.status?.toLowerCase() === 'inactief' || !l.actief).length,
+  const handleGesprekSelect = (lid: LidDropdown) => {
+    setGesprekOpen(false)
+    router.push(`/gesprek/new?lid_id=${lid.id}`)
   }
 
-  const visibleLeden = leden.filter(l =>
-    trainerFilter === 'allen' || l.trainer_id === trainerFilter
-  )
+  const counts = {
+    red:   leden.filter(l => getStoplight(l) === 'red').length,
+    amber: leden.filter(l => getStoplight(l) === 'amber').length,
+    green: leden.filter(l => getStoplight(l) === 'green').length,
+  }
 
-  if (loading) return (
-    <>
-      <Navigation />
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
-        <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Laden…</div>
-      </div>
-    </>
-  )
+  const ledenByStoplight = (sig: 'red' | 'amber') => leden.filter(l => getStoplight(l) === sig)
 
   return (
     <>
-      <Navigation />
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
-      {actieTrainer && (
-        <ActieModal trainer={actieTrainer} onClose={() => setActieTrainer(null)} onSaved={() => setRefreshKey(k => k + 1)} />
-      )}
+        .td-root {
+          min-height: 100vh;
+          background: #111;
+          color: #c8c6c0;
+          font-family: 'Raleway', sans-serif;
+          position: relative;
+        }
 
-      {showAddLid && (
-        <AddLidModal
-          trainers={trainers}
-          nextLidId={nextLidId}
-          onClose={() => setShowAddLid(false)}
-          onSaved={() => setRefreshKey(k => k + 1)}
-        />
-      )}
+        .td-root::before {
+          content: '';
+          position: fixed;
+          top: -20%;
+          right: -10%;
+          width: 55%;
+          height: 55%;
+          background: radial-gradient(ellipse, rgba(168,200,0,0.05) 0%, transparent 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
 
-      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px 24px', maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+        /* ── Header ── */
+        .td-header {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: rgba(17,17,17,0.92);
+          border-bottom: 1px solid rgba(168,200,0,0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          height: 56px;
+          display: flex;
+          align-items: center;
+          padding: 0 2rem;
+        }
 
-        {/* Title */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Management</h1>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
-          </div>
-          <button
-            onClick={() => setShowAddLid(true)}
-            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            + Lid toevoegen
-          </button>
-        </div>
+        .td-header-inner {
+          max-width: 1100px;
+          width: 100%;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
 
-        {/* Studio counts */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-          {([
-            { label: 'Actief',   value: counts.actief,   color: '#16a34a' },
-            { label: 'Bevroren', value: counts.bevroren, color: '#d97706' },
-            { label: 'On hold',  value: counts.on_hold,  color: '#d97706' },
-            { label: 'Stopt',    value: counts.stopt,    color: '#dc2626' },
-            { label: 'Inactief', value: counts.inactief, color: '#444'    },
-          ]).map(({ label, value, color }) => (
-            <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color }}>{value}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+        .td-wordmark {
+          display: flex;
+          align-items: baseline;
+          gap: 0;
+          cursor: pointer;
+          text-decoration: none;
+        }
+        .td-wordmark-wav  { font-size: 1.1rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
+        .td-wordmark-e    { font-size: 1.1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
+
+        .td-header-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .td-trainer-name {
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: #3a3a3a;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin-right: 4px;
+        }
+
+        .td-btn-secondary {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 7px 14px;
+          border-radius: 3px;
+          border: 1px solid #2a2a2a;
+          background: transparent;
+          color: #666;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+        .td-btn-secondary:hover {
+          border-color: rgba(168,200,0,0.4);
+          color: #A8C800;
+          background: rgba(168,200,0,0.06);
+        }
+
+        .td-btn-primary {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 7px 14px;
+          border-radius: 3px;
+          border: 1px solid #A8C800;
+          background: #A8C800;
+          color: #111;
+          cursor: pointer;
+          transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+        .td-btn-primary:hover {
+          background: #95B400;
+          box-shadow: 0 4px 14px rgba(168,200,0,0.3);
+          transform: translateY(-1px);
+        }
+
+        /* ── Dropdown ── */
+        .td-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          background: #161616;
+          border: 1px solid #2a2a2a;
+          border-radius: 4px;
+          min-width: 240px;
+          z-index: 200;
+          overflow: hidden;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          animation: dropIn 0.15s ease-out both;
+        }
+
+        @keyframes dropIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .td-dropdown-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 11px 16px;
+          cursor: pointer;
+          border-bottom: 1px solid #1e1e1e;
+          transition: background 0.1s;
+        }
+        .td-dropdown-item:last-child { border-bottom: none; }
+        .td-dropdown-item:hover { background: rgba(168,200,0,0.06); }
+
+        .td-dropdown-name { font-size: 0.85rem; color: #c8c6c0; font-weight: 500; }
+        .td-dropdown-meta { font-size: 0.72rem; color: #3a3a3a; letter-spacing: 0.05em; }
+        .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: #3a3a3a; text-align: center; }
+
+        /* ── Body ── */
+        .td-body {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 2.5rem 2rem 6rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        /* ── Stoplight bar ── */
+        .td-summary-bar {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 2.5rem;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          animation: fadeUp 0.4s ease-out both;
+        }
+
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .td-summary-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 18px;
+          border-radius: 3px;
+          font-family: 'Raleway', sans-serif;
+          transition: all 0.2s ease;
+          border: 1px solid #1e1e1e;
+          background: #141414;
+        }
+
+        .td-summary-card.clickable:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .td-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .td-summary-count {
+          font-size: 1.2rem;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .td-summary-label {
+          font-size: 0.7rem;
+          color: #3a3a3a;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-weight: 500;
+        }
+
+        .td-summary-chevron {
+          font-size: 0.6rem;
+          color: #2a2a2a;
+          margin-left: 2px;
+        }
+
+        .td-summary-total {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 18px;
+          margin-left: auto;
+        }
+
+        /* ── Section header ── */
+        .td-section-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 1rem;
+          animation: fadeUp 0.4s ease-out 0.1s both;
+        }
+
+        .td-section-title {
+          font-size: 0.65rem;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #3a3a3a;
+        }
+
+        .td-section-count {
+          font-size: 0.65rem;
+          color: #2a2a2a;
+          background: #1a1a1a;
+          padding: 2px 7px;
+          border-radius: 2px;
+          font-weight: 600;
+        }
+
+        /* ── Acties list ── */
+        .td-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          border: 1px solid #1e1e1e;
+          border-radius: 3px;
+          overflow: hidden;
+          animation: fadeUp 0.4s ease-out 0.15s both;
+        }
+
+        .td-row {
+          display: flex;
+          align-items: center;
+          gap: 2rem;
+          padding: 16px 20px;
+          background: #141414;
+          border-left: 3px solid transparent;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+
+        .td-row:hover { background: #181818; }
+        .td-row.no-nav { cursor: default; }
+
+        .td-row-main { min-width: 190px; flex: 0 0 190px; }
+        .td-row-name { font-size: 0.875rem; font-weight: 600; color: #c8c6c0; margin-bottom: 3px; }
+        .td-row-lid-id { font-size: 0.7rem; color: #3a3a3a; letter-spacing: 0.05em; }
+        .td-row-actie { flex: 1; font-size: 0.82rem; color: #555; }
+        .td-row-dagen { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
+
+        /* Management actie badge */
+        .td-mgmt-badge {
+          font-size: 0.58rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #818cf8;
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.2);
+          border-radius: 2px;
+          padding: 2px 6px;
+          margin-top: 3px;
+          display: inline-block;
+        }
+
+        .td-empty {
+          color: #2a2a2a;
+          font-size: 0.85rem;
+          padding: 4rem 0;
+          text-align: center;
+          letter-spacing: 0.05em;
+        }
+
+        /* Stoplight dropdown panel */
+        .td-stoplight-panel {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          background: #161616;
+          border: 1px solid #2a2a2a;
+          border-radius: 4px;
+          min-width: 220px;
+          z-index: 200;
+          overflow: hidden;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          animation: dropIn 0.15s ease-out both;
+        }
+      `}</style>
+
+      <div className="td-root">
+        {/* Header */}
+        <header className="td-header">
+          <div className="td-header-inner">
+            <div className="td-wordmark" onClick={() => router.push('/')}>
+              <span className="td-wordmark-wav">wav-e</span>
+              <span className="td-wordmark-e"> studios</span>
             </div>
-          ))}
-        </section>
 
-        {/* Trainers */}
-        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainers</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{trainers.filter(t => t.actief).length} actief</div>
-          </div>
+            <div className="td-header-right">
+              {trainer?.naam && (
+                <span className="td-trainer-name">{trainer.naam}</span>
+              )}
+              <button
+                className="td-btn-secondary"
+                onClick={() => router.push(`/trainer/${trainerId}/leden`)}
+              >
+                Mijn leden
+              </button>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', ''].map(h => (
-                  <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {trainers.map((t, i) => {
-                const s = trainerStats[t.id] ?? { totaal: 0, rood: 0, amber: 0, open_acties: 0 }
-                return (
-                  <tr key={t.id} style={{ borderBottom: i < trainers.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: t.actief ? 1 : 0.5 }}>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                      {t.voornaam} {t.achternaam}
-                      {!t.actief && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555' }}>inactief</span>}
-                    </td>
-                    <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-muted)' }}>{t.email}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>{s.totaal}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.rood > 0 ? '#f87171' : 'var(--text-muted)', textAlign: 'center' }}>{s.rood}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.amber > 0 ? '#fbbf24' : 'var(--text-muted)', textAlign: 'center' }}>{s.amber}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.open_acties > 0 ? '#818cf8' : 'var(--text-muted)', textAlign: 'center' }}>{s.open_acties}</td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => setActieTrainer(t)}
-                        style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        + Actie
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </section>
-
-        {/* Console panel */}
-        <ConsolePanel trainers={trainers} />
-
-        {/* Member table */}
-        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden · {visibleLeden.length}</div>
-            <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
-              <option value="allen">Alle trainers</option>
-              {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
-            </select>
-          </div>
-
-          {visibleLeden.length === 0 ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 120px 100px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['', 'Naam', 'Trainer', 'Status', 'Lid-ID'].map(h => (
-                  <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
-                ))}
+              <div style={{ position: 'relative' }} ref={gesprekRef}>
+                <button className="td-btn-primary" onClick={() => setGesprekOpen(o => !o)}>
+                  + Nieuw gesprek
+                </button>
+                {gesprekOpen && (
+                  <div className="td-dropdown">
+                    {ledenDropdown.length === 0
+                      ? <div className="td-dropdown-empty">Geen leden gevonden</div>
+                      : ledenDropdown.map(lid => (
+                        <div key={lid.id} className="td-dropdown-item" onClick={() => handleGesprekSelect(lid)}>
+                          <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
+                          <span className="td-dropdown-meta">{lid.lid_id}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
               </div>
-              {visibleLeden.map((l, i) => {
-                const trainer = trainers.find(t => t.id === l.trainer_id)
+            </div>
+          </div>
+        </header>
+
+        <div className="td-body">
+          {/* Stoplight summary bar */}
+          {!loading && (
+            <div className="td-summary-bar" ref={stoplightRef}>
+              {(['red', 'amber'] as const).map(sig => {
+                const col = STOPLIGHT[sig]
+                const labels = { red: 'Aandacht nodig', amber: 'Let op' }
+                const isOpen = openStoplight === sig
+                const members = ledenByStoplight(sig)
+                const isClickable = counts[sig] > 0
+
                 return (
-                  <div
-                    key={l.id}
-                    onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: { red: '#dc2626', amber: '#d97706', green: '#16a34a' }[getStoplight(l)], flexShrink: 0 }} />
-                    <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{l.voornaam} {l.achternaam}</span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
-                      {l.status ?? (l.actief ? 'actief' : 'inactief')}
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
+                  <div key={sig} style={{ position: 'relative' }}>
+                    <button
+                      className={`td-summary-card${isClickable ? ' clickable' : ''}`}
+                      style={{
+                        background: isOpen ? col.bg : '#141414',
+                        borderColor: isOpen ? col.border : '#1e1e1e',
+                        cursor: isClickable ? 'pointer' : 'default',
+                      }}
+                      onClick={() => isClickable && setOpenStoplight(isOpen ? null : sig)}
+                    >
+                      <span className="td-dot" style={{ background: col.dot }} />
+                      <span className="td-summary-count" style={{ color: col.text }}>{counts[sig]}</span>
+                      <span className="td-summary-label">{labels[sig]}</span>
+                      {isClickable && (
+                        <span className="td-summary-chevron">{isOpen ? '▲' : '▼'}</span>
+                      )}
+                    </button>
+
+                    {isOpen && members.length > 0 && (
+                      <div className="td-stoplight-panel">
+                        {members.map(lid => (
+                          <div
+                            key={lid.id}
+                            className="td-dropdown-item"
+                            onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
+                          >
+                            <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
+                            <span className="td-dropdown-meta" style={{ color: col.text }}>{lid.lid_id}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}
+
+              {/* Green — not clickable */}
+              <button className="td-summary-card" style={{ cursor: 'default' }}>
+                <span className="td-dot" style={{ background: STOPLIGHT.green.dot }} />
+                <span className="td-summary-count" style={{ color: STOPLIGHT.green.text }}>{counts.green}</span>
+                <span className="td-summary-label">Op koers</span>
+              </button>
+
+              <div className="td-summary-total">
+                <span className="td-summary-count" style={{ color: '#3a3a3a' }}>{leden.length}</span>
+                <span className="td-summary-label">Actieve leden</span>
+              </div>
             </div>
           )}
-        </section>
 
+          {/* Open acties */}
+          <div className="td-section-header">
+            <span className="td-section-title">Open acties</span>
+            <span className="td-section-count">{acties.length}</span>
+          </div>
+
+          {loading ? (
+            <div className="td-empty">Laden…</div>
+          ) : acties.length === 0 ? (
+            <div className="td-empty">Geen open acties.</div>
+          ) : (() => {
+            // Split management vs member acties
+            const mgmt   = acties.filter(a => a.is_management)
+            const member = acties.filter(a => !a.is_management)
+
+            // Group member acties by lid_uuid, preserving stoplight order (red → amber → green)
+            const lidOrder = leden
+              .slice()
+              .sort((a, b) => {
+                const order = { red: 0, amber: 1, green: 2 }
+                return order[getStoplight(a)] - order[getStoplight(b)]
+              })
+              .map(l => l.id)
+
+            const groups: Record<string, Actie[]> = {}
+            for (const a of member) {
+              if (!a.lid_uuid) continue
+              if (!groups[a.lid_uuid]) groups[a.lid_uuid] = []
+              groups[a.lid_uuid].push(a)
+            }
+
+            const sortedLidIds = Object.keys(groups).sort(
+              (a, b) => lidOrder.indexOf(a) - lidOrder.indexOf(b)
+            )
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                {/* Management group */}
+                {mgmt.length > 0 && (
+                  <div className="td-list">
+                    <div style={{ padding: '8px 20px 6px', background: '#111', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block' }} />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#818cf8' }}>Management</span>
+                      <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{mgmt.length}</span>
+                    </div>
+                    {mgmt.map(actie => {
+                      const dagen = daysSince(actie.aangemaakt)
+                      const isOud = dagen !== null && dagen > 7
+                      return (
+                        <div key={actie.id} className="td-row no-nav" style={{ borderLeftColor: '#6366f1' }}>
+                          <div className="td-row-actie" style={{ color: '#888' }}>{actie.omschrijving}</div>
+                          <div className="td-row-dagen" style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}>
+                            {dagen === null ? '—' : `${dagen}d`}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Per-lid groups */}
+                {sortedLidIds.map(lidUuid => {
+                  const lidActies = groups[lidUuid]
+                  const lid = leden.find(l => l.id === lidUuid)
+                  const sig = lid ? getStoplight(lid) : 'green'
+                  const col = STOPLIGHT[sig]
+
+                  return (
+                    <div key={lidUuid} className="td-list">
+                      {/* Group header — clickable → member page */}
+                      <div
+                        style={{ padding: '8px 20px 6px', background: '#111', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                        onClick={() => router.push(`/leden/${lidUuid}`)}
+                      >
+                        <span style={{ width: 3, height: 12, background: col.dot, borderRadius: 2, display: 'inline-block' }} />
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: col.text }}>
+                          {lid ? `${lid.voornaam} ${lid.achternaam}` : '—'}
+                        </span>
+                        <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{lidActies.length}</span>
+                        <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 'auto', letterSpacing: '0.06em' }}>
+                          {lid?.lid_id}
+                        </span>
+                      </div>
+
+                      {/* Acties under this lid */}
+                      {lidActies.map(actie => {
+                        const dagen = daysSince(actie.aangemaakt)
+                        const isOud = dagen !== null && dagen > 7
+                        return (
+                          <div
+                            key={actie.id}
+                            className="td-row"
+                            style={{ borderLeftColor: col.dot }}
+                            onClick={() => router.push(`/leden/${lidUuid}`)}
+                          >
+                            <div className="td-row-actie">{actie.omschrijving}</div>
+                            <div className="td-row-dagen" style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}>
+                              {dagen === null ? '—' : `${dagen}d`}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </div>
       </div>
     </>
   )
