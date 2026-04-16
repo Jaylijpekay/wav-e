@@ -129,6 +129,78 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ── Add Lid Modal ──────────────────────────────────────────────────────
 
+function AddTrainerModal({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [voornaam,   setVoornaam]   = useState('')
+  const [achternaam, setAchternaam] = useState('')
+  const [email,      setEmail]      = useState('')
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+
+  const save = async () => {
+    setError(null)
+    if (!voornaam.trim())   { setError('Voornaam is verplicht'); return }
+    if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
+    if (!email.trim())      { setError('Email is verplicht'); return }
+    setSaving(true)
+    const supabase = getSupabase()
+    const { error: err } = await supabase.from('trainers').insert({
+      voornaam:   voornaam.trim(),
+      achternaam: achternaam.trim(),
+      email:      email.trim(),
+      rol:        'trainer',
+      actief:     true,
+    })
+    setSaving(false)
+    if (err) { setError(err.message); return }
+    onSaved()
+    onClose()
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainer toevoegen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Alleen profiel · login aanmaken via Admin</div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Voornaam">
+            <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)} placeholder="Robin" style={inputStyle} />
+          </Field>
+          <Field label="Achternaam">
+            <input type="text" value={achternaam} onChange={e => setAchternaam(e.target.value)} placeholder="de Vries" style={inputStyle} />
+          </Field>
+        </div>
+
+        <Field label="Email">
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="robin@wav-e.nl" style={inputStyle} />
+        </Field>
+
+        {error && (
+          <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuleren</button>
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Opslaan…' : 'Trainer toevoegen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AddLidModal({
   trainers,
   nextLidId,
@@ -408,7 +480,8 @@ export default function ManagementPage() {
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
-  const [showAddLid, setShowAddLid]       = useState(false)
+  const [showAddLid, setShowAddLid]         = useState(false)
+  const [showAddTrainer, setShowAddTrainer] = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
 
@@ -518,6 +591,13 @@ export default function ManagementPage() {
         <ActieModal trainer={actieTrainer} onClose={() => setActieTrainer(null)} onSaved={() => setRefreshKey(k => k + 1)} />
       )}
 
+      {showAddTrainer && (
+        <AddTrainerModal
+          onClose={() => setShowAddTrainer(false)}
+          onSaved={() => setRefreshKey(k => k + 1)}
+        />
+      )}
+
       {showAddLid && (
         <AddLidModal
           trainers={trainers}
@@ -535,12 +615,20 @@ export default function ManagementPage() {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Management</h1>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
           </div>
-          <button
-            onClick={() => setShowAddLid(true)}
-            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            + Lid toevoegen
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => setShowAddTrainer(true)}
+              style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              + Trainer toevoegen
+            </button>
+            <button
+              onClick={() => setShowAddLid(true)}
+              style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              + Lid toevoegen
+            </button>
+          </div>
         </div>
 
         {/* Studio counts */}
