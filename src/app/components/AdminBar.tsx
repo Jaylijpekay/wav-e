@@ -9,32 +9,37 @@ const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 export default function AdminBar() {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [leden, setLeden] = useState<{ id: string; voornaam: string; achternaam: string; lid_id: string }[]>([])
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [ledenOpen, setLedenOpen]       = useState(false)
+  const [trainersOpen, setTrainersOpen] = useState(false)
+  const [leden, setLeden]     = useState<{ id: string; voornaam: string; achternaam: string; lid_id: string }[]>([])
+  const [trainers, setTrainers] = useState<{ id: string; voornaam: string; achternaam: string }[]>([])
+
+  const ledenRef    = useRef<HTMLDivElement>(null)
+  const trainersRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const check = async () => {
       const supabase = getSupabase()
       const { data: { user } } = await supabase.auth.getUser()
-      if (user?.id === ADMIN_UUID) {
-        setVisible(true)
-        const { data } = await supabase
-          .from('leden')
-          .select('id, voornaam, achternaam, lid_id')
-          .eq('actief', true)
-          .order('achternaam')
-        setLeden(data ?? [])
-      }
+      if (user?.id !== ADMIN_UUID) return
+
+      setVisible(true)
+
+      const [{ data: ledenData }, { data: trainerData }] = await Promise.all([
+        supabase.from('leden').select('id, voornaam, achternaam, lid_id').eq('actief', true).order('achternaam'),
+        supabase.from('trainers').select('id, voornaam, achternaam').eq('actief', true).order('achternaam'),
+      ])
+
+      setLeden(ledenData ?? [])
+      setTrainers(trainerData ?? [])
     }
     check()
   }, [])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
+      if (ledenRef.current    && !ledenRef.current.contains(e.target as Node))    setLedenOpen(false)
+      if (trainersRef.current && !trainersRef.current.contains(e.target as Node)) setTrainersOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -157,15 +162,43 @@ export default function AdminBar() {
           Management
         </button>
 
-        <div className="ab-dropdown-wrap" ref={dropdownRef}>
+        {/* Trainers dropup */}
+        <div className="ab-dropdown-wrap" ref={trainersRef}>
           <button
             className="ab-btn"
-            onClick={() => setDropdownOpen(o => !o)}
+            onClick={() => { setTrainersOpen(o => !o); setLedenOpen(false) }}
           >
-            Leden {dropdownOpen ? '▲' : '▼'}
+            Trainers {trainersOpen ? '▲' : '▼'}
           </button>
 
-          {dropdownOpen && (
+          {trainersOpen && (
+            <div className="ab-dropdown">
+              {trainers.length === 0
+                ? <div style={{ padding: '10px', color: '#444', fontSize: '0.7rem' }}>Geen trainers</div>
+                : trainers.map(t => (
+                  <div
+                    key={t.id}
+                    className="ab-dropdown-item"
+                    onClick={() => { router.push(`/trainer/${t.id}`); setTrainersOpen(false) }}
+                  >
+                    <span className="ab-dropdown-name">{t.voornaam} {t.achternaam}</span>
+                  </div>
+                ))
+              }
+            </div>
+          )}
+        </div>
+
+        {/* Leden dropup */}
+        <div className="ab-dropdown-wrap" ref={ledenRef}>
+          <button
+            className="ab-btn"
+            onClick={() => { setLedenOpen(o => !o); setTrainersOpen(false) }}
+          >
+            Leden {ledenOpen ? '▲' : '▼'}
+          </button>
+
+          {ledenOpen && (
             <div className="ab-dropdown">
               {leden.length === 0
                 ? <div style={{ padding: '10px', color: '#444', fontSize: '0.7rem' }}>Geen leden</div>
@@ -173,7 +206,7 @@ export default function AdminBar() {
                   <div
                     key={l.id}
                     className="ab-dropdown-item"
-                    onClick={() => { router.push(`/leden/${l.id}`); setDropdownOpen(false) }}
+                    onClick={() => { router.push(`/leden/${l.id}`); setLedenOpen(false) }}
                   >
                     <span className="ab-dropdown-name">{l.voornaam} {l.achternaam}</span>
                     <span className="ab-dropdown-id">{l.lid_id}</span>
@@ -183,6 +216,7 @@ export default function AdminBar() {
             </div>
           )}
         </div>
+
       </div>
     </>
   )

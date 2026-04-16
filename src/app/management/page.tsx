@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import Navigation from '@/app/components/Navigation'
 
@@ -399,6 +400,7 @@ function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
 // ── Main Page ──────────────────────────────────────────────────────────
 
 export default function ManagementPage() {
+  const router = useRouter()
   const [trainers, setTrainers]           = useState<Trainer[]>([])
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
@@ -545,57 +547,41 @@ export default function ManagementPage() {
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{trainers.filter(t => t.actief).length} actief</div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 1, background: 'var(--border-subtle)' }}>
-            {trainers.map(t => {
-              const s = trainerStats[t.id] ?? { totaal: 0, rood: 0, amber: 0, open_acties: 0 }
-              return (
-                <div key={t.id} style={{ background: 'var(--bg-surface)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t.voornaam} {t.achternaam}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{t.email}</div>
-                    </div>
-                    {!t.actief && (
-                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 4, padding: '2px 7px' }}>Inactief</span>
-                    )}
-                  </div>
-
-                  {/* Stats */}
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{s.totaal}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Leden</div>
-                    </div>
-                    {s.rood > 0 && (
-                      <div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#f87171' }}>{s.rood}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rood</div>
-                      </div>
-                    )}
-                    {s.amber > 0 && (
-                      <div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#fbbf24' }}>{s.amber}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Amber</div>
-                      </div>
-                    )}
-                    {s.open_acties > 0 && (
-                      <div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#818cf8' }}>{s.open_acties}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Acties</div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setActieTrainer(t)}
-                    style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
-                  >
-                    + Actie toewijzen
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', ''].map(h => (
+                  <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {trainers.map((t, i) => {
+                const s = trainerStats[t.id] ?? { totaal: 0, rood: 0, amber: 0, open_acties: 0 }
+                return (
+                  <tr key={t.id} style={{ borderBottom: i < trainers.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: t.actief ? 1 : 0.5 }}>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                      {t.voornaam} {t.achternaam}
+                      {!t.actief && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555' }}>inactief</span>}
+                    </td>
+                    <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-muted)' }}>{t.email}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>{s.totaal}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.rood > 0 ? '#f87171' : 'var(--text-muted)', textAlign: 'center' }}>{s.rood}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.amber > 0 ? '#fbbf24' : 'var(--text-muted)', textAlign: 'center' }}>{s.amber}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.open_acties > 0 ? '#818cf8' : 'var(--text-muted)', textAlign: 'center' }}>{s.open_acties}</td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => setActieTrainer(t)}
+                        style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        + Actie
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </section>
 
         {/* Console panel */}
@@ -623,7 +609,13 @@ export default function ManagementPage() {
               {visibleLeden.map((l, i) => {
                 const trainer = trainers.find(t => t.id === l.trainer_id)
                 return (
-                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center' }}>
+                  <div
+                    key={l.id}
+                    onClick={() => router.push(`/leden/${l.id}`)}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
                     <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{l.voornaam} {l.achternaam}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
