@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
@@ -90,23 +90,51 @@ function Ring({
   active: boolean
 }) {
   const [hovered, setHovered] = useState(false)
-  const col = val !== null ? sigCol(metric.inv, val) : { fill: '#f5f5f5', stroke: '#ddd', text: '#aaa' }
-  const pct = val !== null ? (metric.inv ? (10 - val) / 10 : val / 10) : 0
+  const arcRef  = useRef<SVGCircleElement>(null)
+  const fillRef = useRef<SVGCircleElement>(null)
+  const textRef = useRef<SVGTextElement>(null)
+  const prevVal = useRef<number | null>(null)
+
   const r = 22, cx = 28, cy = 28
   const circ = +(2 * Math.PI * r).toFixed(1)
-  const offset = (circ * (1 - pct)).toFixed(1)
+  const toOffset = (v: number | null) =>
+    v !== null ? circ * (1 - (metric.inv ? (10 - v) / 10 : v / 10)) : circ
+
+  useEffect(() => {
+    const arc  = arcRef.current
+    const text = textRef.current
+    if (!arc || !text) return
+    const from = toOffset(prevVal.current)
+    const to   = toOffset(val)
+    const col  = val !== null ? sigCol(metric.inv, val) : { fill: '#f5f5f5', stroke: '#ddd', text: '#aaa' }
+    arc.setAttribute('stroke', col.stroke)
+    if (fillRef.current) fillRef.current.setAttribute('fill', col.fill)
+    const duration = 420
+    const start    = performance.now()
+    const animate  = (now: number) => {
+      const t    = Math.min((now - start) / duration, 1)
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+      arc.setAttribute('stroke-dashoffset', String(+(from + (to - from) * ease).toFixed(2)))
+      if (t >= 0.5 && text.textContent !== String(val ?? '\u2014')) {
+        text.textContent = String(val ?? '\u2014')
+        text.setAttribute('fill', col.text)
+      }
+      if (t < 1) requestAnimationFrame(animate)
+    }
+    requestAnimationFrame(animate)
+    prevVal.current = val
+  }, [val]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const col = val !== null ? sigCol(metric.inv, val) : { fill: '#f5f5f5', stroke: '#ddd', text: '#aaa' }
+  const initialOffset = toOffset(val)
 
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-        cursor: 'pointer', position: 'relative',
-      }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', position: 'relative' }}
     >
-      {/* emoji */}
       <div style={{
         fontSize: 15, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: hovered ? 'scale(1.35) rotate(-8deg)' : 'scale(1)',
@@ -114,8 +142,6 @@ function Ring({
       }}>
         {metric.icon}
       </div>
-
-      {/* ring */}
       <svg
         width="58" height="58" viewBox="0 0 56 56"
         style={{
@@ -124,25 +150,26 @@ function Ring({
           transition: 'transform 0.2s ease',
         }}
       >
-        <circle cx={cx} cy={cy} r={r} fill={col.fill} stroke="#efefef" strokeWidth="5" />
+        <circle ref={fillRef} cx={cx} cy={cy} r={r} fill={col.fill} stroke="#efefef" strokeWidth="5" />
         <circle
-          cx={cx} cy={cy} r={r} fill="none" stroke={col.stroke} strokeWidth="5"
-          strokeDasharray={circ} strokeDashoffset={offset}
+          ref={arcRef}
+          cx={cx} cy={cy} r={r} fill="none"
+          stroke={col.stroke} strokeWidth="5"
+          strokeDasharray={circ}
+          strokeDashoffset={initialOffset}
           strokeLinecap="round"
           style={{ transform: 'rotate(-90deg)', transformOrigin: '28px 28px' }}
         />
         <text
+          ref={textRef}
           x={cx} y={cy + 5} textAnchor="middle"
           fontSize={13} fontWeight="500" fill={col.text}
           fontFamily="Raleway, system-ui, sans-serif"
         >
-          {val !== null ? val : '—'}
+          {val !== null ? val : '\u2014'}
         </text>
       </svg>
-
       <div style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>{metric.label}</div>
-
-      {/* tooltip */}
       {hovered && val !== null && (
         <div style={{
           position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%',
