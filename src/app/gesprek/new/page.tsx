@@ -81,6 +81,7 @@ export default function GesprekNew() {
     setError(null)
 
     const supabase = getSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
     const { data: trainerData } = await supabase.from('trainers').select('id').limit(1)
     const trainerId = trainerData?.[0]?.id
     if (!trainerId) { setError('Geen trainer gevonden.'); setSaving(false); return }
@@ -98,6 +99,7 @@ export default function GesprekNew() {
       vetpercentage: vetpercentage ? parseFloat(vetpercentage) : null,
       doelen_behaald: doelen,
       notities: notities || null,
+      aangemaakt_door: user?.id ?? null,
     })
 
     if (insertError) { setError(insertError.message); setSaving(false); return }
