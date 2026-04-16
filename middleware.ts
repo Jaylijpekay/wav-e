@@ -11,8 +11,6 @@ const MANAGEMENT_ONLY_ROUTES = ['/management']
 
 const ADMIN_ONLY_ROUTES = ['/admin', '/api/admin']
 
-const TRAINER_ONLY_ROUTES = ['/gesprek', '/leden']
-
 const CONSOLE_ROUTE = '/console'
 
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
@@ -147,10 +145,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (TRAINER_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
-    if (role !== 'trainer' && user.id !== ADMIN_UUID) {
-      return NextResponse.redirect(new URL('/management', request.url))
-    }
+  // /gesprek is trainer-only.
+  // /leden (exact) is trainer-only — the member list belongs to the trainer view.
+  // /leden/[id] and deeper routes are accessible to management too (read-only detail).
+  const isTrainerOnly =
+    pathname.startsWith('/gesprek') ||
+    pathname === '/leden'
+
+  if (isTrainerOnly && role !== 'trainer' && user.id !== ADMIN_UUID) {
+    return NextResponse.redirect(new URL('/management', request.url))
   }
 
   response.headers.set('x-user-id', user.id)
