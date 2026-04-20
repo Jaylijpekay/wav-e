@@ -35,7 +35,6 @@ export default function ConsolePage() {
       const res = await fetch(`/api/console/validate?token=${token}`)
       if (!res.ok) { setStep('invalid'); return }
 
-      // Load people
       const peopleRes = await fetch('/api/console/people')
       if (!peopleRes.ok) { setStep('invalid'); return }
       const data = await peopleRes.json()
@@ -52,7 +51,7 @@ export default function ConsolePage() {
   }
 
   const selectPerson = (person: Person) => {
-    if (!person.has_pin) return // no PIN set, can't log in
+    if (!person.has_pin) return
     setSelected(person)
     setPin('')
     setPinError(null)
@@ -60,11 +59,14 @@ export default function ConsolePage() {
   }
 
   const tapDigit = (digit: string) => {
-    if (pin.length >= 4) return
+    if (pin.length >= 4 || verifying) return
     setPin(p => p + digit)
   }
 
-  const tapDelete = () => setPin(p => p.slice(0, -1))
+  const tapDelete = () => {
+    if (verifying) return
+    setPin(p => p.slice(0, -1))
+  }
 
   const verify = async () => {
     if (pin.length !== 4 || !selected || !mode) return
@@ -93,7 +95,6 @@ export default function ConsolePage() {
     }
   }
 
-  // Auto-verify when 4 digits entered
   useEffect(() => {
     if (pin.length === 4 && step === 'pin') verify()
   }, [pin])
@@ -105,10 +106,11 @@ export default function ConsolePage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap');
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .con-root {
           min-height: 100vh;
+          min-height: 100dvh;
           background: #111;
           color: #c8c6c0;
           font-family: 'Raleway', sans-serif;
@@ -116,9 +118,14 @@ export default function ConsolePage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 32px 24px;
+          padding: 24px;
           position: relative;
           overflow: hidden;
+          /* Prevent text selection on tablet tap */
+          -webkit-user-select: none;
+          user-select: none;
+          /* Prevent tap highlight on iOS */
+          -webkit-tap-highlight-color: transparent;
         }
 
         .con-root::before {
@@ -132,20 +139,28 @@ export default function ConsolePage() {
           pointer-events: none;
         }
 
+        /* ── Header ── */
+        .con-header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 28px;
+          z-index: 10;
+        }
+
         .con-wordmark {
-          position: absolute;
-          top: 28px;
-          left: 32px;
           display: flex;
           align-items: baseline;
+          gap: 1px;
         }
         .con-wordmark-wav { font-size: 1rem; font-weight: 700; color: #3a3a3a; }
         .con-wordmark-e   { font-size: 1rem; font-weight: 700; color: #A8C800; }
 
         .con-back {
-          position: absolute;
-          top: 24px;
-          right: 32px;
           background: none;
           border: 1px solid #2a2a2a;
           border-radius: 3px;
@@ -155,15 +170,24 @@ export default function ConsolePage() {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 7px 14px;
+          /* Larger tap target for tablet */
+          padding: 12px 20px;
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s;
+          /* Minimum touch target */
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .con-back:hover { border-color: #3a3a3a; color: #666; }
+        .con-back:active { border-color: #444; color: #888; }
 
+        /* ── Card wrapper ── */
         .con-card {
           width: 100%;
-          max-width: 520px;
+          max-width: 560px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -179,11 +203,11 @@ export default function ConsolePage() {
           text-align: center;
         }
 
-        /* Mode select */
+        /* ── Mode select ── */
         .con-mode-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          gap: 14px;
           width: 100%;
         }
 
@@ -191,43 +215,51 @@ export default function ConsolePage() {
           background: #141414;
           border: 1px solid #1e1e1e;
           border-radius: 3px;
-          padding: 32px 24px;
+          /* Generous padding for fat-finger tapping */
+          padding: 40px 24px;
           cursor: pointer;
           font-family: 'Raleway', sans-serif;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 12px;
-          transition: border-color 0.2s, background 0.2s, transform 0.2s;
+          gap: 14px;
+          transition: border-color 0.2s, background 0.2s, transform 0.15s;
+          /* Minimum touch target */
+          min-height: 160px;
         }
         .con-mode-btn:hover {
           border-color: rgba(168,200,0,0.3);
           background: rgba(168,200,0,0.04);
-          transform: translateY(-2px);
+        }
+        .con-mode-btn:active {
+          transform: scale(0.97);
+          border-color: rgba(168,200,0,0.5);
+          background: rgba(168,200,0,0.06);
         }
         .con-mode-icon {
-          font-size: 2rem;
+          font-size: 2.2rem;
           line-height: 1;
         }
         .con-mode-label {
-          font-size: 0.9rem;
+          font-size: 1rem;
           font-weight: 700;
           color: #c8c6c0;
           letter-spacing: 0.04em;
         }
         .con-mode-sub {
-          font-size: 0.68rem;
+          font-size: 0.72rem;
           color: #3a3a3a;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.05em;
           text-align: center;
           line-height: 1.5;
         }
 
-        /* Picker */
+        /* ── Person picker ── */
         .con-picker-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-          gap: 10px;
+          /* Larger min cell on tablet so names fit comfortably */
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 12px;
           width: 100%;
         }
 
@@ -235,20 +267,24 @@ export default function ConsolePage() {
           background: #141414;
           border: 1px solid #1e1e1e;
           border-radius: 3px;
-          padding: 20px 16px;
+          /* Taller for easier tapping */
+          padding: 28px 16px;
           cursor: pointer;
           font-family: 'Raleway', sans-serif;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 8px;
-          transition: border-color 0.15s, background 0.15s, transform 0.15s;
-          position: relative;
+          gap: 10px;
+          transition: border-color 0.15s, background 0.15s, transform 0.12s;
+          min-height: 120px;
         }
         .con-person-btn.has-pin:hover {
           border-color: rgba(168,200,0,0.3);
           background: rgba(168,200,0,0.04);
-          transform: translateY(-2px);
+        }
+        .con-person-btn.has-pin:active {
+          transform: scale(0.96);
+          border-color: rgba(168,200,0,0.5);
         }
         .con-person-btn.no-pin {
           opacity: 0.35;
@@ -256,21 +292,20 @@ export default function ConsolePage() {
         }
 
         .con-person-avatar {
-          width: 44px;
-          height: 44px;
+          width: 52px;
+          height: 52px;
           border-radius: 50%;
           background: #1e1e1e;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.1rem;
+          font-size: 1.2rem;
           font-weight: 700;
           color: #A8C800;
-          letter-spacing: 0;
         }
 
         .con-person-name {
-          font-size: 0.8rem;
+          font-size: 0.85rem;
           font-weight: 600;
           color: #c8c6c0;
           text-align: center;
@@ -278,91 +313,101 @@ export default function ConsolePage() {
         }
 
         .con-no-pin-tag {
-          font-size: 0.55rem;
+          font-size: 0.58rem;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: #2a2a2a;
         }
 
-        /* PIN entry */
+        /* ── PIN entry ── */
         .con-pin-header {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
         }
 
         .con-pin-name {
-          font-size: 1.1rem;
+          font-size: 1.2rem;
           font-weight: 700;
           color: #c8c6c0;
         }
 
         .con-pin-dots {
           display: flex;
-          gap: 16px;
-          margin: 8px 0;
+          gap: 20px;
+          margin: 12px 0 4px;
         }
 
         .con-pin-dot {
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           border: 2px solid #2a2a2a;
-          transition: background 0.15s, border-color 0.15s;
+          transition: background 0.15s, border-color 0.15s, transform 0.1s;
         }
         .con-pin-dot.filled {
           background: #A8C800;
           border-color: #A8C800;
+          transform: scale(1.1);
         }
 
         .con-pin-error {
-          font-size: 0.75rem;
+          font-size: 0.78rem;
           color: #f87171;
           letter-spacing: 0.04em;
-          height: 18px;
+          height: 20px;
           text-align: center;
         }
 
+        /* ── Keypad — the most important tablet element ── */
         .con-keypad {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
+          gap: 12px;
           width: 100%;
-          max-width: 280px;
+          max-width: 340px;
         }
 
         .con-key {
           background: #141414;
           border: 1px solid #1e1e1e;
           border-radius: 3px;
-          padding: 18px 0;
+          /* Large touch targets — minimum 72px tall */
+          padding: 22px 0;
+          min-height: 72px;
           font-family: 'Raleway', sans-serif;
-          font-size: 1.3rem;
+          font-size: 1.5rem;
           font-weight: 600;
           color: #c8c6c0;
           cursor: pointer;
           text-align: center;
-          transition: background 0.1s, border-color 0.1s, transform 0.1s;
-          user-select: none;
+          transition: background 0.08s, border-color 0.08s, transform 0.08s;
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
         }
-        .con-key:active {
-          background: #1a1a1a;
-          border-color: rgba(168,200,0,0.3);
-          transform: scale(0.96);
+        .con-key:active:not(:disabled) {
+          background: #1c1c1c;
+          border-color: rgba(168,200,0,0.4);
+          transform: scale(0.94);
+        }
+        .con-key:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
         .con-key.delete {
-          font-size: 1rem;
+          font-size: 1.1rem;
           color: #555;
         }
         .con-key.empty {
           background: transparent;
           border-color: transparent;
           cursor: default;
+          pointer-events: none;
         }
 
-        /* Invalid */
+        /* ── Invalid ── */
         .con-invalid {
           display: flex;
           flex-direction: column;
@@ -381,28 +426,72 @@ export default function ConsolePage() {
           font-size: 0.85rem;
           letter-spacing: 0.05em;
         }
+
+        /* ── Loading dot ── */
+        .con-loading-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #A8C800;
+          box-shadow: 0 0 12px rgba(168,200,0,0.5);
+          animation: pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.4; transform: scale(0.7); }
+        }
+
+        /* ── Responsive: smaller phones ── */
+        @media (max-width: 400px) {
+          .con-mode-btn { padding: 28px 16px; min-height: 130px; }
+          .con-keypad { max-width: 300px; gap: 10px; }
+          .con-key { min-height: 64px; font-size: 1.3rem; }
+          .con-picker-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+        }
+
+        /* ── Responsive: landscape tablet ── */
+        @media (min-width: 768px) and (orientation: landscape) {
+          .con-card { max-width: 640px; }
+          .con-keypad { max-width: 380px; gap: 14px; }
+          .con-key { min-height: 80px; font-size: 1.6rem; }
+          .con-picker-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        }
+
+        /* ── Responsive: portrait tablet ── */
+        @media (min-width: 768px) and (orientation: portrait) {
+          .con-card { max-width: 600px; gap: 40px; }
+          .con-mode-btn { padding: 48px 32px; min-height: 180px; }
+          .con-keypad { max-width: 360px; gap: 14px; }
+          .con-key { min-height: 80px; font-size: 1.6rem; }
+          .con-pin-dot { width: 18px; height: 18px; }
+          .con-pin-dots { gap: 24px; }
+          .con-person-avatar { width: 58px; height: 58px; font-size: 1.3rem; }
+        }
       `}</style>
 
       <div className="con-root">
-        <div className="con-wordmark">
-          <span className="con-wordmark-wav">wav-e</span>
-          <span className="con-wordmark-e"> studios</span>
+
+        <div className="con-header">
+          <div className="con-wordmark">
+            <span className="con-wordmark-wav">wav-e</span>
+            <span className="con-wordmark-e"> studios</span>
+          </div>
+
+          {step !== 'loading' && step !== 'invalid' && step !== 'mode-select' && (
+            <button
+              className="con-back"
+              onClick={() => {
+                if (step === 'pin')    { setStep('picker'); setPin(''); setPinError(null) }
+                else if (step === 'picker') { setStep('mode-select'); setMode(null) }
+              }}
+            >
+              ← Terug
+            </button>
+          )}
         </div>
 
-        {step !== 'loading' && step !== 'invalid' && step !== 'mode-select' && (
-          <button
-            className="con-back"
-            onClick={() => {
-              if (step === 'pin') { setStep('picker'); setPin(''); setPinError(null) }
-              else if (step === 'picker') { setStep('mode-select'); setMode(null) }
-            }}
-          >
-            ← Terug
-          </button>
-        )}
-
         {step === 'loading' && (
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#A8C800', boxShadow: '0 0 12px rgba(168,200,0,0.5)' }} />
+          <div className="con-loading-dot" />
         )}
 
         {step === 'invalid' && (
@@ -470,9 +559,16 @@ export default function ConsolePage() {
 
             <div className="con-keypad">
               {['1','2','3','4','5','6','7','8','9'].map(d => (
-                <button key={d} className="con-key" onClick={() => tapDigit(d)} disabled={verifying}>{d}</button>
+                <button
+                  key={d}
+                  className="con-key"
+                  onClick={() => tapDigit(d)}
+                  disabled={verifying}
+                >
+                  {d}
+                </button>
               ))}
-              <button className="con-key empty" disabled />
+              <button className="con-key empty" aria-hidden="true" />
               <button className="con-key" onClick={() => tapDigit('0')} disabled={verifying}>0</button>
               <button className="con-key delete" onClick={tapDelete} disabled={verifying}>⌫</button>
             </div>

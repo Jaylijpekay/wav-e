@@ -100,7 +100,7 @@ export default function TrainerDashboard() {
   const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | 'green' | null>(null)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
-  const stoplightRef = useRef<HTMLDivElement>(null)
+  const stoplichtRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -172,13 +172,18 @@ export default function TrainerDashboard() {
     if (trainerId) load()
   }, [trainerId])
 
+  // Close dropdowns on outside tap/click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: MouseEvent | TouchEvent) => {
       if (gesprekRef.current && !gesprekRef.current.contains(e.target as Node)) setGesprekOpen(false)
-      if (stoplightRef.current && !stoplightRef.current.contains(e.target as Node)) setOpenStoplight(null)
+      if (stoplichtRef.current && !stoplichtRef.current.contains(e.target as Node)) setOpenStoplight(null)
     }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
   }, [])
 
   const handleGesprekSelect = (lid: LidDropdown) => {
@@ -199,12 +204,16 @@ export default function TrainerDashboard() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
+        *, *::before, *::after { box-sizing: border-box; }
+
         .td-root {
           min-height: 100vh;
+          min-height: 100dvh;
           background: #111;
           color: #c8c6c0;
           font-family: 'Raleway', sans-serif;
           position: relative;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .td-root::before {
@@ -228,10 +237,11 @@ export default function TrainerDashboard() {
           border-bottom: 1px solid rgba(168,200,0,0.15);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
+          /* Taller header on tablet for easier interaction */
           height: 56px;
           display: flex;
           align-items: center;
-          padding: 0 2rem;
+          padding: 0 1.5rem;
         }
 
         .td-header-inner {
@@ -241,51 +251,64 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 12px;
         }
 
         .td-wordmark {
           display: flex;
           align-items: baseline;
           gap: 0;
-          cursor: pointer;
           text-decoration: none;
+          flex-shrink: 0;
         }
-        .td-wordmark-wav  { font-size: 1.1rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
-        .td-wordmark-e    { font-size: 1.1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
+        .td-wordmark-wav { font-size: 1.1rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
+        .td-wordmark-e   { font-size: 1.1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
 
         .td-header-right {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+          flex-wrap: nowrap;
         }
 
         .td-trainer-name {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           font-weight: 500;
           color: #3a3a3a;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          margin-right: 4px;
+          margin-right: 2px;
+          /* Hide on very small screens */
+          white-space: nowrap;
         }
 
+        /* ── Buttons — larger tap targets on tablet ── */
         .td-btn-secondary {
           font-family: 'Raleway', sans-serif;
           font-size: 0.72rem;
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 7px 14px;
+          padding: 10px 16px;
+          min-height: 44px;
           border-radius: 3px;
           border: 1px solid #2a2a2a;
           background: transparent;
           color: #666;
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s, background 0.15s;
+          white-space: nowrap;
+          touch-action: manipulation;
         }
         .td-btn-secondary:hover {
           border-color: rgba(168,200,0,0.4);
           color: #A8C800;
           background: rgba(168,200,0,0.06);
+        }
+        .td-btn-secondary:active {
+          border-color: rgba(168,200,0,0.5);
+          color: #A8C800;
+          background: rgba(168,200,0,0.08);
         }
 
         .td-btn-primary {
@@ -294,18 +317,24 @@ export default function TrainerDashboard() {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 7px 14px;
+          padding: 10px 16px;
+          min-height: 44px;
           border-radius: 3px;
           border: 1px solid #A8C800;
           background: #A8C800;
           color: #111;
           cursor: pointer;
-          transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+          transition: background 0.15s, box-shadow 0.15s;
+          white-space: nowrap;
+          touch-action: manipulation;
         }
         .td-btn-primary:hover {
           background: #95B400;
           box-shadow: 0 4px 14px rgba(168,200,0,0.3);
-          transform: translateY(-1px);
+        }
+        .td-btn-primary:active {
+          background: #8aaa00;
+          transform: scale(0.97);
         }
 
         /* ── Dropdown ── */
@@ -332,23 +361,26 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 11px 16px;
+          /* Taller rows for easier tapping */
+          padding: 14px 16px;
           cursor: pointer;
           border-bottom: 1px solid #1e1e1e;
           transition: background 0.1s;
+          min-height: 48px;
         }
         .td-dropdown-item:last-child { border-bottom: none; }
-        .td-dropdown-item:hover { background: rgba(168,200,0,0.06); }
+        .td-dropdown-item:hover  { background: rgba(168,200,0,0.06); }
+        .td-dropdown-item:active { background: rgba(168,200,0,0.10); }
 
-        .td-dropdown-name { font-size: 0.85rem; color: #c8c6c0; font-weight: 500; }
-        .td-dropdown-meta { font-size: 0.72rem; color: #3a3a3a; letter-spacing: 0.05em; }
+        .td-dropdown-name  { font-size: 0.88rem; color: #c8c6c0; font-weight: 500; }
+        .td-dropdown-meta  { font-size: 0.72rem; color: #3a3a3a; letter-spacing: 0.05em; }
         .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: #3a3a3a; text-align: center; }
 
         /* ── Body ── */
         .td-body {
           max-width: 1100px;
           margin: 0 auto;
-          padding: 2.5rem 2rem 6rem;
+          padding: 2rem 1.5rem 6rem;
           position: relative;
           z-index: 1;
         }
@@ -357,7 +389,7 @@ export default function TrainerDashboard() {
         .td-summary-bar {
           display: flex;
           gap: 10px;
-          margin-bottom: 2.5rem;
+          margin-bottom: 2rem;
           flex-wrap: wrap;
           align-items: flex-start;
           animation: fadeUp 0.4s ease-out both;
@@ -374,17 +406,19 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 12px 18px;
+          /* Taller for easier tapping */
+          padding: 14px 18px;
+          min-height: 48px;
           border-radius: 3px;
           font-family: 'Raleway', sans-serif;
           transition: all 0.2s ease;
           border: 1px solid #1e1e1e;
           background: #141414;
+          touch-action: manipulation;
         }
 
-        .td-summary-card.clickable:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        .td-summary-card.clickable:active {
+          transform: scale(0.97);
         }
 
         .td-dot {
@@ -418,8 +452,23 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 12px 18px;
+          padding: 14px 18px;
           margin-left: auto;
+        }
+
+        /* ── Stoplight dropdown panel ── */
+        .td-stoplight-panel {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          background: #161616;
+          border: 1px solid #2a2a2a;
+          border-radius: 4px;
+          min-width: 220px;
+          z-index: 200;
+          overflow: hidden;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          animation: dropIn 0.15s ease-out both;
         }
 
         /* ── Section header ── */
@@ -462,24 +511,23 @@ export default function TrainerDashboard() {
         .td-row {
           display: flex;
           align-items: center;
-          gap: 2rem;
-          padding: 16px 20px;
+          gap: 1.5rem;
+          /* Taller rows for tap comfort */
+          padding: 18px 20px;
+          min-height: 56px;
           background: #141414;
           border-left: 3px solid transparent;
           cursor: pointer;
           transition: background 0.15s;
+          touch-action: manipulation;
         }
 
-        .td-row:hover { background: #181818; }
+        .td-row:active:not(.no-nav) { background: #1a1a1a; }
         .td-row.no-nav { cursor: default; }
 
-        .td-row-main { min-width: 190px; flex: 0 0 190px; }
-        .td-row-name { font-size: 0.875rem; font-weight: 600; color: #c8c6c0; margin-bottom: 3px; }
-        .td-row-lid-id { font-size: 0.7rem; color: #3a3a3a; letter-spacing: 0.05em; }
-        .td-row-actie { flex: 1; font-size: 0.82rem; color: #555; }
+        .td-row-actie { flex: 1; font-size: 0.85rem; color: #555; line-height: 1.4; }
         .td-row-dagen { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
 
-        /* Management actie badge */
         .td-mgmt-badge {
           font-size: 0.58rem;
           font-weight: 700;
@@ -502,19 +550,60 @@ export default function TrainerDashboard() {
           letter-spacing: 0.05em;
         }
 
-        /* Stoplight dropdown panel */
-        .td-stoplight-panel {
-          position: absolute;
-          top: calc(100% + 6px);
-          left: 0;
-          background: #161616;
-          border: 1px solid #2a2a2a;
-          border-radius: 4px;
-          min-width: 220px;
-          z-index: 200;
-          overflow: hidden;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-          animation: dropIn 0.15s ease-out both;
+        /* ── Group header rows ── */
+        .td-group-header {
+          padding: 10px 20px 8px;
+          background: #111;
+          border-bottom: 1px solid #1e1e1e;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          min-height: 44px;
+          touch-action: manipulation;
+        }
+        .td-group-header:active { background: #161616; }
+        .td-group-header.no-nav { cursor: default; }
+
+        /* ── Tablet breakpoint (iPad 7th gen = 810px portrait / 1080px landscape) ── */
+        @media (min-width: 768px) and (pointer: coarse) {
+          .td-header { height: 64px; padding: 0 2rem; }
+
+          .td-btn-secondary,
+          .td-btn-primary {
+            padding: 12px 20px;
+            min-height: 48px;
+            font-size: 0.78rem;
+          }
+
+          .td-body { padding: 2rem 2rem 6rem; }
+
+          .td-summary-card { padding: 16px 20px; min-height: 56px; }
+
+          .td-dropdown-item { padding: 16px 20px; min-height: 54px; }
+          .td-dropdown-name { font-size: 0.95rem; }
+
+          .td-row { padding: 20px 24px; min-height: 64px; }
+          .td-row-actie { font-size: 0.9rem; }
+
+          .td-group-header { padding: 12px 24px 10px; min-height: 50px; }
+
+          /* Stoplight panel — wider on tablet so names don't truncate */
+          .td-stoplight-panel { min-width: 260px; }
+          .td-dropdown { min-width: 280px; }
+        }
+
+        /* ── Landscape tablet — use horizontal space ── */
+        @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
+          .td-trainer-name { display: inline; }
+        }
+
+        /* ── Portrait tablet — compress header ── */
+        @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
+          .td-trainer-name { display: none; }
+          .td-header-right { gap: 8px; }
+          .td-btn-secondary,
+          .td-btn-primary { padding: 10px 12px; font-size: 0.7rem; }
         }
       `}</style>
 
@@ -574,7 +663,7 @@ export default function TrainerDashboard() {
         <div className="td-body">
           {/* Stoplight summary bar */}
           {!loading && (
-            <div className="td-summary-bar" ref={stoplightRef}>
+            <div className="td-summary-bar" ref={stoplichtRef}>
               {(['red', 'amber'] as const).map(sig => {
                 const col = STOPLIGHT[sig]
                 const labels = { red: 'Aandacht nodig', amber: 'Let op' }
@@ -619,7 +708,7 @@ export default function TrainerDashboard() {
                 )
               })}
 
-              {/* Green — clickable if members exist */}
+              {/* Green */}
               {(() => {
                 const col = STOPLIGHT.green
                 const isOpen = openStoplight === 'green'
@@ -679,11 +768,9 @@ export default function TrainerDashboard() {
           ) : acties.length === 0 ? (
             <div className="td-empty">Geen open acties.</div>
           ) : (() => {
-            // Split management vs member acties
             const mgmt   = acties.filter(a => a.is_management)
             const member = acties.filter(a => !a.is_management)
 
-            // Group member acties by lid_uuid, preserving stoplight order (red → amber → green)
             const lidOrder = leden
               .slice()
               .sort((a, b) => {
@@ -709,8 +796,8 @@ export default function TrainerDashboard() {
                 {/* Management group */}
                 {mgmt.length > 0 && (
                   <div className="td-list">
-                    <div style={{ padding: '8px 20px 6px', background: '#111', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block' }} />
+                    <div className="td-group-header no-nav">
+                      <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
                       <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#818cf8' }}>Management</span>
                       <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{mgmt.length}</span>
                     </div>
@@ -738,12 +825,11 @@ export default function TrainerDashboard() {
 
                   return (
                     <div key={lidUuid} className="td-list">
-                      {/* Group header — clickable → member page */}
                       <div
-                        style={{ padding: '8px 20px 6px', background: '#111', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                        className="td-group-header"
                         onClick={() => router.push(`/leden/${lidUuid}`)}
                       >
-                        <span style={{ width: 3, height: 12, background: col.dot, borderRadius: 2, display: 'inline-block' }} />
+                        <span style={{ width: 3, height: 12, background: col.dot, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
                         <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: col.text }}>
                           {lid ? `${lid.voornaam} ${lid.achternaam}` : '—'}
                         </span>
@@ -753,7 +839,6 @@ export default function TrainerDashboard() {
                         </span>
                       </div>
 
-                      {/* Acties under this lid */}
                       {lidActies.map(actie => {
                         const dagen = daysSince(actie.aangemaakt)
                         const isOud = dagen !== null && dagen > 7

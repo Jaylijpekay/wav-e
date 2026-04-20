@@ -63,8 +63,6 @@ function sigCol(inv: boolean, val: number) {
   return       { fill: '#eef6d6', stroke: '#88c000', text: '#3a5e00' }
 }
 
-
-
 // ── Ring component ─────────────────────────────────────────────────────
 
 function Ring({
@@ -75,7 +73,7 @@ function Ring({
   onClick: () => void
   active: boolean
 }) {
-  const [hovered, setHovered] = useState(false)
+  const [pressed, setPressed] = useState(false)
   const arcRef  = useRef<SVGCircleElement>(null)
   const fillRef = useRef<SVGCircleElement>(null)
   const textRef = useRef<SVGTextElement>(null)
@@ -117,13 +115,25 @@ function Ring({
   return (
     <div
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', position: 'relative' }}
+      onMouseEnter={() => setPressed(true)}
+      onMouseLeave={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => { setPressed(false); onClick() }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        cursor: 'pointer',
+        position: 'relative',
+        // Larger touch target
+        padding: '6px 4px',
+        WebkitTapHighlightColor: 'transparent',
+      }}
     >
       <div style={{
         fontSize: 15, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transform: hovered ? 'scale(1.35) rotate(-8deg)' : 'scale(1)',
+        transform: pressed ? 'scale(1.35) rotate(-8deg)' : 'scale(1)',
         transition: 'transform 0.2s ease',
       }}>
         {metric.icon}
@@ -132,7 +142,7 @@ function Ring({
         width="58" height="58" viewBox="0 0 56 56"
         style={{
           display: 'block',
-          transform: hovered ? 'scale(1.08)' : active ? 'scale(1.04)' : 'scale(1)',
+          transform: pressed ? 'scale(1.08)' : active ? 'scale(1.04)' : 'scale(1)',
           transition: 'transform 0.2s ease',
         }}
       >
@@ -156,22 +166,6 @@ function Ring({
         </text>
       </svg>
       <div style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>{metric.label}</div>
-      {hovered && val !== null && (
-        <div style={{
-          position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#1a1a1a', color: '#fff', fontSize: 11,
-          padding: '6px 11px', borderRadius: 8, whiteSpace: 'nowrap',
-          zIndex: 30, pointerEvents: 'none', lineHeight: 1.5, textAlign: 'center',
-        }}>
-          <strong style={{ fontSize: 13 }}>{val}/10</strong><br />
-          {metric.tip(val)}
-          <div style={{
-            position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            border: '5px solid transparent', borderTopColor: '#1a1a1a',
-          }} />
-        </div>
-      )}
     </div>
   )
 }
@@ -199,7 +193,6 @@ function MetricChart({
   const latestVal = vals[selectedIdx]
   const col = latestVal !== null ? sigCol(metric.inv, latestVal) : { fill: '#f5f5f5', stroke: '#ccc', text: '#aaa' }
 
-  // delta: selected cyclus → last cyclus
   const selectedVal = vals[selectedIdx] ?? null
   const lastVal     = [...vals].reverse().find(v => v !== null) ?? null
   let deltaEl: React.ReactNode = null
@@ -219,7 +212,6 @@ function MetricChart({
     deltaEl = <span style={{ minWidth: 32 }} />
   }
 
-  // SVG paths
   const pts = evals.map((e, i) => {
     const v = e[metric.key as keyof Evaluatie] as number | null
     return v !== null ? { x: xPos(i), y: yScale(v), v } : null
@@ -231,22 +223,18 @@ function MetricChart({
     ? `${path} L${validPts[validPts.length - 1].x.toFixed(1)},${(H - padB).toFixed(1)} L${validPts[0].x.toFixed(1)},${(H - padB).toFixed(1)} Z`
     : ''
 
-  // target zone
   const yZoneTop = yScale(metric.inv ? 6 : 7)
   const yZoneBot = yScale(metric.inv ? 8 : 6)
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      {/* icon + label */}
       <div style={{ width: 48, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         <span style={{ fontSize: 15 }}>{metric.icon}</span>
         <span style={{ fontSize: 10, color: '#999', textAlign: 'center', lineHeight: 1.2 }}>{metric.label}</span>
       </div>
 
-      {/* chart */}
       <div style={{ flex: 1, position: 'relative' }}>
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
-          {/* hairline gridlines */}
           {[3, 5, 7, 9].map(v => (
             <line key={v}
               x1={padL} y1={yScale(v).toFixed(1)}
@@ -254,32 +242,22 @@ function MetricChart({
               stroke="#e8e8e8" strokeWidth="0.3"
             />
           ))}
-
-          {/* target zone */}
           <rect
             x={padL} y={yZoneTop.toFixed(1)}
             width={chartW} height={(yZoneBot - yZoneTop).toFixed(1)}
             fill="rgba(122,173,0,0.06)"
           />
-
-          {/* selected vertical */}
           <line
             x1={xPos(selectedIdx).toFixed(1)} y1={padT}
             x2={xPos(selectedIdx).toFixed(1)} y2={H - padB}
             stroke="rgba(122,173,0,0.3)" strokeWidth="1" strokeDasharray="3,3"
           />
-
-          {/* fill under line */}
           {fillPath && (
             <path d={fillPath} fill={metric.color} opacity="0.06" />
           )}
-
-          {/* line */}
           {validPts.length >= 2 && (
             <path d={path} fill="none" stroke={metric.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           )}
-
-          {/* dots */}
           {pts.map((p, i) => {
             if (!p) return null
             const isSel = i === selectedIdx
@@ -287,7 +265,8 @@ function MetricChart({
               <circle
                 key={i}
                 cx={p.x.toFixed(1)} cy={p.y.toFixed(1)}
-                r={isSel ? 5 : 3}
+                // Larger dots for easier tapping on chart
+                r={isSel ? 7 : 5}
                 fill={isSel ? metric.color : '#fff'}
                 stroke={metric.color} strokeWidth="2"
                 style={{ cursor: 'pointer' }}
@@ -297,8 +276,6 @@ function MetricChart({
               </circle>
             )
           })}
-
-          {/* x labels */}
           {evals.map((e, i) => (
             <text
               key={e.id}
@@ -323,15 +300,15 @@ function MetricChart({
 
 function FysiekTable({ evals }: { evals: Evaluatie[] }) {
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #e8e8e8' }}>
-            <th style={{ padding: '8px 12px 8px 0', textAlign: 'left', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Meting</th>
+            <th style={{ padding: '10px 12px 10px 0', textAlign: 'left', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Meting</th>
             {evals.map(ev => (
-              <th key={ev.id} style={{ padding: '8px 10px', textAlign: 'center', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>C{ev.cyclus}</th>
+              <th key={ev.id} style={{ padding: '10px', textAlign: 'center', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>C{ev.cyclus}</th>
             ))}
-            <th style={{ padding: '8px 0 8px 10px', textAlign: 'right', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Δ</th>
+            <th style={{ padding: '10px 0 10px 10px', textAlign: 'right', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Δ</th>
           </tr>
         </thead>
         <tbody>
@@ -344,16 +321,16 @@ function FysiekTable({ evals }: { evals: Evaluatie[] }) {
 
             return (
               <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                <td style={{ padding: '10px 12px 10px 0', color: '#444', fontWeight: 500 }}>{label}</td>
+                <td style={{ padding: '14px 12px 14px 0', color: '#444', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</td>
                 {evals.map(ev => {
                   const val = ev[key as keyof Evaluatie] as number | null
                   return (
-                    <td key={ev.id} style={{ padding: '10px', textAlign: 'center', color: val !== null ? '#1a1a1a' : '#ccc' }}>
+                    <td key={ev.id} style={{ padding: '14px 10px', textAlign: 'center', color: val !== null ? '#1a1a1a' : '#ccc' }}>
                       {val !== null ? <>{val}{unit && <span style={{ fontSize: 10, color: '#aaa', marginLeft: 2 }}>{unit}</span>}</> : '—'}
                     </td>
                   )
                 })}
-                <td style={{ padding: '10px 0 10px 10px', textAlign: 'right' }}>
+                <td style={{ padding: '14px 0 14px 10px', textAlign: 'right' }}>
                   {diff !== null && diff !== 0 ? (
                     <span style={{ fontWeight: 600, color: improved ? '#3a6e00' : '#a03030' }}>
                       {diff > 0 ? '+' : '−'}{Math.abs(+diff.toFixed(1))}{unit && <span style={{ fontSize: 10, marginLeft: 1 }}>{unit}</span>}
@@ -417,7 +394,7 @@ export default function VooruitgangPage() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');`}</style>
       <div style={{ minHeight: '100vh', background: '#f8faf3', color: '#aaa', fontFamily: 'Raleway, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         <span style={{ fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geen evaluaties gevonden</span>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#A8C800', fontFamily: 'Raleway, sans-serif', fontSize: '0.72rem', cursor: 'pointer' }}>
+        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#A8C800', fontFamily: 'Raleway, sans-serif', fontSize: '0.72rem', cursor: 'pointer', minHeight: 44 }}>
           ← Terug naar {lid.voornaam}
         </button>
       </div>
@@ -430,32 +407,200 @@ export default function VooruitgangPage() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
         body { background: #f4f7ec; }
-        .vg-root { min-height: 100vh; background: #f4f7ec; font-family: Raleway, system-ui, sans-serif; padding-bottom: 60px; }
-        .vg-header { background: #fff; border-bottom: 1px solid #e5ecd0; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+
+        .vg-root {
+          min-height: 100vh;
+          min-height: 100dvh;
+          background: #f4f7ec;
+          font-family: Raleway, system-ui, sans-serif;
+          padding-bottom: 60px;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ── Header ── */
+        .vg-header {
+          background: #fff;
+          border-bottom: 1px solid #e5ecd0;
+          padding: 0 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          height: 56px;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+
         .vg-logo { font-size: 15px; font-weight: 700; color: #4a6e00; letter-spacing: -0.02em; }
         .vg-logo span { color: #92b800; }
-        .vg-back { background: none; border: none; color: #999; font-family: Raleway, sans-serif; font-size: 0.72rem; cursor: pointer; letter-spacing: 0.06em; }
-        .vg-back:hover { color: #7aad00; }
-        .vg-card { background: #fff; border: 1px solid #e5ecd0; border-radius: 16px; overflow: hidden; max-width: 680px; margin: 28px auto 0; }
-        .vg-card-head { background: #f4f7ec; padding: 20px 24px 16px; border-bottom: 1px solid #e5ecd0; display: flex; justify-content: space-between; align-items: flex-start; }
+
+        .vg-back {
+          background: none;
+          border: none;
+          color: #999;
+          font-family: Raleway, sans-serif;
+          font-size: 0.72rem;
+          cursor: pointer;
+          letter-spacing: 0.06em;
+          /* Tap target */
+          min-height: 44px;
+          padding: 0 4px;
+          display: flex;
+          align-items: center;
+          touch-action: manipulation;
+        }
+        .vg-back:hover  { color: #7aad00; }
+        .vg-back:active { color: #7aad00; }
+
+        /* ── Card ── */
+        .vg-card {
+          background: #fff;
+          border: 1px solid #e5ecd0;
+          border-radius: 16px;
+          overflow: hidden;
+          max-width: 680px;
+          margin: 24px auto 0;
+        }
+
+        .vg-card-head {
+          background: #f4f7ec;
+          padding: 20px 24px 16px;
+          border-bottom: 1px solid #e5ecd0;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
         .vg-member-name { font-size: 22px; font-weight: 600; color: #1a1a1a; margin: 0 0 4px; letter-spacing: -0.02em; }
         .vg-member-meta { font-size: 12px; color: #999; }
-        .vg-cycles-strip { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid #f0f0f0; overflow-x: auto; flex-wrap: wrap; }
-        .vg-cyc-btn { padding: 4px 14px; border-radius: 20px; border: 1.5px solid #dde0d8; background: #fafafa; color: #888; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: Raleway, sans-serif; white-space: nowrap; }
-        .vg-cyc-btn:hover { border-color: #92b800; color: #4a6e00; background: #f4f7ec; }
+
+        /* ── Cycle strip — horizontally scrollable on tablet ── */
+        .vg-cycles-strip {
+          display: flex;
+          gap: 6px;
+          padding: 12px 24px;
+          border-bottom: 1px solid #f0f0f0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          flex-wrap: nowrap;
+        }
+        .vg-cycles-strip::-webkit-scrollbar { display: none; }
+
+        .vg-cyc-btn {
+          padding: 8px 16px;
+          min-height: 40px;
+          border-radius: 20px;
+          border: 1.5px solid #dde0d8;
+          background: #fafafa;
+          color: #888;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s;
+          font-family: Raleway, sans-serif;
+          white-space: nowrap;
+          flex-shrink: 0;
+          touch-action: manipulation;
+        }
+        .vg-cyc-btn:hover  { border-color: #92b800; color: #4a6e00; background: #f4f7ec; }
+        .vg-cyc-btn:active { transform: scale(0.96); }
         .vg-cyc-btn.active { border-color: #7aad00; background: #eef5d0; color: #3a5e00; }
-        .vg-rings { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 20px 24px; border-bottom: 1px solid #f0f0f0; }
+
+        /* ── Rings ── */
+        .vg-rings {
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 8px;
+          padding: 20px 24px;
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        /* ── Tabs ── */
         .vg-tabs { display: flex; gap: 4px; padding: 14px 24px 0; }
-        .vg-tab { padding: 6px 16px; border-radius: 8px 8px 0 0; border: 1px solid transparent; background: transparent; color: #aaa; font-family: Raleway, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.15s; border-bottom: none; }
+
+        .vg-tab {
+          padding: 10px 16px;
+          min-height: 44px;
+          border-radius: 8px 8px 0 0;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #aaa;
+          font-family: Raleway, sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.15s;
+          border-bottom: none;
+          touch-action: manipulation;
+        }
+        .vg-tab:active { transform: scale(0.96); }
         .vg-tab.active { background: #f8faf3; border-color: #e5ecd0; color: #4a6e00; }
-        .vg-tab-body { padding: 20px 24px 24px; background: #f8faf3; border-top: 1px solid #e5ecd0; display: flex; flex-direction: column; gap: 12px; }
-        .vg-footer-strip { padding: 12px 24px; background: #f4f7ec; border-top: 1px solid #e5ecd0; display: flex; justify-content: space-between; align-items: center; }
+
+        /* ── Tab body ── */
+        .vg-tab-body {
+          padding: 20px 24px 24px;
+          background: #f8faf3;
+          border-top: 1px solid #e5ecd0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        /* ── Footer ── */
+        .vg-footer-strip {
+          padding: 12px 24px;
+          background: #f4f7ec;
+          border-top: 1px solid #e5ecd0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        /* ── Tablet: iPad 7th gen ── */
+        @media (min-width: 768px) and (pointer: coarse) {
+          .vg-header { height: 64px; }
+          .vg-back { font-size: 0.82rem; }
+
+          /* Card fills more of the tablet viewport */
+          .vg-card { max-width: 92vw; margin: 28px auto 0; }
+
+          /* Rings: bigger on tablet */
+          .vg-rings { padding: 24px 28px; gap: 12px; }
+
+          /* Cycle buttons: taller */
+          .vg-cyc-btn { padding: 10px 20px; min-height: 48px; font-size: 14px; }
+
+          /* Tab bar */
+          .vg-tab { padding: 12px 20px; min-height: 48px; font-size: 13px; }
+
+          /* Tab body: more breathing room */
+          .vg-tab-body { padding: 24px 28px 28px; gap: 16px; }
+
+          /* Fysiek table rows taller */
+        }
+
+        /* Portrait tablet: card nearly full width */
+        @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
+          .vg-card { max-width: 96vw; border-radius: 12px; }
+          /* Rings: 3 per row on portrait to avoid cramping */
+          .vg-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        }
+
+        /* Landscape tablet: keep 6-col rings, wider card */
+        @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
+          .vg-card { max-width: 760px; }
+        }
       `}</style>
 
       <div className="vg-root">
-        {/* Header */}
         <div className="vg-header">
           <div className="vg-logo">wav<span>-e</span> studios</div>
           <button className="vg-back" onClick={() => router.back()}>← terug</button>
@@ -468,7 +613,7 @@ export default function VooruitgangPage() {
               <div className="vg-member-name">{lid.voornaam} {lid.achternaam}</div>
               <div className="vg-member-meta">{lid.lid_id} · {evals.length} cyclus{evals.length !== 1 ? 'sen' : ''}</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>Cyclus {selectedEval.cyclus}</div>
               <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{formatDate(selectedEval.datum)}</div>
             </div>
@@ -487,7 +632,7 @@ export default function VooruitgangPage() {
             ))}
           </div>
 
-          {/* Rings — all 6 leefstijl metrics */}
+          {/* Rings */}
           <div className="vg-rings">
             {METRICS.map(m => (
               <Ring
@@ -529,7 +674,7 @@ export default function VooruitgangPage() {
 
           {/* Footer */}
           <div className="vg-footer-strip">
-<span />
+            <span />
             <span style={{ fontSize: 11, color: '#bbb' }}>
               {evals[0] ? formatDate(evals[0].datum) : ''} – {formatDate(selectedEval.datum)}
             </span>

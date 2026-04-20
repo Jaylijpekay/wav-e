@@ -14,12 +14,6 @@ type Lid = {
   trainer_id: string
 }
 
-type Trainer = {
-  id: string
-  voornaam: string
-  achternaam: string
-}
-
 type SliderField = {
   key: string
   label: string
@@ -50,7 +44,6 @@ const COLORS = {
 export default function GesprekNew() {
   const router = useRouter()
   const [leden, setLeden] = useState<Lid[]>([])
-  const [role, setRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,18 +63,16 @@ export default function GesprekNew() {
 
   useEffect(() => {
     const load = async () => {
-    const params = new URLSearchParams(window.location.search)
-    const prefill = params.get('lid_id')
-    if (prefill) setLidId(prefill)
+      const params = new URLSearchParams(window.location.search)
+      const prefill = params.get('lid_id')
+      if (prefill) setLidId(prefill)
 
-    const supabase = getSupabase()
-    const [{ data: ledenData }, { data: roleData }] = await Promise.all([
-      supabase.from('leden').select('id, lid_id, voornaam, achternaam, trainer_id').eq('actief', true).order('achternaam'),
-      supabase.rpc('get_my_role'),
-    ])
-    setLeden(ledenData ?? [])
-    setRole(roleData ?? null)
-    setLoading(false)
+      const supabase = getSupabase()
+      const [{ data: ledenData }] = await Promise.all([
+        supabase.from('leden').select('id, lid_id, voornaam, achternaam, trainer_id').eq('actief', true).order('achternaam'),
+      ])
+      setLeden(ledenData ?? [])
+      setLoading(false)
     }
     load()
   }, [])
@@ -132,12 +123,16 @@ export default function GesprekNew() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
+        *, *::before, *::after { box-sizing: border-box; }
+
         .gn-root {
           min-height: 100vh;
+          min-height: 100dvh;
           background: #111;
           color: #c8c6c0;
           font-family: 'Raleway', sans-serif;
           position: relative;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .gn-root::before {
@@ -152,7 +147,7 @@ export default function GesprekNew() {
           z-index: 0;
         }
 
-        /* Header */
+        /* ── Header ── */
         .gn-header {
           position: sticky;
           top: 0;
@@ -160,7 +155,7 @@ export default function GesprekNew() {
           height: 56px;
           display: flex;
           align-items: center;
-          padding: 0 2rem;
+          padding: 0 1.5rem;
           background: rgba(17,17,17,0.92);
           border-bottom: 1px solid rgba(168,200,0,0.12);
           backdrop-filter: blur(12px);
@@ -194,16 +189,15 @@ export default function GesprekNew() {
           color: #B4B4B4;
         }
 
-        /* Form */
+        /* ── Form ── */
         .gn-form {
           max-width: 860px;
           margin: 0 auto;
-          padding: 2.5rem 2rem 6rem;
+          padding: 2.5rem 1.5rem 6rem;
           position: relative;
           z-index: 1;
         }
 
-        /* Section */
         .gn-section { margin-bottom: 0; animation: gnFadeUp 0.4s ease-out both; }
 
         .gn-section-label {
@@ -223,8 +217,8 @@ export default function GesprekNew() {
           margin: 2.5rem 0;
         }
 
-        /* Row / Field */
-        .gn-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        /* ── Row / Field ── */
+        .gn-row   { display: flex; gap: 16px; flex-wrap: wrap; }
         .gn-field { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
         .gn-field-narrow { max-width: 200px; }
 
@@ -237,13 +231,15 @@ export default function GesprekNew() {
           margin-bottom: 7px;
         }
 
+        /* ── Inputs — min-height 44px, font ≥ 16px prevents iOS zoom ── */
         .gn-select, .gn-input, .gn-textarea {
           background: #141414;
           border: 1px solid #1e1e1e;
           border-radius: 3px;
           color: #c8c6c0;
-          padding: 10px 12px;
-          font-size: 0.875rem;
+          padding: 12px 12px;
+          min-height: 44px;
+          font-size: 1rem;
           font-family: 'Raleway', sans-serif;
           font-weight: 400;
           outline: none;
@@ -256,9 +252,9 @@ export default function GesprekNew() {
           box-shadow: 0 0 0 3px rgba(168,200,0,0.08);
         }
         .gn-select option { background: #141414; }
-        .gn-textarea { resize: vertical; line-height: 1.6; }
+        .gn-textarea { resize: vertical; line-height: 1.6; min-height: 120px; }
 
-        /* Slider grid */
+        /* ── Slider grid ── */
         .gn-slider-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -270,19 +266,14 @@ export default function GesprekNew() {
           border: 1px solid #1e1e1e;
           border-radius: 3px;
           padding: 18px 18px 14px;
-          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-        }
-
-        .gn-slider-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+          transition: border-color 0.25s ease;
         }
 
         .gn-slider-top {
           display: flex;
           justify-content: space-between;
           align-items: baseline;
-          margin-bottom: 14px;
+          margin-bottom: 16px;
         }
 
         .gn-slider-label {
@@ -300,41 +291,63 @@ export default function GesprekNew() {
           transition: color 0.2s;
         }
 
+        /* ── Range slider — large thumb for touch ── */
         .gn-slider {
           width: 100%;
           cursor: pointer;
-          height: 3px;
-          margin-bottom: 8px;
+          /* Taller hit area on tablet */
+          height: 28px;
+          margin-bottom: 4px;
           appearance: none;
           -webkit-appearance: none;
+          background: transparent;
+          outline: none;
+          /* Centre the track vertically */
+          display: flex;
+          align-items: center;
+        }
+
+        /* Track */
+        .gn-slider::-webkit-slider-runnable-track {
+          height: 4px;
           background: #1e1e1e;
           border-radius: 2px;
-          outline: none;
         }
+        .gn-slider::-moz-range-track {
+          height: 4px;
+          background: #1e1e1e;
+          border-radius: 2px;
+        }
+
+        /* Thumb — 28px on mobile, 36px on tablet for reliable touch */
         .gn-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
-          width: 16px;
-          height: 16px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           background: var(--thumb-color, #A8C800);
           cursor: pointer;
-          transition: transform 0.15s;
+          margin-top: -12px;
           box-shadow: 0 0 6px rgba(0,0,0,0.5);
+          transition: transform 0.12s;
         }
-        .gn-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
+        .gn-slider::-webkit-slider-thumb:active { transform: scale(1.15); }
+
         .gn-slider::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           border: none;
           background: var(--thumb-color, #A8C800);
           cursor: pointer;
+          box-shadow: 0 0 6px rgba(0,0,0,0.5);
         }
 
         .gn-slider-meta {
           display: flex;
           justify-content: space-between;
           margin-bottom: 12px;
+          margin-top: 4px;
         }
 
         .gn-slider-hint {
@@ -349,96 +362,35 @@ export default function GesprekNew() {
           transition: background 0.3s;
         }
 
-        /* Toggle */
-        .gn-toggle-group { display: flex; gap: 6px; margin-top: 4px; }
+        /* ── Toggle ── */
+        .gn-toggle-group { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
 
         .gn-toggle-btn {
           background: #141414;
           border: 1px solid #1e1e1e;
           border-radius: 3px;
           color: #B4B4B4;
-          padding: 8px 20px;
-          font-size: 0.8rem;
+          /* Larger tap target */
+          padding: 12px 20px;
+          min-height: 44px;
+          font-size: 0.85rem;
           font-family: 'Raleway', sans-serif;
           font-weight: 600;
           cursor: pointer;
           letter-spacing: 0.04em;
           transition: all 0.15s;
+          touch-action: manipulation;
+          flex: 1;
         }
-        .gn-toggle-btn:hover { border-color: rgba(168,200,0,0.3); color: #B4B4B4; }
+        .gn-toggle-btn:hover  { border-color: rgba(168,200,0,0.3); }
+        .gn-toggle-btn:active { border-color: rgba(168,200,0,0.4); background: #1a1a1a; }
         .gn-toggle-btn.active {
           background: #1a1a1a;
           border-color: rgba(168,200,0,0.5);
           color: #A8C800;
         }
 
-        /* Error */
-        .gn-error {
-          background: rgba(220,38,38,0.07);
-          border: 1px solid rgba(220,38,38,0.2);
-          border-radius: 3px;
-          color: #f87171;
-          padding: 12px 16px;
-          font-size: 0.82rem;
-          margin-bottom: 1.5rem;
-          letter-spacing: 0.02em;
-        }
-
-        /* Submit row */
-        .gn-submit-row {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-          margin-top: 3rem;
-        }
-
-        .gn-cancel-btn {
-          font-family: 'Raleway', sans-serif;
-          font-size: 0.72rem;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          padding: 10px 22px;
-          border-radius: 3px;
-          border: 1px solid #1e1e1e;
-          background: transparent;
-          color: #B4B4B4;
-          cursor: pointer;
-          transition: border-color 0.15s, color 0.15s;
-        }
-        .gn-cancel-btn:hover { border-color: rgba(168,200,0,0.3); color: #666; }
-
-        .gn-submit-btn {
-          font-family: 'Raleway', sans-serif;
-          font-size: 0.72rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          padding: 10px 28px;
-          border-radius: 3px;
-          border: 1px solid #A8C800;
-          background: #A8C800;
-          color: #111;
-          cursor: pointer;
-          transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
-        }
-        .gn-submit-btn:hover:not(:disabled) {
-          background: #95B400;
-          box-shadow: 0 4px 16px rgba(168,200,0,0.35);
-          transform: translateY(-1px);
-        }
-        .gn-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .gn-submit-btn.success {
-          background: #16a34a;
-          border-color: #16a34a;
-          color: #fff;
-        }
-
-        @keyframes gnFadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
+        /* ── Internal block ── */
         .gn-internal-block {
           background: #111;
           border: 1px solid #1e1e1e;
@@ -458,6 +410,117 @@ export default function GesprekNew() {
           border-radius: 2px;
           padding: 2px 7px;
           margin-bottom: 12px;
+        }
+
+        /* ── Error ── */
+        .gn-error {
+          background: rgba(220,38,38,0.07);
+          border: 1px solid rgba(220,38,38,0.2);
+          border-radius: 3px;
+          color: #f87171;
+          padding: 12px 16px;
+          font-size: 0.82rem;
+          margin-bottom: 1.5rem;
+          letter-spacing: 0.02em;
+        }
+
+        /* ── Submit row ── */
+        .gn-submit-row {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 3rem;
+          flex-wrap: wrap;
+        }
+
+        .gn-cancel-btn {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 12px 22px;
+          min-height: 48px;
+          border-radius: 3px;
+          border: 1px solid #1e1e1e;
+          background: transparent;
+          color: #B4B4B4;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+          touch-action: manipulation;
+        }
+        .gn-cancel-btn:hover  { border-color: rgba(168,200,0,0.3); color: #666; }
+        .gn-cancel-btn:active { border-color: rgba(168,200,0,0.4); }
+
+        .gn-submit-btn {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          padding: 12px 28px;
+          min-height: 48px;
+          border-radius: 3px;
+          border: 1px solid #A8C800;
+          background: #A8C800;
+          color: #111;
+          cursor: pointer;
+          transition: background 0.2s, box-shadow 0.2s;
+          touch-action: manipulation;
+        }
+        .gn-submit-btn:hover:not(:disabled) {
+          background: #95B400;
+          box-shadow: 0 4px 16px rgba(168,200,0,0.35);
+        }
+        .gn-submit-btn:active:not(:disabled) {
+          background: #8aaa00;
+          transform: scale(0.97);
+        }
+        .gn-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .gn-submit-btn.success  { background: #16a34a; border-color: #16a34a; color: #fff; }
+
+        @keyframes gnFadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Tablet: iPad 7th gen (768px+, coarse pointer) ── */
+        @media (min-width: 768px) and (pointer: coarse) {
+          .gn-header { height: 64px; padding: 0 2rem; }
+          .gn-form   { padding: 2.5rem 2rem 6rem; }
+
+          /* Slider grid: 2 cols on portrait, 3 on landscape */
+          .gn-slider-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+          /* Even bigger thumb on tablet */
+          .gn-slider::-webkit-slider-thumb { width: 36px; height: 36px; margin-top: -16px; }
+          .gn-slider::-moz-range-thumb     { width: 36px; height: 36px; }
+          .gn-slider { height: 36px; }
+
+          .gn-slider-card { padding: 22px 20px 16px; }
+
+          /* Doelen + tevredenheid: stack on portrait, side-by-side on landscape */
+          .gn-doelen-row { grid-template-columns: 1fr; gap: 16px; }
+
+          .gn-toggle-btn { padding: 14px 20px; min-height: 52px; font-size: 0.9rem; }
+
+          .gn-select,
+          .gn-input { min-height: 52px; padding: 14px 14px; }
+
+          .gn-cancel-btn,
+          .gn-submit-btn { min-height: 56px; padding: 14px 28px; font-size: 0.78rem; }
+        }
+
+        /* Landscape tablet: restore 2-col doelen row and 3-col slider grid */
+        @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
+          .gn-slider-grid  { grid-template-columns: repeat(3, 1fr); }
+          .gn-doelen-row   { grid-template-columns: 1fr 1fr !important; }
+        }
+
+        /* Portrait tablet: full-width field-narrow */
+        @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
+          .gn-field-narrow { max-width: 100%; }
+          .gn-row { flex-direction: column; }
         }
       `}</style>
 
@@ -556,8 +619,7 @@ export default function GesprekNew() {
           <section className="gn-section" style={{ animationDelay: '0.15s' }}>
             <span className="gn-section-label">Doelen & notities</span>
 
-            {/* Row: doelen behaald + tevredenheid side by side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: '1.5rem' }}>
+            <div className="gn-doelen-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: '1.5rem' }}>
 
               {/* Doelen behaald */}
               <div className="gn-field">
@@ -576,7 +638,7 @@ export default function GesprekNew() {
                 </div>
               </div>
 
-              {/* Tevredenheid — intern management metric */}
+              {/* Tevredenheid */}
               <div className="gn-internal-block" style={{ margin: 0 }}>
                 <span className="gn-internal-tag">intern · management</span>
                 <div className="gn-slider-top">

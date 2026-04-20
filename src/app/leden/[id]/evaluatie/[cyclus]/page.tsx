@@ -55,13 +55,13 @@ const COLORS = {
 }
 
 const SLIDERS = [
-  { key: 'slaap',        label: 'Slaap',        low: 'Slecht',  high: 'Uitstekend' },
-  { key: 'energie',      label: 'Energie',      low: 'Leeg',    high: 'Vol energie' },
-  { key: 'stress',       label: 'Stress',       low: 'Geen',    high: 'Extreem' },
-  { key: 'voeding',      label: 'Voeding',      low: 'Slecht',  high: 'Zeer goed' },
-  { key: 'beweging',     label: 'Beweging',     low: 'Weinig',  high: 'Veel' },
-  { key: 'motivatie',    label: 'Motivatie',    low: 'Geen',    high: 'Hoog' },
-  { key: 'tevredenheid', label: 'Tevredenheid', low: 'Ontevreden', high: 'Zeer tevreden' },
+  { key: 'slaap',        label: 'Slaap',        low: 'Slecht',     high: 'Uitstekend'   },
+  { key: 'energie',      label: 'Energie',      low: 'Leeg',       high: 'Vol energie'  },
+  { key: 'stress',       label: 'Stress',       low: 'Geen',       high: 'Extreem'      },
+  { key: 'voeding',      label: 'Voeding',      low: 'Slecht',     high: 'Zeer goed'    },
+  { key: 'beweging',     label: 'Beweging',     low: 'Weinig',     high: 'Veel'         },
+  { key: 'motivatie',    label: 'Motivatie',    low: 'Geen',       high: 'Hoog'         },
+  { key: 'tevredenheid', label: 'Tevredenheid', low: 'Ontevreden', high: 'Zeer tevreden'},
 ]
 
 const formatDate = (d: string | null) =>
@@ -140,12 +140,16 @@ export default function EvaluatieDetail() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
+        *, *::before, *::after { box-sizing: border-box; }
+
         .ev-root {
           min-height: 100vh;
+          min-height: 100dvh;
           background: #111;
           color: #c8c6c0;
           font-family: 'Raleway', sans-serif;
           position: relative;
+          -webkit-tap-highlight-color: transparent;
         }
         .ev-root::before {
           content: '';
@@ -159,7 +163,7 @@ export default function EvaluatieDetail() {
           z-index: 0;
         }
 
-        /* Header */
+        /* ── Header ── */
         .ev-header {
           position: sticky;
           top: 0;
@@ -167,7 +171,7 @@ export default function EvaluatieDetail() {
           height: 52px;
           display: flex;
           align-items: center;
-          padding: 0 2rem;
+          padding: 0 1.5rem;
           background: rgba(17,17,17,0.92);
           border-bottom: 1px solid rgba(168,200,0,0.12);
           backdrop-filter: blur(12px);
@@ -180,6 +184,7 @@ export default function EvaluatieDetail() {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 12px;
         }
         .ev-back {
           background: none;
@@ -190,28 +195,40 @@ export default function EvaluatieDetail() {
           font-weight: 500;
           letter-spacing: 0.08em;
           cursor: pointer;
-          padding: 0;
+          /* Tap target */
+          padding: 10px 0;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
           transition: color 0.15s;
+          touch-action: manipulation;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 60%;
         }
-        .ev-back:hover { color: #A8C800; }
+        .ev-back:hover  { color: #A8C800; }
+        .ev-back:active { color: #A8C800; }
+
         .ev-header-title {
           font-size: 0.72rem;
           font-weight: 500;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: #B4B4B4;
+          flex-shrink: 0;
         }
 
-        /* Body */
+        /* ── Body ── */
         .ev-body {
           max-width: 860px;
           margin: 0 auto;
-          padding: 2.5rem 2rem 6rem;
+          padding: 2rem 1.5rem 6rem;
           position: relative;
           z-index: 1;
         }
 
-        /* Identity block */
+        /* ── Identity ── */
         .ev-identity {
           margin-bottom: 2.5rem;
           animation: evFadeUp 0.35s ease-out both;
@@ -234,7 +251,7 @@ export default function EvaluatieDetail() {
           color: #555;
           border: 1px solid #1e1e1e;
           border-radius: 2px;
-          padding: 3px 8px;
+          padding: 4px 8px;
           letter-spacing: 0.07em;
           text-transform: uppercase;
         }
@@ -243,14 +260,14 @@ export default function EvaluatieDetail() {
           border-color: rgba(168,200,0,0.2);
         }
 
-        /* Divider */
+        /* ── Divider ── */
         .ev-divider {
           height: 1px;
           background: #1e1e1e;
           margin: 2rem 0;
         }
 
-        /* Section label */
+        /* ── Section label ── */
         .ev-section-label {
           font-size: 0.6rem;
           font-weight: 600;
@@ -261,7 +278,7 @@ export default function EvaluatieDetail() {
           display: block;
         }
 
-        /* Slider cards — read-only */
+        /* ── Slider cards — read-only display ── */
         .ev-slider-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -271,7 +288,7 @@ export default function EvaluatieDetail() {
           background: #161616;
           border: 1px solid #1e1e1e;
           border-radius: 4px;
-          padding: 14px 16px 12px;
+          padding: 16px 16px 14px;
           animation: evFadeUp 0.4s ease-out both;
         }
         .ev-slider-top {
@@ -303,29 +320,31 @@ export default function EvaluatieDetail() {
           letter-spacing: 0.04em;
         }
 
-        /* Read-only track */
+        /* ── Read-only track ── */
         .ev-track-wrap {
           position: relative;
-          height: 4px;
-          border-radius: 2px;
+          height: 6px;
+          border-radius: 3px;
           background: #1e1e1e;
-          margin: 4px 0 8px;
+          margin: 6px 0 10px;
         }
         .ev-track-fill {
           position: absolute;
           left: 0;
           top: 0;
           height: 100%;
-          border-radius: 2px;
+          border-radius: 3px;
           transition: width 0.3s ease;
         }
         .ev-track-thumb {
           position: absolute;
           top: 50%;
-          width: 10px;
-          height: 10px;
+          /* Larger thumb on tablet */
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           transform: translate(-50%, -50%);
+          box-shadow: 0 0 4px rgba(0,0,0,0.4);
         }
         .ev-slider-hints {
           display: flex;
@@ -337,7 +356,7 @@ export default function EvaluatieDetail() {
           letter-spacing: 0.04em;
         }
 
-        /* Fysiek grid */
+        /* ── Fysiek grid ── */
         .ev-fysiek-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -347,7 +366,7 @@ export default function EvaluatieDetail() {
           background: #161616;
           border: 1px solid #1e1e1e;
           border-radius: 4px;
-          padding: 12px 14px;
+          padding: 14px 14px;
         }
         .ev-fysiek-label {
           font-size: 0.6rem;
@@ -355,7 +374,7 @@ export default function EvaluatieDetail() {
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: #555;
-          margin-bottom: 4px;
+          margin-bottom: 6px;
         }
         .ev-fysiek-value {
           font-size: 1.1rem;
@@ -368,30 +387,30 @@ export default function EvaluatieDetail() {
           font-size: 0.75rem;
         }
 
-        /* Doelen */
+        /* ── Doelen ── */
         .ev-doelen-pill {
           display: inline-block;
           font-size: 0.72rem;
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 6px 14px;
+          padding: 8px 16px;
           border-radius: 3px;
           border: 1px solid;
         }
-        .ev-doelen-ja    { color: #4ade80; border-color: rgba(22,163,74,0.3); background: rgba(22,163,74,0.06); }
-        .ev-doelen-nee   { color: #f87171; border-color: rgba(220,38,38,0.3); background: rgba(220,38,38,0.06); }
-        .ev-doelen-nvt   { color: #555;    border-color: #1e1e1e;             background: #161616; }
+        .ev-doelen-ja  { color: #4ade80; border-color: rgba(22,163,74,0.3);  background: rgba(22,163,74,0.06); }
+        .ev-doelen-nee { color: #f87171; border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.06); }
+        .ev-doelen-nvt { color: #555;    border-color: #1e1e1e;              background: #161616; }
 
-        /* Notities */
+        /* ── Notities ── */
         .ev-notities {
           background: #161616;
           border: 1px solid #1e1e1e;
           border-radius: 4px;
-          padding: 14px 16px;
-          font-size: 0.82rem;
+          padding: 16px 16px;
+          font-size: 0.85rem;
           color: #c8c6c0;
-          line-height: 1.65;
+          line-height: 1.7;
           white-space: pre-wrap;
           word-break: break-word;
         }
@@ -403,6 +422,34 @@ export default function EvaluatieDetail() {
         @keyframes evFadeUp {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Tablet: iPad 7th gen ── */
+        @media (min-width: 768px) and (pointer: coarse) {
+          .ev-header { height: 60px; padding: 0 2rem; }
+          .ev-body   { padding: 2rem 2rem 6rem; }
+
+          /* Slider grid: 2 cols on portrait, auto on landscape */
+          .ev-slider-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+          .ev-slider-card { padding: 20px 18px 16px; }
+          .ev-slider-value { font-size: 1.5rem; }
+
+          /* Bigger thumb */
+          .ev-track-thumb { width: 20px; height: 20px; }
+          .ev-track-wrap  { height: 6px; margin: 8px 0 12px; }
+
+          /* Fysiek cards: taller */
+          .ev-fysiek-card { padding: 16px; }
+          .ev-fysiek-value { font-size: 1.25rem; }
+
+          /* Notities */
+          .ev-notities { padding: 18px 20px; font-size: 0.9rem; }
+        }
+
+        /* Landscape tablet: 3-col sliders */
+        @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
+          .ev-slider-grid { grid-template-columns: repeat(3, 1fr); }
         }
       `}</style>
 
@@ -477,11 +524,11 @@ export default function EvaluatieDetail() {
             <span className="ev-section-label">Fysiek</span>
             <div className="ev-fysiek-grid">
               {[
-                { label: 'Gewicht',      val: ev.gewicht_kg,     unit: 'kg'  },
-                { label: 'Vetpercentage', val: ev.vetpercentage,  unit: '%'   },
-                { label: 'Spiermassa',   val: ev.spiermassa_kg,  unit: 'kg'  },
-                { label: 'Visceraal vet', val: ev.visceraal_vet, unit: ''    },
-                { label: 'Buikomvang',   val: ev.buikomvang_cm,  unit: 'cm'  },
+                { label: 'Gewicht',       val: ev.gewicht_kg,    unit: 'kg' },
+                { label: 'Vetpercentage', val: ev.vetpercentage,  unit: '%'  },
+                { label: 'Spiermassa',    val: ev.spiermassa_kg,  unit: 'kg' },
+                { label: 'Visceraal vet', val: ev.visceraal_vet, unit: ''   },
+                { label: 'Buikomvang',    val: ev.buikomvang_cm,  unit: 'cm' },
               ].map(({ label, val, unit }) => (
                 <div key={label} className="ev-fysiek-card">
                   <div className="ev-fysiek-label">{label}</div>
@@ -500,13 +547,13 @@ export default function EvaluatieDetail() {
           <section style={{ animationDelay: '0.15s' }}>
             <span className="ev-section-label">Doelen & notities</span>
             <div style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#555', marginBottom: 8 }}>Doelen behaald</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#555', marginBottom: 10 }}>Doelen behaald</div>
               <span className={`ev-doelen-pill ${ev.doelen_behaald === true ? 'ev-doelen-ja' : ev.doelen_behaald === false ? 'ev-doelen-nee' : 'ev-doelen-nvt'}`}>
                 {ev.doelen_behaald === true ? 'Ja' : ev.doelen_behaald === false ? 'Nee' : 'N.v.t.'}
               </span>
             </div>
             <div>
-              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#555', marginBottom: 8 }}>Notities</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#555', marginBottom: 10 }}>Notities</div>
               {ev.notities
                 ? <div className="ev-notities">{ev.notities}</div>
                 : <div className="ev-notities ev-notities-empty">Geen notities</div>

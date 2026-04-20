@@ -82,17 +82,16 @@ const buildHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
     return { key, label, value, unit, status, reden, inverted }
   }
   return [
-    make('slaap',        'Slaap',         ev?.slaap        ?? null, '/10', false),
-    make('energie',      'Energie',       ev?.energie      ?? null, '/10', false),
-    make('stress',       'Stress',        ev?.stress       ?? null, '/10', true),
-    make('voeding',      'Voeding',       ev?.voeding      ?? null, '/10', false),
-    make('beweging',     'Beweging',      ev?.beweging     ?? null, '/10', false),
-    make('tevredenheid', 'Tevredenheid',  ev?.tevredenheid ?? null, '/10', false),
-    make('motivatie',    'Motivatie',     ev?.motivatie    ?? null, '/10', false),
+    make('slaap',        'Slaap',        ev?.slaap        ?? null, '/10', false),
+    make('energie',      'Energie',      ev?.energie      ?? null, '/10', false),
+    make('stress',       'Stress',       ev?.stress       ?? null, '/10', true),
+    make('voeding',      'Voeding',      ev?.voeding      ?? null, '/10', false),
+    make('beweging',     'Beweging',     ev?.beweging     ?? null, '/10', false),
+    make('tevredenheid', 'Tevredenheid', ev?.tevredenheid ?? null, '/10', false),
+    make('motivatie',    'Motivatie',    ev?.motivatie    ?? null, '/10', false),
   ]
 }
 
-// All colour tokens expressed as CSS var() references — no hardcoded hex
 const HEALTH = {
   red:   {
     bg:     'rgba(var(--color-red-rgb, 220,38,38), 0.07)',
@@ -158,7 +157,6 @@ export default function LedenDetail() {
       const { data: roleData } = await supabase.rpc('get_my_role')
       setRole(roleData ?? null)
 
-      // If trainer: fetch their naam for auto-fill
       if (roleData === 'trainer') {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
@@ -253,13 +251,17 @@ export default function LedenDetail() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
+        *, *::before, *::after { box-sizing: border-box; }
+
         /* ─── Root ─────────────────────────────────────────────────── */
         .ld-root {
           min-height: 100vh;
+          min-height: 100dvh;
           background: var(--bg-base);
           color: var(--text-secondary);
           font-family: var(--font-primary);
           position: relative;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .ld-root::before {
@@ -282,7 +284,7 @@ export default function LedenDetail() {
           height: 52px;
           display: flex;
           align-items: center;
-          padding: 0 2rem;
+          padding: 0 1.5rem;
           background: rgba(17,17,17,0.92);
           border-bottom: 1px solid var(--border-accent);
           backdrop-filter: blur(12px);
@@ -296,6 +298,7 @@ export default function LedenDetail() {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 12px;
         }
 
         .ld-back {
@@ -307,12 +310,23 @@ export default function LedenDetail() {
           font-weight: 500;
           letter-spacing: 0.08em;
           cursor: pointer;
-          padding: 0;
+          /* Larger tap target */
+          padding: 10px 0;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
           transition: color 0.15s;
+          touch-action: manipulation;
         }
-        .ld-back:hover { color: var(--wave-green); }
+        .ld-back:hover  { color: var(--wave-green); }
+        .ld-back:active { color: var(--wave-green); }
 
-        .ld-header-actions { display: flex; gap: 10px; align-items: center; }
+        .ld-header-actions {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: nowrap;
+        }
 
         .ld-btn-ghost {
           font-family: var(--font-primary);
@@ -320,18 +334,19 @@ export default function LedenDetail() {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 7px 14px;
+          padding: 10px 14px;
+          min-height: 44px;
           border-radius: var(--radius);
           border: 1px solid var(--border-subtle);
           background: transparent;
           color: var(--border-strong);
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s;
+          white-space: nowrap;
+          touch-action: manipulation;
         }
-        .ld-btn-ghost:hover {
-          border-color: rgba(168,200,0,0.3);
-          color: var(--wave-green);
-        }
+        .ld-btn-ghost:hover  { border-color: rgba(168,200,0,0.3); color: var(--wave-green); }
+        .ld-btn-ghost:active { border-color: rgba(168,200,0,0.5); color: var(--wave-green); }
 
         .ld-btn-primary {
           font-family: var(--font-primary);
@@ -339,26 +354,26 @@ export default function LedenDetail() {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 7px 14px;
+          padding: 10px 14px;
+          min-height: 44px;
           border-radius: var(--radius);
           border: 1px solid var(--wave-green);
           background: var(--wave-green);
           color: var(--bg-base);
           cursor: pointer;
-          transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+          transition: background 0.15s, box-shadow 0.15s;
+          white-space: nowrap;
+          touch-action: manipulation;
         }
-        .ld-btn-primary:hover {
-          background: #95B400;
-          box-shadow: var(--shadow-green);
-          transform: translateY(-1px);
-        }
+        .ld-btn-primary:hover    { background: #95B400; box-shadow: var(--shadow-green); }
+        .ld-btn-primary:active   { background: #8aaa00; transform: scale(0.97); }
         .ld-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
         /* ─── Body ──────────────────────────────────────────────────── */
         .ld-body {
           max-width: 1140px;
           margin: 0 auto;
-          padding: 2.5rem 2rem 6rem;
+          padding: 2rem 1.5rem 6rem;
           position: relative;
           z-index: 1;
         }
@@ -368,12 +383,13 @@ export default function LedenDetail() {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          margin-bottom: 3rem;
-          gap: 24px;
+          margin-bottom: 2.5rem;
+          gap: 16px;
+          flex-wrap: wrap;
           animation: ldFadeUp 0.4s ease-out both;
         }
 
-        .ld-identity-left { display: flex; align-items: flex-start; gap: 18px; }
+        .ld-identity-left { display: flex; align-items: flex-start; gap: 16px; }
 
         .ld-avatar {
           width: 48px;
@@ -411,14 +427,8 @@ export default function LedenDetail() {
           letter-spacing: 0.07em;
           text-transform: uppercase;
         }
-        .ld-meta-tag-warn {
-          color: var(--color-amber, #d97706);
-          border-color: rgba(217,119,6,0.25);
-        }
-        .ld-meta-tag-alert {
-          color: var(--color-red, #dc2626);
-          border-color: rgba(220,38,38,0.25);
-        }
+        .ld-meta-tag-warn  { color: var(--color-amber, #d97706); border-color: rgba(217,119,6,0.25); }
+        .ld-meta-tag-alert { color: var(--color-red, #dc2626);   border-color: rgba(220,38,38,0.25); }
 
         .ld-identity-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
         .ld-contact-link {
@@ -426,9 +436,15 @@ export default function LedenDetail() {
           color: var(--border-strong);
           text-decoration: none;
           letter-spacing: 0.03em;
+          /* Easier to tap */
+          padding: 4px 0;
+          min-height: 36px;
+          display: flex;
+          align-items: center;
           transition: color 0.15s;
         }
-        .ld-contact-link:hover { color: var(--wave-green); }
+        .ld-contact-link:hover  { color: var(--wave-green); }
+        .ld-contact-link:active { color: var(--wave-green); }
 
         /* ─── Grid ──────────────────────────────────────────────────── */
         .ld-grid {
@@ -490,10 +506,16 @@ export default function LedenDetail() {
           letter-spacing: 0.1em;
           text-transform: uppercase;
           cursor: pointer;
-          padding: 0;
+          /* Tap target */
+          padding: 8px 0;
+          min-height: 36px;
+          display: flex;
+          align-items: center;
           transition: color 0.15s;
+          touch-action: manipulation;
         }
-        .ld-section-action:hover { color: var(--wave-green); }
+        .ld-section-action:hover  { color: var(--wave-green); }
+        .ld-section-action:active { color: var(--wave-green); }
 
         /* ─── Empty state ───────────────────────────────────────────── */
         .ld-empty {
@@ -518,14 +540,18 @@ export default function LedenDetail() {
           display: flex;
           align-items: center;
           gap: 16px;
-          padding: 13px 16px;
+          /* Taller for tap */
+          padding: 16px 16px;
+          min-height: 56px;
           background: var(--bg-surface);
           border-bottom: 1px solid var(--bg-raised);
           cursor: pointer;
           transition: background 0.15s;
+          touch-action: manipulation;
         }
         .ld-eval-row:last-child { border-bottom: none; }
-        .ld-eval-row:hover { background: var(--bg-raised); }
+        .ld-eval-row:hover  { background: var(--bg-raised); }
+        .ld-eval-row:active { background: var(--bg-raised); }
 
         .ld-eval-left { flex: 1; }
         .ld-eval-cyclus {
@@ -564,7 +590,8 @@ export default function LedenDetail() {
           display: grid;
           grid-template-columns: 1fr auto;
           gap: 4px 12px;
-          padding: 12px 16px;
+          padding: 14px 16px;
+          min-height: 48px;
           background: var(--bg-surface);
           border-bottom: 1px solid var(--bg-raised);
         }
@@ -618,12 +645,16 @@ export default function LedenDetail() {
           font-family: var(--font-primary);
           font-size: 0.85rem;
           font-weight: 400;
-          padding: 8px 12px;
+          /* Taller input for fat-finger tapping */
+          padding: 12px 12px;
+          min-height: 44px;
           border-radius: var(--radius);
           width: 100%;
           outline: none;
           box-sizing: border-box;
           transition: border-color 0.15s, box-shadow 0.15s;
+          /* Prevent iOS zoom on focus (font-size >= 16px prevents it,
+             but we keep our size and rely on meta viewport instead) */
         }
         .ld-input:focus {
           border-color: var(--wave-green);
@@ -644,15 +675,14 @@ export default function LedenDetail() {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .ld-health-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-float);
+        .ld-health-card:active {
+          transform: scale(0.97);
         }
 
         .ld-health-card-top { display: flex; align-items: center; gap: 7px; }
-        .ld-health-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .ld-health-dot      { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
         .ld-health-label {
           font-size: 0.58rem;
           letter-spacing: 0.14em;
@@ -681,7 +711,8 @@ export default function LedenDetail() {
           display: flex;
           align-items: center;
           gap: 14px;
-          padding: 13px 16px;
+          padding: 16px 16px;
+          min-height: 56px;
           background: var(--bg-surface);
           border-bottom: 1px solid var(--bg-raised);
           border-left: 3px solid transparent;
@@ -696,6 +727,7 @@ export default function LedenDetail() {
           font-weight: 500;
           color: var(--text-secondary);
           margin-bottom: 3px;
+          line-height: 1.4;
         }
         .ld-actie-meta {
           font-size: 0.68rem;
@@ -703,14 +735,16 @@ export default function LedenDetail() {
           letter-spacing: 0.03em;
         }
 
+        /* Done button — much larger on tablet */
         .ld-done-btn {
           background: transparent;
           border: 1px solid var(--border-subtle);
           color: var(--border-strong);
           font-family: var(--font-primary);
-          font-size: 0.75rem;
-          width: 28px;
-          height: 28px;
+          font-size: 0.9rem;
+          /* Was 28×28 — now 44×44 minimum for touch */
+          width: 44px;
+          height: 44px;
           border-radius: var(--radius);
           cursor: pointer;
           display: flex;
@@ -718,17 +752,69 @@ export default function LedenDetail() {
           justify-content: center;
           flex-shrink: 0;
           transition: border-color 0.15s, color 0.15s, background 0.15s;
+          touch-action: manipulation;
         }
         .ld-done-btn:hover {
           border-color: rgba(22,163,74,0.4);
           color: var(--color-success, #16a34a);
           background: rgba(22,163,74,0.06);
         }
+        .ld-done-btn:active {
+          border-color: rgba(22,163,74,0.6);
+          color: var(--color-success, #16a34a);
+          background: rgba(22,163,74,0.12);
+          transform: scale(0.93);
+        }
 
         /* ─── Animation ─────────────────────────────────────────────── */
         @keyframes ldFadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── Tablet: iPad 7th gen (768px+, coarse pointer) ─────────── */
+        @media (min-width: 768px) and (pointer: coarse) {
+          .ld-header { height: 60px; padding: 0 2rem; }
+
+          .ld-btn-ghost,
+          .ld-btn-primary {
+            padding: 12px 18px;
+            min-height: 48px;
+            font-size: 0.78rem;
+          }
+
+          .ld-body { padding: 2rem 2rem 6rem; }
+
+          .ld-eval-row    { padding: 18px 20px; min-height: 64px; }
+          .ld-actie-row   { padding: 18px 20px; min-height: 64px; }
+          .ld-contact-row { padding: 16px 20px; min-height: 52px; }
+
+          .ld-input { padding: 14px 14px; min-height: 48px; font-size: 1rem; }
+
+          .ld-done-btn { width: 48px; height: 48px; font-size: 1rem; }
+
+          /* Health cards — slightly taller on tablet */
+          .ld-health-card { padding: 16px 14px 14px; }
+          .ld-health-value { font-size: 2rem; }
+        }
+
+        /* ─── Tablet portrait: stack grid to single column ──────────── */
+        @media (max-width: 899px) and (pointer: coarse) {
+          .ld-grid {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+          }
+          /* Health grid: 4 cols on portrait tablet for compact layout */
+          .ld-health-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+          .ld-identity { flex-direction: column; }
+          .ld-identity-right { align-items: flex-start; }
+        }
+
+        /* ─── Tablet landscape: keep 2-col but widen right col ──────── */
+        @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
+          .ld-grid { grid-template-columns: 1fr 360px; }
         }
       `}</style>
 
@@ -768,8 +854,8 @@ export default function LedenDetail() {
               </div>
             </div>
             <div className="ld-identity-right">
-              {lid.email    && <a href={`mailto:${lid.email}`} className="ld-contact-link">{lid.email}</a>}
-              {lid.telefoon && <a href={`tel:${lid.telefoon}`} className="ld-contact-link">{lid.telefoon}</a>}
+              {lid.email    && <a href={`mailto:${lid.email}`}   className="ld-contact-link">{lid.email}</a>}
+              {lid.telefoon && <a href={`tel:${lid.telefoon}`}   className="ld-contact-link">{lid.telefoon}</a>}
             </div>
           </div>
 
@@ -866,7 +952,7 @@ export default function LedenDetail() {
                         onChange={e => setContactNotities(e.target.value)}
                         placeholder="Optioneel…"
                         className="ld-input"
-                        style={{ height: 80, resize: 'vertical' }}
+                        style={{ height: 88, resize: 'vertical' }}
                       />
                     </div>
                     <button className="ld-btn-primary" onClick={logContact} disabled={savingContact}>
