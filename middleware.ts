@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // ROUTE DEFINITIONS
 // ============================================================
 
-const PUBLIC_ROUTES = ['/login']
+const PUBLIC_ROUTES = ['/login', '/api/console']
 
 const MANAGEMENT_ONLY_ROUTES = ['/management']
 
@@ -47,10 +47,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    supabaseAdmin.rpc('touch_console_token', { p_token: token })
-
     const response = NextResponse.next()
-    response.headers.set('x-console-trainer-id', data as string)
     response.headers.set('x-auth-mode', 'console')
 
     if (!request.cookies.get('console_token')) {
