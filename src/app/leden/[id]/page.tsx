@@ -41,6 +41,7 @@ type ContactMoment = {
   datum: string
   type: string | null
   notities: string | null
+  contact_door: string | null
 }
 
 type Actie = {
@@ -146,6 +147,8 @@ export default function LedenDetail() {
   const [contactDatum, setContactDatum] = useState(new Date().toISOString().split('T')[0])
   const [contactType, setContactType] = useState('check-in')
   const [contactNotities, setContactNotities] = useState('')
+  const [contactDoor, setContactDoor] = useState('')
+  const [trainerNaam, setTrainerNaam] = useState<string | null>(null)
   const [savingContact, setSavingContact] = useState(false)
   const [role, setRole] = useState<string | null>(null)
 
@@ -154,11 +157,21 @@ export default function LedenDetail() {
       const supabase = getSupabase()
       const { data: roleData } = await supabase.rpc('get_my_role')
       setRole(roleData ?? null)
+
+      // If trainer: fetch their naam for auto-fill
+      if (roleData === 'trainer') {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: trainerData } = await supabase.from('trainers').select('naam').eq('id', user.id).single()
+          if (trainerData?.naam) setTrainerNaam(trainerData.naam)
+        }
+      }
+
       const { data: lidData } = await supabase.from('leden').select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, startdatum, actief, trainer_id').eq('id', id).single()
       setLid(lidData)
       const { data: evalData } = await supabase.from('evaluaties').select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm').eq('lid_id', id).order('cyclus', { ascending: false })
       setEvaluaties(evalData ?? [])
-      const { data: contactData } = await supabase.from('contact_momenten').select('id, datum, type, notities').eq('lid_id', id).order('datum', { ascending: false })
+      const { data: contactData } = await supabase.from('contact_momenten').select('id, datum, type, notities, contact_door').eq('lid_id', id).order('datum', { ascending: false })
       setContacten(contactData ?? [])
       const { data: actiesData } = await supabase.from('acties').select('id, omschrijving, status, aangemaakt, deadline').eq('lid_id', id).eq('status', 'open').order('aangemaakt', { ascending: true })
       setActies(actiesData ?? [])
@@ -177,22 +190,25 @@ export default function LedenDetail() {
     if (!lid) return
     setSavingContact(true)
     const supabase = getSupabase()
+    const resolvedDoor = role === 'trainer' ? trainerNaam : (contactDoor.trim() || null)
     const { error } = await supabase.from('contact_momenten').insert({
-      lid_id:     lid.id,
-      trainer_id: lid.trainer_id,
-      datum:      contactDatum,
-      type:       contactType,
-      notities:   contactNotities || null,
+      lid_id:       lid.id,
+      trainer_id:   lid.trainer_id,
+      datum:        contactDatum,
+      type:         contactType,
+      notities:     contactNotities || null,
+      contact_door: resolvedDoor,
     })
     if (error) {
       console.error('logContact error:', error.message)
       setSavingContact(false)
       return
     }
-    const { data: fresh } = await supabase.from('contact_momenten').select('id, datum, type, notities').eq('lid_id', lid.id).order('datum', { ascending: false })
+    const { data: fresh } = await supabase.from('contact_momenten').select('id, datum, type, notities, contact_door').eq('lid_id', lid.id).order('datum', { ascending: false })
     setContacten(fresh ?? [])
     setContactOpen(false)
     setContactNotities('')
+    setContactDoor('')
     setSavingContact(false)
   }
 
@@ -831,6 +847,19 @@ export default function LedenDetail() {
                       </select>
                     </div>
                     <div className="ld-form-row">
+                      <label className="ld-form-label">Door</label>
+                      {role === 'trainer'
+                        ? <div className="ld-input" style={{ color: 'var(--text-muted)', cursor: 'default', opacity: 0.7 }}>{trainerNaam ?? '—'}</div>
+                        : <input
+                            type="text"
+                            value={contactDoor}
+                            onChange={e => setContactDoor(e.target.value)}
+                            placeholder="Naam van de contactpersoon…"
+                            className="ld-input"
+                          />
+                      }
+                    </div>
+                    <div className="ld-form-row">
                       <label className="ld-form-label">Notities</label>
                       <textarea
                         value={contactNotities}
@@ -854,6 +883,7 @@ export default function LedenDetail() {
                         <div key={c.id} className="ld-contact-row">
                           <div className="ld-contact-type">{c.type ?? 'Contact'}</div>
                           <div className="ld-contact-datum">{formatDate(c.datum)}</div>
+                          {c.contact_door && <div className="ld-contact-note" style={{ color: 'var(--text-muted)' }}>{c.contact_door}</div>}
                           {c.notities && <div className="ld-contact-note">{c.notities}</div>}
                         </div>
                       ))}
