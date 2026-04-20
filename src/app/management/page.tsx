@@ -407,6 +407,7 @@ export default function ManagementPage() {
   const [nextLidId, setNextLidId]         = useState('WE-001')
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
+  const [statusFilter,  setStatusFilter]  = useState<string>('allen')
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
   const [showAddLid, setShowAddLid]       = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
@@ -497,9 +498,15 @@ export default function ManagementPage() {
     inactief: leden.filter(l => l.status?.toLowerCase() === 'inactief' || !l.actief).length,
   }
 
-  const visibleLeden = leden.filter(l =>
-    trainerFilter === 'allen' || l.trainer_id === trainerFilter
-  )
+  const visibleLeden = leden.filter(l => {
+    if (trainerFilter !== 'allen' && l.trainer_id !== trainerFilter) return false
+    if (statusFilter !== 'allen') {
+      const s = (l.status ?? (l.actief ? 'actief' : 'inactief')).toLowerCase().replace(' ', '_')
+      const f = statusFilter.toLowerCase().replace(' ', '_')
+      if (s !== f) return false
+    }
+    return true
+  })
 
   if (loading) return (
     <>
@@ -598,7 +605,9 @@ export default function ManagementPage() {
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <button
                         onClick={() => setActieTrainer(t)}
-                        style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ background: 'none', border: 'none', padding: '5px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
                       >
                         + Actie
                       </button>
@@ -608,7 +617,9 @@ export default function ManagementPage() {
                         <button
                           onClick={() => deactivateTrainer(t)}
                           disabled={deactivating === t.id}
-                          style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                          style={{ background: 'none', border: 'none', padding: '5px 0', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => { if (deactivating !== t.id) e.currentTarget.style.textDecorationColor = '#f87171' }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
                         >
                           {deactivating === t.id ? '…' : 'Deactiveer'}
                         </button>
@@ -626,12 +637,22 @@ export default function ManagementPage() {
 
         {/* Member table */}
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', gap: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden · {visibleLeden.length}</div>
-            <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
-              <option value="allen">Alle trainers</option>
-              {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
-            </select>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
+                <option value="allen">Alle statussen</option>
+                <option value="actief">Actief</option>
+                <option value="bevroren">Bevroren</option>
+                <option value="on_hold">On hold</option>
+                <option value="stopt">Stopt</option>
+                <option value="inactief">Inactief</option>
+              </select>
+              <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
+                <option value="allen">Alle trainers</option>
+                {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
+              </select>
+            </div>
           </div>
 
           {visibleLeden.length === 0 ? (
@@ -653,7 +674,11 @@ export default function ManagementPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{l.voornaam} {l.achternaam}</span>
+                    <span
+                      style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
+                      onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
+                    >{l.voornaam} {l.achternaam}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
@@ -664,7 +689,9 @@ export default function ManagementPage() {
                         <button
                           onClick={e => { e.stopPropagation(); deactivateLid(l) }}
                           disabled={deactivating === l.id}
-                          style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '4px 10px', color: '#f87171', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                          style={{ background: 'none', border: 'none', padding: '4px 0', color: '#f87171', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = '#f87171' }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
                         >
                           {deactivating === l.id ? '…' : 'Deactiveer'}
                         </button>

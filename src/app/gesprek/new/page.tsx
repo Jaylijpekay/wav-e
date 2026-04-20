@@ -66,6 +66,7 @@ export default function GesprekNew() {
   const [scores, setScores] = useState<Record<string, number>>({
     slaap: 5, energie: 5, stress: 5, voeding: 5, beweging: 5, motivatie: 5,
   })
+  const [tevredenheid, setTevredenheid] = useState<number>(5)
 
   useEffect(() => {
     const load = async () => {
@@ -106,6 +107,7 @@ export default function GesprekNew() {
       lid_id: lidId, trainer_id: trainerId, cyclus, datum,
       slaap: scores.slaap, energie: scores.energie, stress: scores.stress,
       voeding: scores.voeding, beweging: scores.beweging, motivatie: scores.motivatie,
+      tevredenheid,
       gewicht_kg: gewicht ? parseFloat(gewicht) : null,
       vetpercentage: vetpercentage ? parseFloat(vetpercentage) : null,
       spiermassa_kg: spiermassa ? parseFloat(spiermassa) : null,
@@ -436,6 +438,27 @@ export default function GesprekNew() {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+
+        .gn-internal-block {
+          background: #111;
+          border: 1px solid #1e1e1e;
+          border-radius: 3px;
+          padding: 18px 18px 14px;
+        }
+
+        .gn-internal-tag {
+          display: inline-block;
+          font-size: 0.55rem;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #818cf8;
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.2);
+          border-radius: 2px;
+          padding: 2px 7px;
+          margin-bottom: 12px;
+        }
       `}</style>
 
       <div className="gn-root">
@@ -532,21 +555,54 @@ export default function GesprekNew() {
           {/* Doelen & notities */}
           <section className="gn-section" style={{ animationDelay: '0.15s' }}>
             <span className="gn-section-label">Doelen & notities</span>
-            <div className="gn-field" style={{ marginBottom: '1.5rem' }}>
-              <label className="gn-label">Doelen behaald?</label>
-              <div className="gn-toggle-group">
-                {([true, false, null] as (boolean | null)[]).map(v => (
-                  <button
-                    type="button"
-                    key={String(v)}
-                    className={`gn-toggle-btn${doelen === v ? ' active' : ''}`}
-                    onClick={() => setDoelen(v)}
-                  >
-                    {v === true ? 'Ja' : v === false ? 'Nee' : 'N.v.t.'}
-                  </button>
-                ))}
+
+            {/* Row: doelen behaald + tevredenheid side by side */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: '1.5rem' }}>
+
+              {/* Doelen behaald */}
+              <div className="gn-field">
+                <label className="gn-label">Doelen behaald?</label>
+                <div className="gn-toggle-group">
+                  {([true, false, null] as (boolean | null)[]).map(v => (
+                    <button
+                      type="button"
+                      key={String(v)}
+                      className={`gn-toggle-btn${doelen === v ? ' active' : ''}`}
+                      onClick={() => setDoelen(v)}
+                    >
+                      {v === true ? 'Ja' : v === false ? 'Nee' : 'N.v.t.'}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Tevredenheid — intern management metric */}
+              <div className="gn-internal-block" style={{ margin: 0 }}>
+                <span className="gn-internal-tag">intern · management</span>
+                <div className="gn-slider-top">
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#B4B4B4' }}>
+                    Tevredenheid over Wav-e
+                  </span>
+                  <span className="gn-slider-value" style={{ color: tevredenheid >= 7 ? '#4ade80' : tevredenheid >= 5 ? '#fbbf24' : '#f87171' }}>
+                    {tevredenheid}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={1} max={10}
+                  value={tevredenheid}
+                  onChange={e => setTevredenheid(Number(e.target.value))}
+                  className="gn-slider"
+                  style={{ ['--thumb-color' as string]: tevredenheid >= 7 ? '#16a34a' : tevredenheid >= 5 ? '#d97706' : '#dc2626' } as React.CSSProperties}
+                />
+                <div className="gn-slider-meta">
+                  <span className="gn-slider-hint">Ontevreden</span>
+                  <span className="gn-slider-hint">Zeer tevreden</span>
+                </div>
+              </div>
+
             </div>
+
             <div className="gn-field">
               <label className="gn-label">Notities</label>
               <textarea

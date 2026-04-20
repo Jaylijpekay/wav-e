@@ -97,7 +97,7 @@ export default function TrainerDashboard() {
   const [ledenDropdown, setLedenDropdown] = useState<LidDropdown[]>([])
   const [loading, setLoading] = useState(true)
   const [gesprekOpen, setGesprekOpen] = useState(false)
-  const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | null>(null)
+  const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | 'green' | null>(null)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplightRef = useRef<HTMLDivElement>(null)
@@ -192,7 +192,7 @@ export default function TrainerDashboard() {
     green: leden.filter(l => getStoplight(l) === 'green').length,
   }
 
-  const ledenByStoplight = (sig: 'red' | 'amber') => leden.filter(l => getStoplight(l) === sig)
+  const ledenByStoplight = (sig: 'red' | 'amber' | 'green') => leden.filter(l => getStoplight(l) === sig)
 
   return (
     <>
@@ -361,6 +361,8 @@ export default function TrainerDashboard() {
           flex-wrap: wrap;
           align-items: flex-start;
           animation: fadeUp 0.4s ease-out both;
+          position: relative;
+          z-index: 10;
         }
 
         @keyframes fadeUp {
@@ -606,12 +608,47 @@ export default function TrainerDashboard() {
                 )
               })}
 
-              {/* Green — not clickable */}
-              <button className="td-summary-card" style={{ cursor: 'default' }}>
-                <span className="td-dot" style={{ background: STOPLIGHT.green.dot }} />
-                <span className="td-summary-count" style={{ color: STOPLIGHT.green.text }}>{counts.green}</span>
-                <span className="td-summary-label">Op koers</span>
-              </button>
+              {/* Green — clickable if members exist */}
+              {(() => {
+                const col = STOPLIGHT.green
+                const isOpen = openStoplight === 'green'
+                const members = ledenByStoplight('green')
+                const isClickable = counts.green > 0
+                return (
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      className={`td-summary-card${isClickable ? ' clickable' : ''}`}
+                      style={{
+                        background: isOpen ? col.bg : '#141414',
+                        borderColor: isOpen ? col.border : '#1e1e1e',
+                        cursor: isClickable ? 'pointer' : 'default',
+                      }}
+                      onClick={() => isClickable && setOpenStoplight(isOpen ? null : 'green')}
+                    >
+                      <span className="td-dot" style={{ background: col.dot }} />
+                      <span className="td-summary-count" style={{ color: col.text }}>{counts.green}</span>
+                      <span className="td-summary-label">Op koers</span>
+                      {isClickable && (
+                        <span className="td-summary-chevron">{isOpen ? '▲' : '▼'}</span>
+                      )}
+                    </button>
+                    {isOpen && members.length > 0 && (
+                      <div className="td-stoplight-panel">
+                        {members.map(lid => (
+                          <div
+                            key={lid.id}
+                            className="td-dropdown-item"
+                            onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
+                          >
+                            <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
+                            <span className="td-dropdown-meta" style={{ color: col.text }}>{lid.lid_id}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               <div className="td-summary-total">
                 <span className="td-summary-count" style={{ color: '#3a3a3a' }}>{leden.length}</span>

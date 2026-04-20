@@ -15,6 +15,7 @@ type Lid = {
   geboortedatum: string | null
   startdatum: string | null
   actief: boolean
+  trainer_id: string
 }
 
 type Evaluatie = {
@@ -153,7 +154,7 @@ export default function LedenDetail() {
       const supabase = getSupabase()
       const { data: roleData } = await supabase.rpc('get_my_role')
       setRole(roleData ?? null)
-      const { data: lidData } = await supabase.from('leden').select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, startdatum, actief').eq('id', id).single()
+      const { data: lidData } = await supabase.from('leden').select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, startdatum, actief, trainer_id').eq('id', id).single()
       setLid(lidData)
       const { data: evalData } = await supabase.from('evaluaties').select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm').eq('lid_id', id).order('cyclus', { ascending: false })
       setEvaluaties(evalData ?? [])
@@ -176,7 +177,18 @@ export default function LedenDetail() {
     if (!lid) return
     setSavingContact(true)
     const supabase = getSupabase()
-    await supabase.from('contact_momenten').insert({ lid_id: lid.id, datum: contactDatum, type: contactType, notities: contactNotities || null })
+    const { error } = await supabase.from('contact_momenten').insert({
+      lid_id:     lid.id,
+      trainer_id: lid.trainer_id,
+      datum:      contactDatum,
+      type:       contactType,
+      notities:   contactNotities || null,
+    })
+    if (error) {
+      console.error('logContact error:', error.message)
+      setSavingContact(false)
+      return
+    }
     const { data: fresh } = await supabase.from('contact_momenten').select('id, datum, type, notities').eq('lid_id', lid.id).order('datum', { ascending: false })
     setContacten(fresh ?? [])
     setContactOpen(false)
