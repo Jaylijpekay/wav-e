@@ -247,20 +247,39 @@ function AddLidModal({
 }
 
 // ── Actie Modal ────────────────────────────────────────────────────────
+// Two entry points:
+// 1. From trainer row: trainer is set, user picks a lid from that trainer's members
+// 2. From member row: lid + trainer are both pre-filled
 
-function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: () => void; onSaved: () => void }) {
+function ActieModal({
+  trainer,
+  leden,
+  prefillLid,
+  onClose,
+  onSaved,
+}: {
+  trainer: Trainer
+  leden: Lid[]
+  prefillLid?: Lid | null
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [omschrijving, setOmschrijving] = useState('')
   const [deadline,     setDeadline]     = useState('')
+  const [lidId,        setLidId]        = useState(prefillLid?.id ?? '')
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState<string | null>(null)
 
+  const trainerLeden = leden.filter(l => l.trainer_id === trainer.id && l.actief)
+
   const save = async () => {
     setError(null)
+    if (!lidId)               { setError('Selecteer een lid'); return }
     if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
     setSaving(true)
     const supabase = getSupabase()
     const { error: err } = await supabase.from('acties').insert({
-      trainer_id: trainer.id, lid_id: null, type: 'custom',
+      trainer_id: trainer.id, lid_id: lidId, type: 'custom',
       omschrijving: omschrijving.trim(), deadline: deadline || null,
       status: 'open', bron: 'management', afgerond: false,
       aangemaakt_door: null,
@@ -278,6 +297,19 @@ function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: 
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Actie toewijzen</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {trainer.voornaam} {trainer.achternaam}</div>
         </div>
+        <Field label="Lid">
+          <select
+            value={lidId}
+            onChange={e => setLidId(e.target.value)}
+            disabled={!!prefillLid}
+            style={{ ...inputStyle, color: lidId ? 'var(--text-primary)' : 'var(--text-muted)', opacity: prefillLid ? 0.7 : 1 }}
+          >
+            <option value="">Selecteer lid…</option>
+            {trainerLeden.map(l => (
+              <option key={l.id} value={l.id}>{l.voornaam} {l.achternaam}</option>
+            ))}
+          </select>
+        </Field>
         <Field label="Omschrijving">
           <textarea value={omschrijving} onChange={e => setOmschrijving(e.target.value)} placeholder="Wat moet deze trainer doen?" rows={3}
             style={{ ...inputStyle, resize: 'vertical' }} />
@@ -422,9 +454,24 @@ export default function ManagementPage() {
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
   const [statusFilter,  setStatusFilter]  = useState<string>('allen')
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
+  const [actieLid,     setActieLid]       = useState<Lid | null>(null)
   const [showAddLid, setShowAddLid]       = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
+
+  // Open actie modal from trainer row (user picks lid)
+  const openActieFromTrainer = (t: Trainer) => {
+    setActieTrainer(t)
+    setActieLid(null)
+  }
+
+  // Open actie modal from member row (lid + trainer pre-filled)
+  const openActieFromLid = (l: Lid) => {
+    const t = trainers.find(tr => tr.id === l.trainer_id)
+    if (!t) return
+    setActieTrainer(t)
+    setActieLid(l)
+  }
 
   const deactivateTrainer = async (t: Trainer) => {
     if (!confirm(`Deactiveer trainer ${t.voornaam} ${t.achternaam}?\n\nDeze trainer wordt op inactief gezet. Hun data blijft bewaard.`)) return
@@ -533,7 +580,13 @@ export default function ManagementPage() {
       <Navigation />
 
       {actieTrainer && (
-        <ActieModal trainer={actieTrainer} onClose={() => setActieTrainer(null)} onSaved={() => setRefreshKey(k => k + 1)} />
+        <ActieModal
+          trainer={actieTrainer}
+          leden={leden}
+          prefillLid={actieLid}
+          onClose={() => { setActieTrainer(null); setActieLid(null) }}
+          onSaved={() => setRefreshKey(k => k + 1)}
+        />
       )}
 
       {showAddLid && (
@@ -615,7 +668,7 @@ export default function ManagementPage() {
                     <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.open_acties > 0 ? '#818cf8' : 'var(--text-muted)', textAlign: 'center' }}>{s.open_acties}</td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <button
-                        onClick={() => setActieTrainer(t)}
+                        onClick={() => openActieFromTrainer(t)}
                         style={{ background: 'none', border: 'none', padding: '5px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
                         onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -670,8 +723,8 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px auto', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Naam', 'Trainer', 'Status', 'Lid-ID', ''].map(h => (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px auto auto', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Naam', 'Trainer', 'Status', 'Lid-ID', '', ''].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
               </div>
@@ -681,7 +734,7 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px auto', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px auto auto', padding: '12px 24px', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -695,6 +748,18 @@ export default function ManagementPage() {
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
+                    <span style={{ textAlign: 'right' }}>
+                      {l.actief && (
+                        <button
+                          onClick={e => { e.stopPropagation(); openActieFromLid(l) }}
+                          style={{ background: 'none', border: 'none', padding: '4px 0', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
+                          onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                        >
+                          + Actie
+                        </button>
+                      )}
+                    </span>
                     <span style={{ textAlign: 'right' }}>
                       {l.actief && (
                         <button

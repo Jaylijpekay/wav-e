@@ -87,6 +87,171 @@ const STOPLIGHT = {
   green: { dot: '#16a34a', bg: 'rgba(22,163,74,0.08)',   border: 'rgba(22,163,74,0.2)',   text: '#4ade80' },
 }
 
+// ── Add Lid Modal (trainer version) ───────────────────────────────────
+
+function AddLidModal({
+  trainerId,
+  onClose,
+  onSaved,
+}: {
+  trainerId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [nextLidId,   setNextLidId]   = useState('')
+  const [lidId,       setLidId]       = useState('')
+  const [voornaam,    setVoornaam]    = useState('')
+  const [achternaam,  setAchternaam]  = useState('')
+  const [email,       setEmail]       = useState('')
+  const [telefoon,    setTelefoon]    = useState('')
+  const [startdatum,  setStartdatum]  = useState(new Date().toISOString().split('T')[0])
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const [loadingId,   setLoadingId]   = useState(true)
+
+  useEffect(() => {
+    const fetchNextId = async () => {
+      const supabase = getSupabase()
+      const { data } = await supabase.rpc('get_next_lid_id')
+      const next = data ?? 'WE-001'
+      setNextLidId(next)
+      setLidId(next)
+      setLoadingId(false)
+    }
+    fetchNextId()
+  }, [])
+
+  const save = async () => {
+    setError(null)
+    if (!lidId.trim())      { setError('Lid-ID is verplicht'); return }
+    if (!voornaam.trim())   { setError('Voornaam is verplicht'); return }
+    if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
+
+    setSaving(true)
+    const supabase = getSupabase()
+    const { error: err } = await supabase.from('leden').insert({
+      lid_id:     lidId.trim().toUpperCase(),
+      voornaam:   voornaam.trim(),
+      achternaam: achternaam.trim(),
+      email:      email.trim() || null,
+      telefoon:   telefoon.trim() || null,
+      trainer_id: trainerId,
+      startdatum,
+      source:     'manual',
+      actief:     true,
+      status:     'Actief',
+    })
+    setSaving(false)
+
+    if (err) {
+      setError(err.message.includes('unique') ? `Lid-ID "${lidId}" bestaat al` : err.message)
+      return
+    }
+    onSaved()
+    onClose()
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: '#1a1a1a',
+    border: '1px solid #2a2a2a',
+    borderRadius: 3,
+    padding: '10px 12px',
+    color: '#c8c6c0',
+    fontSize: '0.88rem',
+    width: '100%',
+    boxSizing: 'border-box',
+    fontFamily: "'Raleway', sans-serif",
+    minHeight: 44,
+  }
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: '0.65rem',
+    color: '#3a3a3a',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontWeight: 600,
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 6, padding: '28px', width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+        <div>
+          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#c8c6c0' }}>Nieuw lid toevoegen</div>
+          <div style={{ fontSize: '0.72rem', color: '#3a3a3a', marginTop: 4, letterSpacing: '0.05em' }}>Dit lid wordt aan jou gekoppeld</div>
+        </div>
+
+        {loadingId ? (
+          <div style={{ color: '#3a3a3a', fontSize: '0.85rem', padding: '20px 0', textAlign: 'center' }}>Laden…</div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Lid-ID</label>
+                <input type="text" value={lidId} onChange={e => setLidId(e.target.value)} placeholder={nextLidId} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Startdatum</label>
+                <input type="date" value={startdatum} onChange={e => setStartdatum(e.target.value)} style={inputStyle} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Voornaam</label>
+                <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)} placeholder="Jana" style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Achternaam</label>
+                <input type="text" value={achternaam} onChange={e => setAchternaam(e.target.value)} placeholder="de Wit" style={inputStyle} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Email (optioneel)</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jana@example.com" style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Telefoon (optioneel)</label>
+                <input type="tel" value={telefoon} onChange={e => setTelefoon(e.target.value)} placeholder="06 12345678" style={inputStyle} />
+              </div>
+            </div>
+
+            {error && (
+              <div style={{ fontSize: '0.8rem', color: '#f87171', padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 3 }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={onClose}
+                className="td-btn-secondary"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={save}
+                disabled={saving}
+                className="td-btn-primary"
+                style={{ opacity: saving ? 0.6 : 1 }}
+              >
+                {saving ? 'Opslaan…' : 'Lid toevoegen'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────
+
 export default function TrainerDashboard() {
   const { trainerId } = useParams()
   const router = useRouter()
@@ -98,6 +263,8 @@ export default function TrainerDashboard() {
   const [loading, setLoading] = useState(true)
   const [gesprekOpen, setGesprekOpen] = useState(false)
   const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | 'green' | null>(null)
+  const [showAddLid, setShowAddLid] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplichtRef = useRef<HTMLDivElement>(null)
@@ -170,7 +337,7 @@ export default function TrainerDashboard() {
       setLoading(false)
     }
     if (trainerId) load()
-  }, [trainerId])
+  }, [trainerId, refreshKey])
 
   // Close dropdowns on outside tap/click
   useEffect(() => {
@@ -237,7 +404,6 @@ export default function TrainerDashboard() {
           border-bottom: 1px solid rgba(168,200,0,0.15);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          /* Taller header on tablet for easier interaction */
           height: 56px;
           display: flex;
           align-items: center;
@@ -278,11 +444,10 @@ export default function TrainerDashboard() {
           letter-spacing: 0.06em;
           text-transform: uppercase;
           margin-right: 2px;
-          /* Hide on very small screens */
           white-space: nowrap;
         }
 
-        /* ── Buttons — larger tap targets on tablet ── */
+        /* ── Buttons ── */
         .td-btn-secondary {
           font-family: 'Raleway', sans-serif;
           font-size: 0.72rem;
@@ -361,7 +526,6 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          /* Taller rows for easier tapping */
           padding: 14px 16px;
           cursor: pointer;
           border-bottom: 1px solid #1e1e1e;
@@ -406,7 +570,6 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           gap: 10px;
-          /* Taller for easier tapping */
           padding: 14px 18px;
           min-height: 48px;
           border-radius: 3px;
@@ -512,7 +675,6 @@ export default function TrainerDashboard() {
           display: flex;
           align-items: center;
           gap: 1.5rem;
-          /* Taller rows for tap comfort */
           padding: 18px 20px;
           min-height: 56px;
           background: #141414;
@@ -565,7 +727,7 @@ export default function TrainerDashboard() {
         .td-group-header:active { background: #161616; }
         .td-group-header.no-nav { cursor: default; }
 
-        /* ── Tablet breakpoint (iPad 7th gen = 810px portrait / 1080px landscape) ── */
+        /* ── Tablet breakpoint ── */
         @media (min-width: 768px) and (pointer: coarse) {
           .td-header { height: 64px; padding: 0 2rem; }
 
@@ -588,17 +750,16 @@ export default function TrainerDashboard() {
 
           .td-group-header { padding: 12px 24px 10px; min-height: 50px; }
 
-          /* Stoplight panel — wider on tablet so names don't truncate */
           .td-stoplight-panel { min-width: 260px; }
           .td-dropdown { min-width: 280px; }
         }
 
-        /* ── Landscape tablet — use horizontal space ── */
+        /* ── Landscape tablet ── */
         @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
           .td-trainer-name { display: inline; }
         }
 
-        /* ── Portrait tablet — compress header ── */
+        /* ── Portrait tablet ── */
         @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
           .td-trainer-name { display: none; }
           .td-header-right { gap: 8px; }
@@ -608,6 +769,15 @@ export default function TrainerDashboard() {
       `}</style>
 
       <div className="td-root">
+        {/* Add Lid Modal */}
+        {showAddLid && (
+          <AddLidModal
+            trainerId={trainerId as string}
+            onClose={() => setShowAddLid(false)}
+            onSaved={() => setRefreshKey(k => k + 1)}
+          />
+        )}
+
         {/* Header */}
         <header className="td-header">
           <div className="td-header-inner">
@@ -620,6 +790,12 @@ export default function TrainerDashboard() {
               {trainer?.naam && (
                 <span className="td-trainer-name">{trainer.naam}</span>
               )}
+              <button
+                className="td-btn-secondary"
+                onClick={() => setShowAddLid(true)}
+              >
+                + Nieuw lid
+              </button>
               <button
                 className="td-btn-secondary"
                 onClick={() => router.push(`/trainer/${trainerId}/leden`)}
