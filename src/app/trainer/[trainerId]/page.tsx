@@ -522,7 +522,7 @@ export default function TrainerDashboard() {
         {/* Header */}
         <header className="td-header">
           <div className="td-header-inner">
-            <div className="td-wordmark" onClick={() => router.push('/')}>
+            <div className="td-wordmark">
               <span className="td-wordmark-wav">wav-e</span>
               <span className="td-wordmark-e"> studios</span>
             </div>
@@ -556,6 +556,17 @@ export default function TrainerDashboard() {
                   </div>
                 )}
               </div>
+
+              <button
+                className="td-btn-secondary"
+                onClick={async () => {
+                  const supabase = getSupabase()
+                  await supabase.auth.signOut()
+                  router.push('/login')
+                }}
+              >
+                Uitloggen
+              </button>
             </div>
           </div>
         </header>
