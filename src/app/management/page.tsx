@@ -29,10 +29,8 @@ type ConsoleToken = {
   token: string
   naam: string
   actief: boolean
-  trainer_id: string
   aangemaakt_op: string
   laatst_gebruikt: string | null
-  trainer?: Trainer
 }
 
 type Lid = {
@@ -193,7 +191,6 @@ function AddLidModal({
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Handmatige invoer · bron: manual</div>
         </div>
 
-        {/* Row 1: lid_id + startdatum */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Lid-ID">
             <input type="text" value={lidId} onChange={e => setLidId(e.target.value)} placeholder="WE-006" style={inputStyle} />
@@ -203,7 +200,6 @@ function AddLidModal({
           </Field>
         </div>
 
-        {/* Row 2: voornaam + achternaam */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Voornaam">
             <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)} placeholder="Jana" style={inputStyle} />
@@ -213,7 +209,6 @@ function AddLidModal({
           </Field>
         </div>
 
-        {/* Row 3: email + telefoon */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Email (optioneel)">
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jana@example.com" style={inputStyle} />
@@ -223,7 +218,6 @@ function AddLidModal({
           </Field>
         </div>
 
-        {/* Trainer */}
         <Field label="Trainer">
           <select value={trainerId} onChange={e => setTrainerId(e.target.value)} style={{ ...inputStyle, color: trainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
             <option value="">Selecteer trainer…</option>
@@ -265,7 +259,6 @@ function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: 
     if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
     setSaving(true)
     const supabase = getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
     const { error: err } = await supabase.from('acties').insert({
       trainer_id: trainer.id, lid_id: null, type: 'custom',
       omschrijving: omschrijving.trim(), deadline: deadline || null,
@@ -306,31 +299,39 @@ function ActieModal({ trainer, onClose, onSaved }: { trainer: Trainer; onClose: 
 
 // ── Console Panel ──────────────────────────────────────────────────────
 
-function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
-  const [tokens, setTokens]               = useState<ConsoleToken[]>([])
-  const [loading, setLoading]             = useState(true)
-  const [formOpen, setFormOpen]           = useState(false)
-  const [newNaam, setNewNaam]             = useState('')
-  const [newTrainerId, setNewTrainerId]   = useState('')
-  const [saving, setSaving]               = useState(false)
-  const [copiedId, setCopiedId]           = useState<string | null>(null)
+function ConsolePanel() {
+  const [tokens,   setTokens]   = useState<ConsoleToken[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [formOpen, setFormOpen] = useState(false)
+  const [newNaam,  setNewNaam]  = useState('')
+  const [saving,   setSaving]   = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const loadTokens = useCallback(async () => {
     const supabase = getSupabase()
-    const { data } = await supabase.from('console_tokens').select('id, token, naam, actief, trainer_id, aangemaakt_op, laatst_gebruikt').order('aangemaakt_op', { ascending: false })
-    setTokens((data ?? []).map(t => ({ ...t, trainer: trainers.find(tr => tr.id === t.trainer_id) })))
+    const { data } = await supabase
+      .from('console_tokens')
+      .select('id, token, naam, actief, aangemaakt_op, laatst_gebruikt')
+      .order('aangemaakt_op', { ascending: false })
+    setTokens(data ?? [])
     setLoading(false)
-  }, [trainers])
+  }, [])
 
   useEffect(() => { loadTokens() }, [loadTokens])
 
   const createToken = async () => {
-    if (!newNaam.trim() || !newTrainerId) return
+    if (!newNaam.trim()) return
     setSaving(true)
     const supabase = getSupabase()
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('console_tokens').insert({ naam: newNaam.trim(), trainer_id: newTrainerId, aangemaakt_door: user!.id })
-    setNewNaam(''); setNewTrainerId(''); setFormOpen(false); setSaving(false)
+    await supabase.from('console_tokens').insert({
+      naam:            newNaam.trim(),
+      trainer_id:      null,
+      aangemaakt_door: user!.id,
+    })
+    setNewNaam('')
+    setFormOpen(false)
+    setSaving(false)
     loadTokens()
   }
 
@@ -350,46 +351,58 @@ function ConsolePanel({ trainers }: { trainers: Trainer[] }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Studio consoles</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Apparaten met toegang zonder trainer-login</div>
         </div>
-        <button onClick={() => setFormOpen(o => !o)} style={{ background: formOpen ? 'none' : 'var(--color-accent, #6366f1)', color: formOpen ? 'var(--text-muted)' : '#fff', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+        <button
+          onClick={() => { setFormOpen(o => !o); setNewNaam('') }}
+          style={{ background: formOpen ? 'none' : 'var(--color-accent, #6366f1)', color: formOpen ? 'var(--text-muted)' : '#fff', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >
           {formOpen ? '× Annuleren' : '+ Nieuwe console'}
         </button>
       </div>
 
       {formOpen && (
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle}>Naam apparaat</label>
-              <input type="text" value={newNaam} onChange={e => setNewNaam(e.target.value)} placeholder="bijv. iPad Studio Vloer" style={{ ...inputStyle, width: 'auto' }} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={labelStyle}>Trainer</label>
-              <select value={newTrainerId} onChange={e => setNewTrainerId(e.target.value)} style={{ ...inputStyle, width: 'auto', color: newTrainerId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                <option value="">Selecteer trainer…</option>
-                {trainers.filter(t => t.actief).map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
-              </select>
-            </div>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle}>Naam apparaat</label>
+            <input
+              type="text"
+              value={newNaam}
+              onChange={e => setNewNaam(e.target.value)}
+              placeholder="bijv. iPad Studio Vloer"
+              style={{ ...inputStyle, width: 'auto' }}
+              onKeyDown={e => { if (e.key === 'Enter' && newNaam.trim()) createToken() }}
+            />
           </div>
-          <button onClick={createToken} disabled={saving || !newNaam.trim() || !newTrainerId} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start', opacity: saving || !newNaam.trim() || !newTrainerId ? 0.5 : 1 }}>
+          <button
+            onClick={createToken}
+            disabled={saving || !newNaam.trim()}
+            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-end', opacity: saving || !newNaam.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}
+          >
             {saving ? 'Aanmaken…' : 'Aanmaken'}
           </button>
         </div>
       )}
 
-      {!loading && tokens.map(t => (
-        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px', borderBottom: '1px solid var(--border-subtle)', opacity: t.actief ? 1 : 0.45 }}>
+      {!loading && tokens.length === 0 && !formOpen && (
+        <div style={{ padding: '20px 24px', fontSize: 13, color: 'var(--text-muted)' }}>Geen consoles aangemaakt.</div>
+      )}
+
+      {!loading && tokens.map((t, i) => (
+        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px', borderBottom: i < tokens.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: t.actief ? 1 : 0.45 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{t.naam}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              {t.trainer ? `${t.trainer.voornaam} ${t.trainer.achternaam}` : '—'} · {daysSinceLabel(t.laatst_gebruikt)}
+              {daysSinceLabel(t.laatst_gebruikt)}
             </div>
           </div>
-          <button onClick={() => copyUrl(t)} style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? '#4ade80' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            {copiedId === t.id ? 'Gekopieerd' : 'Kopieer URL'}
+          <button
+            onClick={() => copyUrl(t)}
+            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? '#4ade80' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {copiedId === t.id ? '✓ Gekopieerd' : 'Kopieer URL'}
           </button>
           {t.actief
-            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Intrekken</button>
-            : <button onClick={() => reactivateToken(t.id)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Heractiveren</button>
+            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
+            : <button onClick={() => reactivateToken(t.id)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Heractiveren</button>
           }
         </div>
       ))}
@@ -461,7 +474,6 @@ export default function ManagementPage() {
       }
     })
 
-    // Per-trainer stats
     const stats: Record<string, TrainerStats> = {}
     for (const t of trainerData ?? []) {
       const tLeden = enrichedLeden.filter(l => l.trainer_id === t.id && l.actief)
@@ -474,7 +486,6 @@ export default function ManagementPage() {
       }
     }
 
-    // Compute next lid_id
     const ids = (ledenRaw ?? [])
       .map(l => l.lid_id)
       .filter(id => /^WE-\d+$/.test(id))
@@ -633,7 +644,7 @@ export default function ManagementPage() {
         </section>
 
         {/* Console panel */}
-        <ConsolePanel trainers={trainers} />
+        <ConsolePanel />
 
         {/* Member table */}
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>

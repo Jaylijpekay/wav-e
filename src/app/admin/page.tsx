@@ -19,6 +19,48 @@ type TrainerPin = {
   trainer_id: string
   naam: string
   has_pin: boolean
+  type: 'trainer' | 'management'
+}
+
+type ConsoleToken = {
+  id: string
+  token: string
+  naam: string
+  actief: boolean
+  aangemaakt_op: string
+  laatst_gebruikt: string | null
+}
+
+// ============================================================
+// SHARED STYLES
+// ============================================================
+
+const inputStyle: React.CSSProperties = {
+  background: 'var(--bg-raised)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 8,
+  padding: '9px 12px',
+  color: 'var(--text-primary)',
+  fontSize: 14,
+  width: '100%',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={labelStyle}>{label}</label>
+      {children}
+    </div>
+  )
 }
 
 // ============================================================
@@ -45,37 +87,6 @@ function RoleBadge({ role }: { role: string | null }) {
 }
 
 // ============================================================
-// SHARED STYLES
-// ============================================================
-
-const inputStyle: React.CSSProperties = {
-  background: 'var(--bg-raised)',
-  border: '1px solid var(--border-subtle)',
-  borderRadius: 8,
-  padding: '9px 12px',
-  color: 'var(--text-primary)',
-  fontSize: 14,
-  width: '100%',
-  boxSizing: 'border-box',
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={labelStyle}>{label}</label>
-      {children}
-    </div>
-  )
-}
-
-// ============================================================
 // PIN ROW
 // ============================================================
 
@@ -94,10 +105,16 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
     if (!/^\d{4}$/.test(pin)) { setError('PIN moet exact 4 cijfers zijn'); return }
     if (pin !== confirm)       { setError('PINs komen niet overeen'); return }
     setSaving(true)
-    const res = await fetch('/api/admin/pin', {
+
+    const endpoint = trainer.type === 'management' ? '/api/admin/pin-management' : '/api/admin/pin'
+    const body = trainer.type === 'management'
+      ? { management_id: trainer.trainer_id, pin }
+      : { trainer_id: trainer.trainer_id, pin }
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trainer_id: trainer.trainer_id, pin }),
+      body: JSON.stringify(body),
     })
     const data = await res.json()
     setSaving(false)
@@ -110,10 +127,16 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
     <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px' }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{trainer.naam}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{trainer.naam}</div>
+            {trainer.type === 'management' && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fbbf24', background: 'rgba(217,119,6,0.10)', padding: '2px 7px', borderRadius: 4 }}>
+                management
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* PIN status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: trainer.has_pin ? '#4ade80' : '#3a3a3a', display: 'inline-block' }} />
           <span style={{ fontSize: 11, color: trainer.has_pin ? '#4ade80' : '#555', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
@@ -134,23 +157,23 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Nieuwe PIN (4 cijfers)">
               <input
-                type="password"
+                type="text"
                 inputMode="numeric"
                 maxLength={4}
                 value={pin}
                 onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="••••"
+                placeholder="1234"
                 style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }}
               />
             </Field>
             <Field label="Bevestig PIN">
               <input
-                type="password"
+                type="text"
                 inputMode="numeric"
                 maxLength={4}
                 value={confirm}
                 onChange={e => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="••••"
+                placeholder="1234"
                 style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }}
               />
             </Field>
@@ -168,10 +191,139 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
             disabled={saving || pin.length < 4 || confirm.length < 4}
             style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving || pin.length < 4 || confirm.length < 4 ? 0.5 : 1, alignSelf: 'flex-start' }}
           >
-            {saving ? 'Opslaan…' : 'Opslaan'}
+            {saving ? 'Opslaan…' : 'PIN opslaan'}
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ============================================================
+// CONSOLE TOKEN PANEL
+// ============================================================
+
+const consoleUrl = (token: string): string => {
+  if (typeof window === 'undefined') return ''
+  return `${window.location.origin}/console?token=${token}`
+}
+
+const daysSinceLabel = (date: string | null): string => {
+  if (!date) return 'Nooit gebruikt'
+  const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+  if (d === 0) return 'Vandaag'
+  if (d === 1) return 'Gisteren'
+  return `${d} dagen geleden`
+}
+
+function ConsolePanel() {
+  const [tokens,    setTokens]    = useState<ConsoleToken[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [formOpen,  setFormOpen]  = useState(false)
+  const [newNaam,   setNewNaam]   = useState('')
+  const [saving,    setSaving]    = useState(false)
+  const [copiedId,  setCopiedId]  = useState<string | null>(null)
+
+  const loadTokens = useCallback(async () => {
+    const res = await fetch('/api/admin/console-tokens')
+    if (!res.ok) { setLoading(false); return }
+    const data = await res.json()
+    setTokens(data.tokens ?? [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadTokens() }, [loadTokens])
+
+  const createToken = async () => {
+    if (!newNaam.trim()) return
+    setSaving(true)
+    const res = await fetch('/api/admin/console-tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ naam: newNaam.trim() }),
+    })
+    setSaving(false)
+    if (!res.ok) return
+    setNewNaam('')
+    setFormOpen(false)
+    loadTokens()
+  }
+
+  const revokeToken     = async (id: string) => { await fetch(`/api/admin/console-tokens?id=${id}`, { method: 'DELETE' }); loadTokens() }
+  const reactivateToken = async (id: string) => { await fetch('/api/admin/console-tokens', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, actief: true }) }); loadTokens() }
+
+  const copyUrl = (t: ConsoleToken) => {
+    navigator.clipboard.writeText(consoleUrl(t.token))
+    setCopiedId(t.id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  return (
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: formOpen || tokens.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Studio consoles</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Apparaten met toegang zonder trainer-login</div>
+        </div>
+        <button
+          onClick={() => { setFormOpen(o => !o); setNewNaam('') }}
+          style={{ background: formOpen ? 'none' : 'var(--color-accent, #6366f1)', color: formOpen ? 'var(--text-muted)' : '#fff', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >
+          {formOpen ? '× Annuleren' : '+ Nieuwe console'}
+        </button>
+      </div>
+
+      {formOpen && (
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle}>Naam apparaat</label>
+            <input
+              type="text"
+              value={newNaam}
+              onChange={e => setNewNaam(e.target.value)}
+              placeholder="bijv. iPad Studio Vloer"
+              style={{ ...inputStyle, width: 'auto' }}
+              onKeyDown={e => { if (e.key === 'Enter' && newNaam.trim()) createToken() }}
+            />
+          </div>
+          <button
+            onClick={createToken}
+            disabled={saving || !newNaam.trim()}
+            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving || !newNaam.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}
+          >
+            {saving ? 'Aanmaken…' : 'Aanmaken'}
+          </button>
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ padding: '20px 24px', color: 'var(--text-muted)', fontSize: 13 }}>Laden…</div>
+      )}
+
+      {!loading && tokens.length === 0 && !formOpen && (
+        <div style={{ padding: '20px 24px', color: 'var(--text-muted)', fontSize: 13 }}>Geen consoles aangemaakt.</div>
+      )}
+
+      {!loading && tokens.map((t, i) => (
+        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px', borderBottom: i < tokens.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: t.actief ? 1 : 0.45 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{t.naam}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              {daysSinceLabel(t.laatst_gebruikt)}
+            </div>
+          </div>
+          <button
+            onClick={() => copyUrl(t)}
+            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? '#4ade80' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {copiedId === t.id ? '✓ Gekopieerd' : 'Kopieer URL'}
+          </button>
+          {t.actief
+            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
+            : <button onClick={() => reactivateToken(t.id)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Heractiveren</button>
+          }
+        </div>
+      ))}
     </div>
   )
 }
@@ -237,13 +389,13 @@ export default function AdminPage() {
   const deleteUser = async (userId: string, userEmail: string) => {
     if (!confirm(`Verwijder gebruiker ${userEmail}?\n\nDit verwijdert ook het bijbehorende profiel. Niet ongedaan te maken.`)) return
     setDeleting(userId)
-    const res = await fetch('/api/admin/delete', {
+    await fetch('/api/admin/delete', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target_user_id: userId }),
     })
     setDeleting(null)
-    if (res.ok) load()
+    load()
   }
 
   return (
@@ -313,7 +465,11 @@ export default function AdminPage() {
                 </div>
                 <RoleBadge role={u.role} />
                 {u.role !== 'admin' && (
-                  <button onClick={() => deleteUser(u.id, u.email ?? '')} disabled={deleting === u.id} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, color: '#f87171', padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: deleting === u.id ? 'default' : 'pointer', opacity: deleting === u.id ? 0.5 : 1, transition: 'opacity 0.15s' }}>
+                  <button
+                    onClick={() => deleteUser(u.id, u.email ?? '')}
+                    disabled={deleting === u.id}
+                    style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, color: '#f87171', padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: deleting === u.id ? 'default' : 'pointer', opacity: deleting === u.id ? 0.5 : 1 }}
+                  >
                     {deleting === u.id ? '…' : 'Verwijder'}
                   </button>
                 )}
@@ -322,12 +478,15 @@ export default function AdminPage() {
           )}
         </div>
 
+        {/* Console tokens */}
+        <ConsolePanel />
+
         {/* Console PINs */}
         {!loading && trainers.length > 0 && (
           <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Console PINs</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>4-cijferige PIN per trainer · toegang tot studio console</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>4-cijferige PIN per persoon · toegang tot studio console</div>
             </div>
             {trainers.map(t => (
               <PinRow key={t.trainer_id} trainer={t} onSaved={load} />

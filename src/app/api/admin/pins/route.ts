@@ -37,22 +37,28 @@ export async function GET(_req: NextRequest) {
 
   const supabase = getServiceClient()
 
-  const { data, error } = await supabase
-    .from('trainers')
-    .select('id, voornaam, achternaam, pin_hash')
-    .eq('actief', true)
-    .order('achternaam')
+  const [{ data: trainerData, error: trainerError }, { data: mgmtData, error: mgmtError }] = await Promise.all([
+    supabase.from('trainers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
+    supabase.from('management_gebruikers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
+  ])
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (trainerError) return NextResponse.json({ error: trainerError.message }, { status: 500 })
+  if (mgmtError)    return NextResponse.json({ error: mgmtError.message   }, { status: 500 })
 
-  const trainers = (data ?? []).map(t => ({
-    trainer_id: t.id,
-    naam: `${t.voornaam} ${t.achternaam}`,
-    has_pin: t.pin_hash !== null,
-    // pin_hash is intentionally never returned to the client
-  }))
+  const trainers = [
+    ...(trainerData ?? []).map(t => ({
+      trainer_id: t.id,
+      naam:       `${t.voornaam} ${t.achternaam}`,
+      has_pin:    t.pin_hash !== null,
+      type:       'trainer' as const,
+    })),
+    ...(mgmtData ?? []).map(m => ({
+      trainer_id: m.id,
+      naam:       `${m.voornaam} ${m.achternaam}`,
+      has_pin:    m.pin_hash !== null,
+      type:       'management' as const,
+    })),
+  ]
 
   return NextResponse.json({ trainers })
 }
