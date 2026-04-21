@@ -595,12 +595,6 @@ export default function ManagementPage() {
         open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
       }
     }
-      {showAddTrainer && (
-        <AddTrainerModal
-          onClose={() => setShowAddTrainer(false)}
-          onSaved={() => setRefreshKey(k => k + 1)}
-        />
-      )}
     const ids = (ledenRaw ?? [])
       .map(l => l.lid_id)
       .filter(id => /^WE-\d+$/.test(id))
@@ -662,6 +656,13 @@ export default function ManagementPage() {
           trainers={trainers}
           nextLidId={nextLidId}
           onClose={() => setShowAddLid(false)}
+          onSaved={() => setRefreshKey(k => k + 1)}
+        />
+      )}
+
+      {showAddTrainer && (
+        <AddTrainerModal
+          onClose={() => setShowAddTrainer(false)}
           onSaved={() => setRefreshKey(k => k + 1)}
         />
       )}
