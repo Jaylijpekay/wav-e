@@ -335,6 +335,7 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const [voornaam,   setVoornaam]   = useState('')
   const [achternaam, setAchternaam] = useState('')
   const [email,      setEmail]      = useState('')
+  const [password,   setPassword]   = useState('')
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState<string | null>(null)
 
@@ -343,18 +344,23 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     if (!voornaam.trim())   { setError('Voornaam is verplicht'); return }
     if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
     if (!email.trim())      { setError('Email is verplicht'); return }
+    if (!password.trim() || password.trim().length < 6) { setError('Wachtwoord is verplicht (min. 6 tekens)'); return }
 
     setSaving(true)
-    const supabase = getSupabase()
-    const { error: err } = await supabase.from('trainers').insert({
-      voornaam:   voornaam.trim(),
-      achternaam: achternaam.trim(),
-      email:      email.trim(),
-      naam:       `${voornaam.trim()} ${achternaam.trim()}`,
-      actief:     true,
+    const res = await fetch('/api/admin/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        password: password.trim(),
+        role: 'trainer',
+        voornaam: voornaam.trim(),
+        achternaam: achternaam.trim(),
+      }),
     })
+    const data = await res.json()
     setSaving(false)
-    if (err) { setError(err.message); return }
+    if (!res.ok) { setError(data.error ?? 'Aanmaken mislukt'); return }
     onSaved(); onClose()
   }
 
@@ -366,7 +372,7 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Nieuwe trainer toevoegen</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Trainer wordt direct actief</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Trainer wordt direct actief met login</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Voornaam">
@@ -378,6 +384,9 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
         </div>
         <Field label="Email">
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="karim@wave-studios.nl" style={inputStyle} />
+        </Field>
+        <Field label="Wachtwoord">
+          <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 tekens" style={inputStyle} />
         </Field>
         {error && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
