@@ -329,6 +329,68 @@ function ActieModal({
   )
 }
 
+// ── Add Trainer Modal ─────────────────────────────────────────────────
+
+function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [voornaam,   setVoornaam]   = useState('')
+  const [achternaam, setAchternaam] = useState('')
+  const [email,      setEmail]      = useState('')
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState<string | null>(null)
+
+  const save = async () => {
+    setError(null)
+    if (!voornaam.trim())   { setError('Voornaam is verplicht'); return }
+    if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
+    if (!email.trim())      { setError('Email is verplicht'); return }
+
+    setSaving(true)
+    const supabase = getSupabase()
+    const { error: err } = await supabase.from('trainers').insert({
+      voornaam:   voornaam.trim(),
+      achternaam: achternaam.trim(),
+      email:      email.trim(),
+      naam:       `${voornaam.trim()} ${achternaam.trim()}`,
+      actief:     true,
+    })
+    setSaving(false)
+    if (err) { setError(err.message); return }
+    onSaved(); onClose()
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Nieuwe trainer toevoegen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Trainer wordt direct actief</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Voornaam">
+            <input type="text" value={voornaam} onChange={e => setVoornaam(e.target.value)} placeholder="Karim" style={inputStyle} />
+          </Field>
+          <Field label="Achternaam">
+            <input type="text" value={achternaam} onChange={e => setAchternaam(e.target.value)} placeholder="Bakker" style={inputStyle} />
+          </Field>
+        </div>
+        <Field label="Email">
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="karim@wave-studios.nl" style={inputStyle} />
+        </Field>
+        {error && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuleren</button>
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Opslaan…' : 'Trainer toevoegen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Console Panel ──────────────────────────────────────────────────────
 
 function ConsolePanel() {
@@ -456,6 +518,7 @@ export default function ManagementPage() {
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
   const [actieLid,     setActieLid]       = useState<Lid | null>(null)
   const [showAddLid, setShowAddLid]       = useState(false)
+  const [showAddTrainer, setShowAddTrainer] = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
 
@@ -532,7 +595,12 @@ export default function ManagementPage() {
         open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
       }
     }
-
+      {showAddTrainer && (
+        <AddTrainerModal
+          onClose={() => setShowAddTrainer(false)}
+          onSaved={() => setRefreshKey(k => k + 1)}
+        />
+      )}
     const ids = (ledenRaw ?? [])
       .map(l => l.lid_id)
       .filter(id => /^WE-\d+$/.test(id))
@@ -629,12 +697,21 @@ export default function ManagementPage() {
             </div>
           ))}
         </section>
-
-        {/* Trainers */}
+{/* Trainers */}
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainers</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{trainers.filter(t => t.actief).length} actief</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainers</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{trainers.filter(t => t.actief).length} actief</div>
+            </div>
+            <button
+              onClick={() => setShowAddTrainer(true)}
+              style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 16px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+            >
+              + Trainer toevoegen
+            </button>
           </div>
 
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -695,7 +772,6 @@ export default function ManagementPage() {
             </tbody>
           </table>
         </section>
-
         {/* Console panel */}
         <ConsolePanel />
 
