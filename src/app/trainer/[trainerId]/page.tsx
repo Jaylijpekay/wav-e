@@ -814,89 +814,89 @@ export default function TrainerDashboard() {
           animation: dropIn 0.15s ease-out both;
         }
 
-        /* ── Section header ── */
-        .td-section-header {
+        /* Portal action grid */
+        .td-portal-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 2rem;
+          animation: fadeUp 0.5s ease-out 0.18s both;
+        }
+
+        .td-portal-tile {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-bottom: 1rem;
-          animation: fadeUp 0.4s ease-out 0.20s both;
+          gap: 16px;
+          padding: 20px 22px;
+          min-height: 72px;
+          border-radius: 4px;
+          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(255,255,255,0.03);
+          cursor: pointer;
+          text-align: left;
+          font-family: 'Raleway', sans-serif;
+          transition: border-color 0.15s, background 0.15s, transform 0.1s;
+          touch-action: manipulation;
+          width: 100%;
+          position: relative;
         }
 
-        .td-section-title {
-          font-size: 0.65rem;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--text-faint);
+        .td-portal-tile:hover {
+          border-color: rgba(168,200,0,0.25);
+          background: rgba(168,200,0,0.05);
         }
 
-        .td-section-count {
-          font-size: 0.65rem;
-          color: var(--border-muted-dark);
-          background: var(--surface-pressed);
-          padding: 2px 7px;
-          border-radius: 2px;
-          font-weight: 600;
+        .td-portal-tile:active {
+          transform: scale(0.98);
+          background: rgba(168,200,0,0.08);
         }
 
-        /* ── Acties list ── */
-        .td-list {
+        .td-portal-tile--primary {
+          border-color: rgba(168,200,0,0.3);
+          background: rgba(168,200,0,0.07);
+        }
+
+        .td-portal-tile--primary:hover {
+          border-color: rgba(168,200,0,0.5);
+          background: rgba(168,200,0,0.11);
+          box-shadow: 0 4px 20px rgba(168,200,0,0.12);
+        }
+
+        .td-portal-tile-icon {
+          font-size: 1.3rem;
+          color: var(--wave-green);
+          flex-shrink: 0;
+          width: 28px;
+          text-align: center;
+          opacity: 0.8;
+        }
+
+        .td-portal-tile-body {
           display: flex;
           flex-direction: column;
-          gap: 1px;
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 3px;
+          gap: 3px;
+          min-width: 0;
+        }
+
+        .td-portal-tile-label {
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: var(--text-warm);
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+        }
+
+        .td-portal-tile-sub {
+          font-size: 0.65rem;
+          color: var(--text-faint);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          white-space: nowrap;
           overflow: hidden;
-          animation: fadeUp 0.4s ease-out 0.22s both;
+          text-overflow: ellipsis;
         }
 
-        .td-row {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          padding: 18px 20px;
-          min-height: 56px;
-          background: rgba(255,255,255,0.02);
-          border-left: 3px solid transparent;
-          cursor: pointer;
-          transition: background 0.15s;
-          touch-action: manipulation;
-        }
-
-        .td-row:hover:not(.no-nav) { background: rgba(255,255,255,0.04); }
-        .td-row:active:not(.no-nav) { background: var(--surface-pressed); }
-        .td-row.no-nav { cursor: default; }
-        .td-row.overdue { border-left-color: var(--color-stoplight-rood); }
-
-        .td-row-actie { flex: 1; font-size: 0.85rem; color: var(--text-dim); line-height: 1.4; }
-        .td-row-dagen { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
-        .td-row-deadline {
-          margin-top: 5px;
-          font-size: 0.62rem;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        .td-row-deadline.neutral { color: var(--text-faint); }
-        .td-row-deadline.today { color: var(--amber-text); }
-        .td-row-deadline.overdue { color: var(--color-stoplight-rood); }
-
-        .td-mgmt-badge {
-          font-size: 0.58rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--color-accent-text);
-          background: rgba(99,102,241,0.1);
-          border: 1px solid rgba(99,102,241,0.2);
-          border-radius: 2px;
-          padding: 2px 6px;
-          margin-top: 3px;
-          display: inline-block;
-        }
-
-        .td-notities { margin-bottom: 2rem; animation: fadeUp 0.5s ease-out 0.18s both; }
+        .td-notities { margin-bottom: 2rem; animation: fadeUp 0.5s ease-out 0.22s both; }
         .td-notitie-card {
           padding: 14px 18px; margin-bottom: 8px; border-radius: 3px;
           background: rgba(99,102,241,0.06);
@@ -905,29 +905,6 @@ export default function TrainerDashboard() {
         }
         .td-notitie-tekst { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
         .td-notitie-meta  { font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.06em; margin-top: 6px; text-transform: uppercase; }
-
-        .td-empty {
-          color: var(--border-muted-dark);
-          font-size: 0.85rem;
-          padding: 4rem 0;
-          text-align: center;
-          letter-spacing: 0.05em;
-        }
-
-        /* ── Group header rows ── */
-        .td-group-header {
-          padding: 10px 20px 8px;
-          background: rgba(255,255,255,0.02);
-          border-bottom: 1px solid rgba(255,255,255,0.04);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          min-height: 44px;
-          touch-action: manipulation;
-        }
-        .td-group-header:active { background: var(--surface-dark); }
-        .td-group-header.no-nav { cursor: default; }
 
         /* ── Tablet breakpoint ── */
         @media (min-width: 768px) and (pointer: coarse) {
@@ -949,10 +926,10 @@ export default function TrainerDashboard() {
           .td-dropdown-item { padding: 16px 20px; min-height: 54px; }
           .td-dropdown-name { font-size: 0.95rem; }
 
-          .td-row { padding: 20px 24px; min-height: 64px; }
-          .td-row-actie { font-size: 0.9rem; }
-
-          .td-group-header { padding: 12px 24px 10px; min-height: 50px; }
+          .td-portal-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+          .td-portal-tile { padding: 24px 26px; min-height: 80px; }
+          .td-portal-tile-label { font-size: 0.95rem; }
+          .td-portal-tile-icon { font-size: 1.5rem; width: 32px; }
 
           .td-stoplight-panel { min-width: 260px; }
           .td-dropdown { min-width: 280px; }
@@ -969,6 +946,8 @@ export default function TrainerDashboard() {
           .td-header-right { gap: 8px; }
           .td-btn-secondary,
           .td-btn-primary { padding: 10px 12px; font-size: 0.7rem; }
+          .td-portal-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+          .td-portal-tile { padding: 18px 16px; min-height: 68px; gap: 12px; }
         }
       `}</style>
 
@@ -994,37 +973,6 @@ export default function TrainerDashboard() {
               {trainer?.naam && (
                 <span className="td-trainer-name">{trainer.naam}</span>
               )}
-              <button
-                className="td-btn-secondary"
-                onClick={() => setShowAddLid(true)}
-              >
-                + Nieuw lid
-              </button>
-              <button
-                className="td-btn-secondary"
-                onClick={() => router.push(`/trainer/${trainerId}/leden`)}
-              >
-                Mijn leden
-              </button>
-
-              <div style={{ position: 'relative' }} ref={gesprekRef}>
-                <button className="td-btn-primary" onClick={() => setGesprekOpen(o => !o)}>
-                  + Nieuw gesprek
-                </button>
-                {gesprekOpen && (
-                  <div className="td-dropdown">
-                    {ledenDropdown.length === 0
-                      ? <div className="td-dropdown-empty">Geen leden gevonden</div>
-                      : ledenDropdown.map(lid => (
-                        <div key={lid.id} className="td-dropdown-item" onClick={() => handleGesprekSelect(lid)}>
-                          <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
-                          <span className="td-dropdown-meta">{lid.lid_id}</span>
-                        </div>
-                      ))
-                    }
-                  </div>
-                )}
-              </div>
 
               <button
                 className="td-btn-secondary"
@@ -1151,6 +1099,78 @@ export default function TrainerDashboard() {
             </div>
           )}
 
+          {/* Portal action grid */}
+          {!loading && (
+            <div className="td-portal-grid">
+              <div style={{ position: 'relative' }} ref={gesprekRef}>
+                <button
+                  className="td-portal-tile td-portal-tile--primary"
+                  onClick={() => setGesprekOpen(o => !o)}
+                >
+                  <span className="td-portal-tile-icon">↗</span>
+                  <div className="td-portal-tile-body">
+                    <span className="td-portal-tile-label">Nieuw gesprek</span>
+                    <span className="td-portal-tile-sub">Start een cyclus</span>
+                  </div>
+                </button>
+                {gesprekOpen && (
+                  <div className="td-dropdown">
+                    {ledenDropdown.length === 0
+                      ? <div className="td-dropdown-empty">Geen leden gevonden</div>
+                      : ledenDropdown.map(lid => (
+                        <div key={lid.id} className="td-dropdown-item" onClick={() => handleGesprekSelect(lid)}>
+                          <span className="td-dropdown-name">{lid.voornaam} {lid.achternaam}</span>
+                          <span className="td-dropdown-meta">{lid.lid_id}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="td-portal-tile"
+                onClick={() => router.push(`/trainer/${trainerId}/acties`)}
+              >
+                <span className="td-portal-tile-icon">✓</span>
+                <div className="td-portal-tile-body">
+                  <span className="td-portal-tile-label">Open acties</span>
+                  <span className="td-portal-tile-sub">
+                    {acties.length === 0
+                      ? 'Alles afgerond'
+                      : `${acties.length} open${acties.some(a => {
+                          const d = a.deadline?.slice(0, 10) ?? null
+                          return d !== null && d < todayIsoDate()
+                        }) ? ' · let op verlopen' : ''}`
+                    }
+                  </span>
+                </div>
+              </button>
+
+              <button
+                className="td-portal-tile"
+                onClick={() => router.push(`/trainer/${trainerId}/leden`)}
+              >
+                <span className="td-portal-tile-icon">◈</span>
+                <div className="td-portal-tile-body">
+                  <span className="td-portal-tile-label">Mijn leden</span>
+                  <span className="td-portal-tile-sub">{leden.length} actief</span>
+                </div>
+              </button>
+
+              <button
+                className="td-portal-tile"
+                onClick={() => setShowAddLid(true)}
+              >
+                <span className="td-portal-tile-icon">+</span>
+                <div className="td-portal-tile-body">
+                  <span className="td-portal-tile-label">Nieuw lid</span>
+                  <span className="td-portal-tile-sub">Lid toevoegen</span>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* Management notities — v0.1.1 ready slot
               When notities table exists, fetch from /api/notities/trainer/[trainerId]
               and render here. Management writes; trainers see read-only. */}
@@ -1169,131 +1189,6 @@ export default function TrainerDashboard() {
             </div>
           )} */}
 
-          {/* Open acties */}
-          <div className="td-section-header">
-            <span className="td-section-title">Open acties</span>
-            <span className="td-section-count">{acties.length}</span>
-          </div>
-
-          {loading ? (
-            <div className="td-empty">Laden…</div>
-          ) : acties.length === 0 ? (
-            <div className="td-empty">Geen open acties.</div>
-          ) : (() => {
-            const mgmt   = acties.filter(a => a.is_management)
-            const member = acties.filter(a => !a.is_management)
-
-            const groups: Record<string, Actie[]> = {}
-            for (const a of member) {
-              if (!a.lid_uuid) continue
-              if (!groups[a.lid_uuid]) groups[a.lid_uuid] = []
-              groups[a.lid_uuid].push(a)
-            }
-
-            const today = todayIsoDate()
-            const sortedLidIds = Object.keys(groups).sort((a, b) => {
-              const tierDiff = getLidActieSortTier(groups[a], today) - getLidActieSortTier(groups[b], today)
-              if (tierDiff !== 0) return tierDiff
-
-              const lidA = leden.find(l => l.id === a)
-              const lidB = leden.find(l => l.id === b)
-              const nameA = `${lidA?.voornaam ?? ''} ${lidA?.achternaam ?? ''}`.trim()
-              const nameB = `${lidB?.voornaam ?? ''} ${lidB?.achternaam ?? ''}`.trim()
-              return nameA.localeCompare(nameB, 'nl', { sensitivity: 'base' })
-            })
-
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-                {/* Management group */}
-                {mgmt.length > 0 && (
-                  <div className="td-list">
-                    <div className="td-group-header no-nav">
-                      <span style={{ width: 3, height: 12, background: 'var(--color-accent)', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-accent-text)' }}>Management</span>
-                      <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{mgmt.length}</span>
-                    </div>
-                    {mgmt.map(actie => {
-                      const deadlineLabel = getActieDeadlineLabel(actie, today)
-                      const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
-                      const overdue = isActieOverdue(actie, today)
-                      return (
-                        <div
-                          key={actie.id}
-                          className={`td-row no-nav${overdue ? ' overdue' : ''}`}
-                          style={{ borderLeftColor: overdue ? 'var(--color-stoplight-rood)' : 'var(--color-accent)' }}
-                        >
-                          <div className="td-row-actie" style={{ color: 'var(--wave-gray)' }}>
-                            {actie.omschrijving}
-                            {deadlineLabel && (
-                              <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
-                            )}
-                          </div>
-                          {deadlineDaysRemaining !== null && (
-                            <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
-                              {deadlineDaysRemaining}d
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Per-lid groups */}
-                {sortedLidIds.map(lidUuid => {
-                  const lidActies = groups[lidUuid]
-                  const lid = leden.find(l => l.id === lidUuid)
-                  const sig = lid ? getLidStoplight(lid) : 'green'
-                  const col = STOPLIGHT[sig]
-
-                  return (
-                    <div key={lidUuid} className="td-list">
-                      <div
-                        className="td-group-header"
-                        onClick={() => router.push(`/leden/${lidUuid}`)}
-                      >
-                        <span style={{ width: 3, height: 12, background: col.dot, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: col.text }}>
-                          {lid ? `${lid.voornaam} ${lid.achternaam}` : '—'}
-                        </span>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{lidActies.length}</span>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 'auto', letterSpacing: '0.06em' }}>
-                          {lid?.lid_id}
-                        </span>
-                      </div>
-
-                      {lidActies.map(actie => {
-                        const deadlineLabel = getActieDeadlineLabel(actie, today)
-                        const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
-                        const overdue = isActieOverdue(actie, today)
-                        return (
-                          <div
-                            key={actie.id}
-                            className={`td-row${overdue ? ' overdue' : ''}`}
-                            style={{ borderLeftColor: overdue ? 'var(--color-stoplight-rood)' : col.dot }}
-                            onClick={() => router.push(`/leden/${lidUuid}`)}
-                          >
-                            <div className="td-row-actie">
-                              {actie.omschrijving}
-                              {deadlineLabel && (
-                                <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
-                              )}
-                            </div>
-                            {deadlineDaysRemaining !== null && (
-                              <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
-                                {deadlineDaysRemaining}d
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })()}
         </div>
       </div>
     </>
