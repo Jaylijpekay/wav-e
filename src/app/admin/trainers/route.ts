@@ -29,7 +29,7 @@ async function getSessionUserId(): Promise<string | null> {
   return user?.id ?? null
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const userId = await getSessionUserId()
   if (userId !== ADMIN_UUID) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

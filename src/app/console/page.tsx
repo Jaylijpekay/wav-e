@@ -1,6 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+/*
+ * Console-login
+ *
+ * Wat doet deze pagina:
+ * Deze pagina laat een studio-iPad inloggen via een console-token en PIN. De gebruiker kiest trainer of management en voert daarna een PIN in.
+ *
+ * Data:
+ * Leest indirect via API uit: console_tokens, trainers, management_gebruikers.
+ *
+ * Toegang:
+ * management / trainer
+ *
+ * Gerelateerde API routes:
+ * /api/console/validate, /api/console/people, /api/console/verify-pin
+ */
+
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Person = {
@@ -24,6 +40,7 @@ export default function ConsolePage() {
   const [pin,        setPin]        = useState('')
   const [pinError,   setPinError]   = useState<string | null>(null)
   const [verifying,  setVerifying]  = useState(false)
+  const pinPanelRef = useRef<HTMLDivElement | null>(null)
 
   // Validate token on mount
   useEffect(() => {
@@ -98,6 +115,12 @@ export default function ConsolePage() {
   useEffect(() => {
     if (pin.length === 4 && step === 'pin') verify()
   }, [pin])
+
+  useEffect(() => {
+    if (step === 'pin') {
+      pinPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [step])
 
   const people = mode === 'trainer' ? trainers : management
 
@@ -225,6 +248,7 @@ export default function ConsolePage() {
           gap: 14px;
           transition: border-color 0.2s, background 0.2s, transform 0.15s;
           /* Minimum touch target */
+          min-width: 44px;
           min-height: 160px;
         }
         .con-mode-btn:hover {
@@ -276,6 +300,7 @@ export default function ConsolePage() {
           align-items: center;
           gap: 10px;
           transition: border-color 0.15s, background 0.15s, transform 0.12s;
+          min-width: 44px;
           min-height: 120px;
         }
         .con-person-btn.has-pin:hover {
@@ -376,6 +401,7 @@ export default function ConsolePage() {
           border-radius: 3px;
           /* Large touch targets — minimum 72px tall */
           padding: 22px 0;
+          min-width: 44px;
           min-height: 72px;
           font-family: 'Raleway', sans-serif;
           font-size: 1.5rem;
@@ -543,7 +569,7 @@ export default function ConsolePage() {
         )}
 
         {step === 'pin' && selected && (
-          <div className="con-card">
+          <div className="con-card" ref={pinPanelRef}>
             <div className="con-pin-header">
               <div className="con-title">PIN invoeren</div>
               <div className="con-pin-name">{selected.naam}</div>

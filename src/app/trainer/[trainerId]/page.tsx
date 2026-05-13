@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Trainerdashboard
+ *
+ * Wat doet deze pagina:
+ * Deze pagina toont het dashboard van een trainer met leden, stoplichten en acties. De trainer kan vanuit hier leden openen en nieuwe leden toevoegen.
+ *
+ * Data:
+ * Leest en schrijft: trainers, leden, contact_momenten, evaluaties, acties.
+ *
+ * Toegang:
+ * trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -190,7 +206,7 @@ function AddLidModal({
     borderRadius: 3,
     padding: '10px 12px',
     color: 'var(--text-warm)',
-    fontSize: '0.88rem',
+    fontSize: '1rem',
     width: '100%',
     boxSizing: 'border-box',
     fontFamily: "'Raleway', sans-serif",

@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Mijn leden
+ *
+ * Wat doet deze pagina:
+ * Deze pagina toont alle leden van een trainer in een filterbare lijst. De trainer kan zoeken, filteren op stoplicht en doorklikken naar een lid.
+ *
+ * Data:
+ * Leest uit: trainers, leden, contact_momenten, evaluaties, acties.
+ *
+ * Toegang:
+ * trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -231,7 +247,7 @@ export default function MijnLedenPage() {
           width: 100%; box-sizing: border-box;
           background: var(--surface-dark); border: 1px solid var(--bg-base); border-radius: 3px;
           padding: 9px 14px; margin-bottom: 1.25rem;
-          font-family: 'Raleway', sans-serif; font-size: 0.82rem; color: var(--text-warm);
+          font-family: 'Raleway', sans-serif; font-size: 1rem; color: var(--text-warm);
           outline: none; transition: border-color 0.15s;
         }
         .ml-search::placeholder { color: var(--text-ghost); }

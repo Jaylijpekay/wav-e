@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Liddetail
+ *
+ * Wat doet deze pagina:
+ * Deze pagina toont het dossier van een lid met contactmomenten, evaluaties en acties. Trainers en management kunnen contactmomenten en acties toevoegen of afronden.
+ *
+ * Data:
+ * Leest en schrijft: leden, trainers, evaluaties, contact_momenten, acties.
+ *
+ * Toegang:
+ * management / trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -551,7 +567,7 @@ export default function LedenDetail() {
 
         .ld-eval-left { flex: 1; }
         .ld-eval-cyclus {
-          font-size: 0.85rem;
+          font-size: 1rem;
           font-weight: 600;
           color: var(--text-secondary);
           margin-bottom: 2px;
@@ -639,7 +655,7 @@ export default function LedenDetail() {
           border: 1px solid var(--border-subtle);
           color: var(--text-secondary);
           font-family: var(--font-primary);
-          font-size: 0.85rem;
+          font-size: 1rem;
           font-weight: 400;
           /* Taller input for fat-finger tapping */
           padding: 12px 12px;
@@ -649,8 +665,6 @@ export default function LedenDetail() {
           outline: none;
           box-sizing: border-box;
           transition: border-color 0.15s, box-shadow 0.15s;
-          /* Prevent iOS zoom on focus (font-size >= 16px prevents it,
-             but we keep our size and rely on meta viewport instead) */
         }
         .ld-input:focus {
           border-color: var(--wave-green);

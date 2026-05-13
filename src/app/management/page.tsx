@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Management
+ *
+ * Wat doet deze pagina:
+ * Deze pagina geeft management een studio-overzicht van trainers, leden, statussen en open acties. Management kan leden, trainers, acties en consoletoegang beheren.
+ *
+ * Data:
+ * Leest en schrijft: trainers, leden, contact_momenten, evaluaties, acties, console_tokens.
+ *
+ * Toegang:
+ * management
+ *
+ * Gerelateerde API routes:
+ * /api/admin/create
+ */
+
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -97,7 +113,7 @@ const inputStyle: React.CSSProperties = {
   padding: '9px 12px',
   minHeight: 44,
   color: 'var(--text-primary)',
-  fontSize: 14,
+  fontSize: '1rem',
   width: '100%',
   boxSizing: 'border-box',
   fontFamily: 'inherit',
@@ -790,7 +806,7 @@ export default function ManagementPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', gap: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden · {visibleLeden.length}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}>
                 <option value="allen">Alle statussen</option>
                 <option value="actief">Actief</option>
                 <option value="bevroren">Bevroren</option>
@@ -798,7 +814,7 @@ export default function ManagementPage() {
                 <option value="stopt">Stopt</option>
                 <option value="inactief">Inactief</option>
               </select>
-              <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 13 }}>
+              <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}>
                 <option value="allen">Alle trainers</option>
                 {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
               </select>

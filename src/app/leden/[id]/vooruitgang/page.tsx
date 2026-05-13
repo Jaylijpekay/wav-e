@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Vooruitgang
+ *
+ * Wat doet deze pagina:
+ * Deze pagina toont de ontwikkeling van een lid over meerdere evaluatiecycli. Trainers en management kunnen leefstijl- en fysieke metingen over tijd vergelijken.
+ *
+ * Data:
+ * Leest uit: leden, evaluaties.
+ *
+ * Toegang:
+ * management / trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -188,7 +204,6 @@ function MetricChart({
   const xPos = (i: number) => padL + i * xStep
 
   const vals = evals.map(e => e[metric.key as keyof Evaluatie] as number | null)
-  const latestVal = vals[selectedIdx]
   const selectedVal = vals[selectedIdx] ?? null
   const lastVal     = [...vals].reverse().find(v => v !== null) ?? null
   let deltaEl: React.ReactNode = null

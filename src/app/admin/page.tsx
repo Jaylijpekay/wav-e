@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Admin
+ *
+ * Wat doet deze pagina:
+ * Deze pagina beheert gebruikers, PIN-codes en studio-consoles. Admins kunnen accounts aanmaken, verwijderen en consoletoegang beheren.
+ *
+ * Data:
+ * Leest en schrijft via API: user_roles, trainers, management_gebruikers, console_tokens en Supabase Auth gebruikers.
+ *
+ * Toegang:
+ * admin
+ *
+ * Gerelateerde API routes:
+ * /api/admin/list, /api/admin/pins, /api/admin/pin, /api/admin/pin-management, /api/admin/create, /api/admin/delete, /api/admin/console-tokens
+ */
+
 import { useState, useEffect, useCallback } from 'react'
 
 // ============================================================
@@ -41,7 +57,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 8,
   padding: '9px 12px',
   color: 'var(--text-primary)',
-  fontSize: 14,
+  fontSize: '1rem',
   width: '100%',
   boxSizing: 'border-box',
   fontFamily: 'inherit',

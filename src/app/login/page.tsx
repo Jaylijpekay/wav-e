@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Login
+ *
+ * Wat doet deze pagina:
+ * Deze pagina logt gebruikers in met Supabase Auth. Na login stuurt de pagina admin, management en trainers naar hun juiste startpagina.
+ *
+ * Data:
+ * Leest uit: user_roles.
+ *
+ * Toegang:
+ * admin / management / trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -137,7 +153,7 @@ export default function LoginPage() {
           padding: 10px 14px;
           color: var(--text-primary);
           font-family: var(--font-primary);
-          font-size: 14px;
+          font-size: 1rem;
           outline: none;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }

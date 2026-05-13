@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Nieuw gesprek
+ *
+ * Wat doet deze pagina:
+ * Deze pagina legt een nieuwe evaluatie of gesprek vast voor een actief lid. De ingevoerde scores worden opgeslagen als volgende evaluatiecyclus.
+ *
+ * Data:
+ * Leest uit: leden, evaluaties. Schrijft naar: evaluaties.
+ *
+ * Toegang:
+ * trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'

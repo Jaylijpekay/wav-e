@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Startpagina
+ *
+ * Wat doet deze pagina:
+ * Deze pagina is de ingang van de app. Trainers kunnen hun dashboard openen en er zijn snelle ingangen naar management, nieuw lid en admin.
+ *
+ * Data:
+ * Leest uit: trainers.
+ *
+ * Toegang:
+ * admin / management / trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
@@ -173,7 +189,7 @@ export default function Home() {
           border: 1px solid var(--border-strong);
           color: var(--text-secondary);
           font-family: var(--font-primary);
-          font-size: 0.8rem;
+          font-size: 1rem;
           font-weight: 500;
           padding: 10px 12px;
           border-radius: var(--radius);

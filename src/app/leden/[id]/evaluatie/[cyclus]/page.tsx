@@ -1,5 +1,21 @@
 'use client'
 
+/*
+ * Evaluatiedetail
+ *
+ * Wat doet deze pagina:
+ * Deze pagina toont een enkele evaluatiecyclus van een lid. De pagina vergelijkt waar mogelijk met de vorige cyclus.
+ *
+ * Data:
+ * Leest uit: leden, evaluaties, trainers.
+ *
+ * Toegang:
+ * management / trainer
+ *
+ * Gerelateerde API routes:
+ * Geen.
+ */
+
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
