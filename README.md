@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WAV-e
 
-## Getting Started
+## 1. Wat is WAV-e?
 
-First, run the development server:
+WAV-e is een coaching-intelligentielaag voor een EMS-studio. Het helpt trainers bij het bijhouden van coachingscycli, contactmomenten en acties per lid. Managers kunnen studio-breed zien hoe het coachingswerk verloopt.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 2. Lokaal opstarten
+
+1. Repository clonen
+2. `npm install`
+3. `.env.local` aanmaken (zie sectie hieronder)
+4. `npm run dev`
+5. Open `http://localhost:3000`
+
+## 3. Benodigde omgevingsvariabelen
+
+```text
+NEXT_PUBLIC_SUPABASE_URL        — Supabase dashboard → Project Settings → API → Project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY   — Supabase dashboard → Project Settings → API → anon public key
+SUPABASE_SERVICE_ROLE_KEY       — Supabase dashboard → Project Settings → API → service_role key (geheim, nooit publiek)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 4. Mappenstructuur
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+src/
+  app/          — alle pagina's en API routes
+    admin/        — beheerpagina voor gebruikers, PIN-codes en studio-consoles
+    api/          — server-side API routes voor admin- en consolefuncties
+    components/   — gedeelde navigatie- en beheerbalken binnen de app
+    console/      — tablet-login via console-token en PIN
+    gesprek/      — nieuw evaluatiegesprek invoeren
+    leden/        — ledenprofiel, evaluatiegeschiedenis en vooruitgang
+    login/        — inlogpagina voor admin, management en trainers
+    management/   — studio-overzicht voor management
+    nieuw-lid/    — lege placeholder; leden aanmaken loopt via management of trainerdashboard
+    trainer/      — trainerdashboard en ledenlijst per trainer
+  lib/          — gedeelde hulpfuncties voor stoplichtlogica en Supabase clients
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 5. Een nieuw lid toevoegen
 
-## Learn More
+Een nieuw lid kan op twee plekken worden toegevoegd.
 
-To learn more about Next.js, take a look at the following resources:
+Via management:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Log in als management.
+2. Ga naar de managementpagina.
+3. Klik rechtsboven op `+ Lid toevoegen`.
+4. Vul de verplichte velden in: Lid-ID, voornaam, achternaam, startdatum en trainer.
+5. Vul eventueel e-mail en telefoon in.
+6. Klik op `Lid toevoegen`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Via het trainerdashboard:
 
-## Deploy on Vercel
+1. Log in als trainer, of kies de trainer via de tablet-console.
+2. Klik bovenin op `+ Nieuw lid`.
+3. Vul de verplichte velden in: Lid-ID, voornaam, achternaam en startdatum.
+4. Vul eventueel e-mail en telefoon in.
+5. Klik op `Lid toevoegen`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Bij toevoegen via het trainerdashboard wordt het lid automatisch aan die trainer gekoppeld. Het lid wordt direct actief gezet.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 6. Een nieuwe trainer toevoegen
+
+Een nieuwe trainer kan op twee plekken worden toegevoegd.
+
+Via management:
+
+1. Log in als management.
+2. Ga naar de managementpagina.
+3. Klik bij het blok `Trainers` op `+ Trainer toevoegen`.
+4. Vul de verplichte velden in: voornaam, achternaam, e-mail en wachtwoord.
+5. Klik op `Trainer toevoegen`.
+
+Via admin:
+
+1. Log in als admin.
+2. Ga naar de adminpagina.
+3. Klik op `+ Nieuwe gebruiker`.
+4. Vul voornaam, achternaam, e-mail en wachtwoord in.
+5. Kies bij rol `Trainer`.
+6. Klik op `Aanmaken`.
+
+De trainer wordt direct actief aangemaakt met een eigen login. Een PIN voor de tablet-console stel je daarna apart in op de adminpagina bij `Console PINs`.
+
+## 7. Hoe werkt het stoplicht?
+
+Het stoplicht laat zien hoe lang geleden er contact is geweest met een lid. Groen betekent dat er binnen 14 dagen contact is geweest: het lid is op koers. Oranje betekent 15 tot 28 dagen: er is aandacht nodig. Rood betekent 29 dagen of meer, of dat er nog geen contact bekend is: dit is urgent.
+
+Met contact bedoelt WAV-e het meest recente contactmoment of de meest recente evaluatie. De nieuwste van die twee telt.
+
+## 8. Bekende aandachtspunten
+
+- iPad Safari login via session cookie is nog niet op het echte apparaat getest. Bart moet als eerste stap inloggen op de echte iPad controleren.
+- Momentum strip op het trainer welkomstscherm staat gepland voor v0.1.1 en is nog niet gebouwd.
+- QR-code op token aanmaken staat gepland voor v0.1.1 en is nog niet gebouwd.
+- v0.2 integraties met Onlineafspraken.nl, Google Calendar en WhatsApp Business API zijn gepland na stabilisatie van v0.1.

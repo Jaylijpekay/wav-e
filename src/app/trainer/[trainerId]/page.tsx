@@ -59,6 +59,25 @@ type Trainer = {
   naam: string
 }
 
+type UrgenteMelding = {
+  id: string
+  lid_id: string
+  lid_naam: string
+  tekst: string
+  auteur_naam: string
+  aangemaakt_op: string
+}
+
+type TrainerNotitie = {
+  id: string
+  trainer_id: string
+  auteur_id: string
+  auteur_type: 'trainer' | 'management' | 'admin'
+  auteur_naam: string
+  tekst: string
+  aangemaakt_op: string
+}
+
 interface MomentumProps {
   gesprekken: number
   actiesAfgerond: number
@@ -370,6 +389,12 @@ export default function TrainerDashboard() {
   const [showAddLid, setShowAddLid] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [momentum, setMomentum] = useState<MomentumProps>({ gesprekken: 0, actiesAfgerond: 0 })
+  const [meldingen, setMeldingen] = useState<UrgenteMelding[]>([])
+  const [meldingenLoading, setMeldingenLoading] = useState(true)
+  const [berichten, setBerichten] = useState<TrainerNotitie[]>([])
+  const [berichtenLoading, setBerichtenLoading] = useState(true)
+  const [berichtTekst, setBerichtTekst] = useState('')
+  const [berichtPosting, setBerichtPosting] = useState(false)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplichtRef = useRef<HTMLDivElement>(null)
@@ -385,7 +410,13 @@ export default function TrainerDashboard() {
         .from('leden').select('id, lid_id, voornaam, achternaam')
         .eq('trainer_id', trainerId).eq('actief', true).order('voornaam')
 
-      if (!ledenData || ledenData.length === 0) { setMomentum({ gesprekken: 0, actiesAfgerond: 0 }); setLoading(false); return }
+      if (!ledenData || ledenData.length === 0) {
+        setMomentum({ gesprekken: 0, actiesAfgerond: 0 })
+        setMeldingen([])
+        setMeldingenLoading(false)
+        setLoading(false)
+        return
+      }
       setLedenDropdown(ledenData)
 
       const lidIds = ledenData.map(l => l.id)
@@ -456,10 +487,52 @@ export default function TrainerDashboard() {
       }))
 
       setActies([...mgmtActies, ...memberActies])
+
+      const { data: meldingenData } = await supabase
+        .from('notities')
+        .select('id, lid_id, tekst, auteur_id, auteur_type, aangemaakt_op')
+        .in('lid_id', lidIds)
+        .eq('toon_aan_trainer', true)
+        .eq('gezien', false)
+        .eq('verwijderd', false)
+        .order('aangemaakt_op', { ascending: false })
+
+      const enrichedMeldingen: UrgenteMelding[] = (meldingenData ?? []).map(melding => {
+        const lid = ledenData.find(l => l.id === melding.lid_id)
+        return {
+          id: melding.id,
+          lid_id: melding.lid_id,
+          lid_naam: lid ? `${lid.voornaam} ${lid.achternaam}` : '—',
+          tekst: melding.tekst,
+          auteur_naam: 'Management',
+          aangemaakt_op: melding.aangemaakt_op,
+        }
+      })
+
+      setMeldingen(enrichedMeldingen)
+      setMeldingenLoading(false)
       setLoading(false)
     }
     if (trainerId) load()
   }, [trainerId, refreshKey])
+
+  useEffect(() => {
+    const fetchBerichten = async () => {
+      setBerichtenLoading(true)
+      try {
+        const res = await fetch(`/api/trainer-notities/${trainerId}`)
+        if (!res.ok) throw new Error('Ophalen mislukt')
+        const data = await res.json()
+        setBerichten(data.notities ?? [])
+      } catch {
+        setBerichten([])
+      } finally {
+        setBerichtenLoading(false)
+      }
+    }
+
+    if (trainerId) fetchBerichten()
+  }, [trainerId])
 
   // Close dropdowns on outside tap/click
   useEffect(() => {
@@ -478,6 +551,52 @@ export default function TrainerDashboard() {
   const handleGesprekSelect = (lid: LidDropdown) => {
     setGesprekOpen(false)
     router.push(`/gesprek/new?lid_id=${lid.id}`)
+  }
+
+  const markGezien = async (notitieId: string, lidId: string) => {
+    setMeldingen(prev => prev.filter(m => m.id !== notitieId))
+    try {
+      const res = await fetch(`/api/notities/${lidId}/${notitieId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gezien: true }),
+      })
+      if (!res.ok) throw new Error('Markeren mislukt')
+    } catch {
+      // Optimistic removal is acceptable for this dashboard; a refresh will reconcile state.
+    }
+  }
+
+  const postBericht = async () => {
+    if (!berichtTekst.trim()) return
+    setBerichtPosting(true)
+
+    try {
+      const res = await fetch(`/api/trainer-notities/${trainerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tekst: berichtTekst.trim() }),
+      })
+      if (!res.ok) return
+
+      const data = await res.json()
+      const bericht = (data.notitie ?? data) as TrainerNotitie
+      setBerichten(prev => [...prev, bericht])
+      setBerichtTekst('')
+    } finally {
+      setBerichtPosting(false)
+    }
+  }
+
+  const deleteBericht = async (notitieId: string) => {
+    const previous = berichten
+    setBerichten(prev => prev.filter(b => b.id !== notitieId))
+    try {
+      const res = await fetch(`/api/trainer-notities/${trainerId}/${notitieId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Verwijderen mislukt')
+    } catch {
+      setBerichten(previous)
+    }
   }
 
   const counts = {
@@ -896,15 +1015,175 @@ export default function TrainerDashboard() {
           text-overflow: ellipsis;
         }
 
-        .td-notities { margin-bottom: 2rem; animation: fadeUp 0.5s ease-out 0.22s both; }
-        .td-notitie-card {
-          padding: 14px 18px; margin-bottom: 8px; border-radius: 3px;
-          background: rgba(99,102,241,0.06);
-          border: 1px solid rgba(99,102,241,0.16);
+        .td-section-title {
+          font-size: 0.65rem;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--text-faint);
+        }
+
+        .td-section-count {
+          font-size: 0.65rem;
+          color: var(--border-muted-dark);
+          background: var(--surface-pressed);
+          padding: 2px 7px;
+          border-radius: 2px;
+          font-weight: 600;
+        }
+
+        .td-empty {
+          font-size: 0.85rem;
+          color: var(--text-faint);
+          letter-spacing: 0.04em;
+        }
+
+        .td-melding-card {
+          padding: 14px 18px;
+          margin-bottom: 8px;
+          border-radius: 3px;
+          background: rgba(217,119,6,0.06);
+          border: 1px solid rgba(217,119,6,0.2);
+          border-left: 3px solid rgba(217,119,6,0.6);
+          animation: fadeUp 0.3s ease-out both;
+        }
+
+        .td-melding-lid {
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--amber-text);
+          margin-bottom: 4px;
+        }
+
+        .td-melding-tekst {
+          font-size: 0.88rem;
+          color: var(--text-warm);
+          line-height: 1.5;
+          overflow-wrap: anywhere;
+          white-space: pre-wrap;
+        }
+
+        .td-melding-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: 8px;
+        }
+
+        .td-melding-meta {
+          font-size: 0.62rem;
+          color: var(--text-faint);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        .td-melding-gezien {
+          font-family: 'Raleway', sans-serif;
+          font-size: 0.62rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--wave-green);
+          background: rgba(168,200,0,0.08);
+          border: 1px solid rgba(168,200,0,0.25);
+          border-radius: 2px;
+          padding: 4px 10px;
+          cursor: pointer;
+          min-height: 32px;
+          touch-action: manipulation;
+          transition: background 0.15s;
+          flex-shrink: 0;
+        }
+        .td-melding-gezien:hover { background: rgba(168,200,0,0.14); }
+        .td-melding-gezien:active { background: rgba(168,200,0,0.20); }
+
+        .td-bericht-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          margin-bottom: 1rem;
+        }
+
+        .td-bericht-card {
+          padding: 12px 16px;
+          border-radius: 3px;
+          border: 1px solid rgba(255,255,255,0.04);
+          position: relative;
+        }
+
+        .td-bericht-card-self {
+          background: rgba(168,200,0,0.04);
+          border-left: 3px solid rgba(168,200,0,0.35);
+        }
+
+        .td-bericht-card-other {
+          background: rgba(99,102,241,0.05);
           border-left: 3px solid rgba(99,102,241,0.5);
         }
-        .td-notitie-tekst { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
-        .td-notitie-meta  { font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.06em; margin-top: 6px; text-transform: uppercase; }
+
+        .td-bericht-tekst {
+          font-size: 0.85rem;
+          color: var(--text-dim);
+          line-height: 1.5;
+          overflow-wrap: anywhere;
+          white-space: pre-wrap;
+        }
+
+        .td-bericht-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: 6px;
+        }
+
+        .td-bericht-meta,
+        .td-bericht-older {
+          font-size: 0.62rem;
+          color: var(--text-faint);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        .td-bericht-older {
+          padding: 6px 0;
+        }
+
+        .td-bericht-delete {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 0.72rem;
+          color: var(--text-faint);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-family: inherit;
+          padding: 4px 0;
+          min-height: 32px;
+          touch-action: manipulation;
+        }
+
+        .td-bericht-form {
+          display: flex;
+          gap: 8px;
+          align-items: flex-end;
+        }
+
+        .td-bericht-input {
+          flex: 1;
+          resize: none;
+          background: var(--surface-pressed);
+          border: 1px solid var(--border-muted-dark);
+          border-radius: 3px;
+          padding: 10px 12px;
+          color: var(--text-warm);
+          font-size: 1rem;
+          font-family: inherit;
+          min-height: 44px;
+        }
 
         /* ── Tablet breakpoint ── */
         @media (min-width: 768px) and (pointer: coarse) {
@@ -930,6 +1209,9 @@ export default function TrainerDashboard() {
           .td-portal-tile { padding: 24px 26px; min-height: 80px; }
           .td-portal-tile-label { font-size: 0.95rem; }
           .td-portal-tile-icon { font-size: 1.5rem; width: 32px; }
+
+          .td-melding-card { padding: 16px 20px; }
+          .td-melding-tekst { font-size: 0.92rem; }
 
           .td-stoplight-panel { min-width: 260px; }
           .td-dropdown { min-width: 280px; }
@@ -1171,23 +1453,101 @@ export default function TrainerDashboard() {
             </div>
           )}
 
-          {/* Management notities — v0.1.1 ready slot
-              When notities table exists, fetch from /api/notities/trainer/[trainerId]
-              and render here. Management writes; trainers see read-only. */}
-          {/* {managementNotities.length > 0 && (
-            <div className="td-notities">
-              <div className="td-section-header">
-                <span className="td-section-title">Van management</span>
-                <span className="td-section-count">{managementNotities.length}</span>
+          {/* Urgente meldingen */}
+          {!meldingenLoading && meldingen.length > 0 && (
+            <div style={{ marginBottom: '2rem', animation: 'fadeUp 0.5s ease-out 0.22s both' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
+                <span className="td-section-title">Urgente meldingen</span>
+                <span className="td-section-count">{meldingen.length}</span>
               </div>
-              {managementNotities.map(n => (
-                <div key={n.id} className="td-notitie-card">
-                  <div className="td-notitie-tekst">{n.tekst}</div>
-                  <div className="td-notitie-meta">{n.auteur_naam} · {new Date(n.aangemaakt_op).toLocaleDateString('nl-NL')}</div>
+              {meldingen.map(melding => (
+                <div key={melding.id} className="td-melding-card">
+                  <div className="td-melding-lid">{melding.lid_naam}</div>
+                  <div className="td-melding-tekst">{melding.tekst}</div>
+                  <div className="td-melding-footer">
+                    <span className="td-melding-meta">
+                      {melding.auteur_naam} · {new Date(melding.aangemaakt_op).toLocaleDateString('nl-NL')}
+                    </span>
+                    <button
+                      className="td-melding-gezien"
+                      onClick={() => markGezien(melding.id, melding.lid_id)}
+                    >
+                      ✓ Gezien
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-          )} */}
+          )}
+
+          {/* Berichten - twee-weg thread met management */}
+          {!loading && (
+            <div style={{ marginBottom: '2rem', animation: 'fadeUp 0.5s ease-out 0.26s both' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
+                <span className="td-section-title">Berichten</span>
+                {berichten.length > 0 && <span className="td-section-count">{berichten.length}</span>}
+              </div>
+
+              {berichtenLoading ? (
+                <div className="td-empty" style={{ padding: '1.5rem 0' }}>Laden…</div>
+              ) : berichten.length === 0 ? (
+                <div className="td-empty" style={{ padding: '1.5rem 0' }}>Geen berichten.</div>
+              ) : (
+                <div className="td-bericht-list">
+                  {berichten.slice(-5).map(bericht => {
+                    const isSelf = bericht.auteur_type === 'trainer'
+                    const date = new Date(bericht.aangemaakt_op)
+                    const dateLabel = `${date.getDate()} ${DUTCH_MONTHS[date.getMonth()]}`
+
+                    return (
+                      <div
+                        key={bericht.id}
+                        className={`td-bericht-card ${isSelf ? 'td-bericht-card-self' : 'td-bericht-card-other'}`}
+                      >
+                        <div className="td-bericht-tekst">{bericht.tekst}</div>
+                        <div className="td-bericht-footer">
+                          <span className="td-bericht-meta">
+                            {bericht.auteur_naam} · {dateLabel}
+                          </span>
+                          <button
+                            className="td-bericht-delete"
+                            onClick={() => deleteBericht(bericht.id)}
+                            aria-label="Bericht verwijderen"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {berichten.length > 5 && (
+                    <div className="td-bericht-older">
+                      + {berichten.length - 5} oudere berichten
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="td-bericht-form">
+                <textarea
+                  value={berichtTekst}
+                  onChange={e => setBerichtTekst(e.target.value)}
+                  placeholder="Schrijf een bericht aan management…"
+                  maxLength={1000}
+                  rows={2}
+                  className="td-bericht-input"
+                />
+                <button
+                  onClick={postBericht}
+                  disabled={berichtPosting || !berichtTekst.trim()}
+                  className="td-btn-secondary"
+                  style={{ opacity: berichtPosting || !berichtTekst.trim() ? 0.4 : 1, flexShrink: 0 }}
+                >
+                  {berichtPosting ? '…' : 'Versturen'}
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

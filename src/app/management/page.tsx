@@ -344,6 +344,219 @@ function ActieModal({
   )
 }
 
+function NotitieModal({
+  trainer,
+  leden,
+  onClose,
+  onSaved,
+}: {
+  trainer: Trainer
+  leden: Lid[]
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [modus, setModus] = useState<'lid' | 'trainer'>('lid')
+  const [lidId, setLidId] = useState('')
+  const [tekst, setTekst] = useState('')
+  const [toonAanTrainer, setToonAanTrainer] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const trainerLeden = leden.filter(l => l.trainer_id === trainer.id && l.actief)
+
+  const switchModus = (m: 'lid' | 'trainer') => {
+    setModus(m)
+    setLidId('')
+    setTekst('')
+    setToonAanTrainer(false)
+    setError(null)
+  }
+
+  const save = async () => {
+    setError(null)
+
+    if (modus === 'lid') {
+      if (!lidId) { setError('Selecteer een lid'); return }
+      if (!tekst.trim()) { setError('Tekst is verplicht'); return }
+      if (tekst.length > 1000) { setError('Maximaal 1000 tekens'); return }
+
+      setSaving(true)
+      try {
+        const res = await fetch(`/api/notities/${lidId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tekst: tekst.trim(),
+            toon_aan_trainer: toonAanTrainer,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          setError(err.error ?? 'Opslaan mislukt')
+          return
+        }
+      } catch {
+        setError('Verbindingsfout')
+        return
+      } finally {
+        setSaving(false)
+      }
+    }
+
+    if (modus === 'trainer') {
+      if (!tekst.trim()) { setError('Tekst is verplicht'); return }
+      if (tekst.length > 1000) { setError('Maximaal 1000 tekens'); return }
+
+      setSaving(true)
+      try {
+        const res = await fetch(`/api/trainer-notities/${trainer.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tekst: tekst.trim() }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          setError(err.error ?? 'Opslaan mislukt')
+          return
+        }
+      } catch {
+        setError('Verbindingsfout')
+        return
+      } finally {
+        setSaving(false)
+      }
+    }
+
+    onSaved()
+    onClose()
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Notitie toevoegen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {trainer.voornaam} {trainer.achternaam}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => switchModus('lid')}
+            style={{
+              ...touchButtonStyle,
+              flex: 1,
+              padding: '10px 12px',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: modus === 'lid' ? 'var(--color-accent)' : 'var(--border-subtle)',
+              background: modus === 'lid' ? 'rgba(99,102,241,0.08)' : 'transparent',
+              color: modus === 'lid' ? 'var(--color-accent-text)' : 'var(--text-muted)',
+            }}
+          >
+            Notitie bij lid
+          </button>
+          <button
+            onClick={() => switchModus('trainer')}
+            style={{
+              ...touchButtonStyle,
+              flex: 1,
+              padding: '10px 12px',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '1px solid',
+              borderColor: modus === 'trainer' ? 'var(--color-accent)' : 'var(--border-subtle)',
+              background: modus === 'trainer' ? 'rgba(99,102,241,0.08)' : 'transparent',
+              color: modus === 'trainer' ? 'var(--color-accent-text)' : 'var(--text-muted)',
+            }}
+          >
+            Notitie voor trainer
+          </button>
+        </div>
+
+        {modus === 'lid' && (
+          <Field label="Lid">
+            <select
+              value={lidId}
+              onChange={e => setLidId(e.target.value)}
+              style={{ ...inputStyle, color: lidId ? 'var(--text-primary)' : 'var(--text-muted)' }}
+            >
+              <option value="">Selecteer lid…</option>
+              {trainerLeden.map(l => (
+                <option key={l.id} value={l.id}>{l.voornaam} {l.achternaam}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        <Field label="Notitie">
+          <textarea
+            value={tekst}
+            onChange={e => setTekst(e.target.value)}
+            placeholder={modus === 'lid' ? 'Aantekening bij dit lid…' : 'Bericht aan trainer…'}
+            rows={4}
+            maxLength={1000}
+            style={{ ...inputStyle, resize: 'vertical' }}
+          />
+          {tekst.length >= 800 && (
+            <div style={{ fontSize: 11, color: tekst.length >= 1000 ? 'var(--red-text)' : 'var(--text-muted)', textAlign: 'right', marginTop: 2 }}>
+              {tekst.length}/1000
+            </div>
+          )}
+        </Field>
+
+        {modus === 'lid' && (
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', ...touchButtonStyle }}>
+            <input
+              type="checkbox"
+              checked={toonAanTrainer}
+              onChange={e => setToonAanTrainer(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, cursor: 'pointer', accentColor: 'var(--amber-text)' }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                Urgent voor trainer
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                Verschijnt als melding op het trainer dashboard totdat de trainer het bevestigt. De notitie is altijd zichtbaar op de ledenpagina.
+              </div>
+            </div>
+          </label>
+        )}
+
+        {error && (
+          <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Annuleren
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            style={{ ...touchButtonStyle, background: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
+          >
+            {saving ? 'Opslaan…' : 'Opslaan'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Add Trainer Modal ─────────────────────────────────────────────────
 
 function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
@@ -541,6 +754,7 @@ export default function ManagementPage() {
   const [statusFilter,  setStatusFilter]  = useState<string>('allen')
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
   const [actieLid,     setActieLid]       = useState<Lid | null>(null)
+  const [notitieTrainer, setNotitieTrainer] = useState<Trainer | null>(null)
   const [showAddLid, setShowAddLid]       = useState(false)
   const [showAddTrainer, setShowAddTrainer] = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
@@ -550,6 +764,10 @@ export default function ManagementPage() {
   const openActieFromTrainer = (t: Trainer) => {
     setActieTrainer(t)
     setActieLid(null)
+  }
+
+  const openNotitieModal = (t: Trainer) => {
+    setNotitieTrainer(t)
   }
 
   // Open actie modal from member row (lid + trainer pre-filled)
@@ -676,6 +894,15 @@ export default function ManagementPage() {
         />
       )}
 
+      {notitieTrainer && (
+        <NotitieModal
+          trainer={notitieTrainer}
+          leden={leden}
+          onClose={() => setNotitieTrainer(null)}
+          onSaved={() => {}}
+        />
+      )}
+
       {showAddLid && (
         <AddLidModal
           trainers={trainers}
@@ -743,7 +970,7 @@ export default function ManagementPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', '', ''].map(h => (
+                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', '', 'Notitie', ''].map(h => (
                   <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -777,6 +1004,16 @@ export default function ManagementPage() {
                         onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
                       >
                         + Actie
+                      </button>
+                    </td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => openNotitieModal(t)}
+                        style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '5px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                      >
+                        + Notitie
                       </button>
                     </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>

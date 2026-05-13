@@ -59,6 +59,19 @@ type PrevEval = {
   gewicht_kg: number | null
 }
 
+type CyclusNotitie = {
+  id: string
+  lid_id: string
+  evaluatie_id: string | null
+  auteur_id: string
+  auteur_type: 'trainer' | 'management' | 'admin'
+  auteur_naam: string
+  tekst: string
+  aangemaakt_op: string
+  toon_aan_trainer: boolean
+  gezien: boolean
+}
+
 const STOPLIGHT = (key: string, val: number) => {
   if (key === 'stress') return val > 7 ? 'red' : val > 5 ? 'amber' : 'green'
   return val < 6 ? 'red' : val < 7 ? 'amber' : 'green'
@@ -102,6 +115,11 @@ export default function EvaluatieDetail() {
   const [lid, setLid] = useState<Lid | null>(null)
   const [prev, setPrev] = useState<PrevEval | null>(null)
   const [loading, setLoading] = useState(true)
+  const [cyclusNotities, setCyclusNotities] = useState<CyclusNotitie[]>([])
+  const [cyclusNotitiesLoading, setCyclusNotitiesLoading] = useState(true)
+  const [cyclusNotitieTekst, setCyclusNotitieTekst] = useState('')
+  const [cyclusNotitiePosting, setCyclusNotitiePosting] = useState(false)
+  const [cyclusNotitieError, setCyclusNotitieError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -136,6 +154,70 @@ export default function EvaluatieDetail() {
     }
     if (id && cyclus) load()
   }, [id, cyclus])
+
+  useEffect(() => {
+    if (!ev?.id || !id) return
+
+    const fetchCyclusNotities = async () => {
+      setCyclusNotitiesLoading(true)
+      try {
+        const res = await fetch(`/api/notities/${id}?evaluatie_id=${ev.id}`)
+        if (!res.ok) throw new Error('Ophalen mislukt')
+        const data = await res.json()
+        setCyclusNotities(data.notities ?? [])
+      } catch {
+        setCyclusNotities([])
+      } finally {
+        setCyclusNotitiesLoading(false)
+      }
+    }
+
+    fetchCyclusNotities()
+  }, [ev?.id, id])
+
+  const postCyclusNotitie = async () => {
+    if (!cyclusNotitieTekst.trim() || !ev?.id) return
+    setCyclusNotitiePosting(true)
+    setCyclusNotitieError(null)
+
+    try {
+      const res = await fetch(`/api/notities/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tekst: cyclusNotitieTekst.trim(),
+          evaluatie_id: ev.id,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        setCyclusNotitieError(err.error ?? 'Opslaan mislukt')
+        return
+      }
+
+      const data = await res.json()
+      const notitie = (data.notitie ?? data) as CyclusNotitie
+      setCyclusNotities(prev => [notitie, ...prev])
+      setCyclusNotitieTekst('')
+    } catch {
+      setCyclusNotitieError('Verbindingsfout')
+    } finally {
+      setCyclusNotitiePosting(false)
+    }
+  }
+
+  const deleteCyclusNotitie = async (notitieId: string) => {
+    const previous = cyclusNotities
+    setCyclusNotities(prev => prev.filter(n => n.id !== notitieId))
+
+    try {
+      const res = await fetch(`/api/notities/${id}/${notitieId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Verwijderen mislukt')
+    } catch {
+      setCyclusNotities(previous)
+    }
+  }
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: 'var(--color-black-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -576,6 +658,126 @@ export default function EvaluatieDetail() {
               }
             </div>
           </section>
+
+          {ev.notities?.trim() && (
+            <div style={{ marginTop: '2rem', marginBottom: '1rem' }}>
+              <div style={{
+                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em',
+                textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 8,
+              }}>
+                Historische aantekening
+              </div>
+              <div style={{
+                padding: '12px 16px', borderRadius: 3,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderLeft: '3px solid rgba(255,255,255,0.1)',
+                fontSize: '0.8rem', color: 'var(--text-faint)',
+                lineHeight: 1.6, fontStyle: 'italic',
+                whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+              }}>
+                {ev.notities}
+              </div>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-faint)', marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                Opgeslagen tijdens gesprek · niet bewerkbaar
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: '2rem' }}>
+            <div style={{
+              fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em',
+              textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 12,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span>Aantekeningen bij deze cyclus</span>
+              {cyclusNotities.length > 0 && (
+                <span style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 2, fontWeight: 600 }}>
+                  {cyclusNotities.length}
+                </span>
+              )}
+            </div>
+
+            {cyclusNotitiesLoading ? (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-faint)', padding: '0.5rem 0' }}>Laden…</div>
+            ) : (
+              <>
+                {cyclusNotities.map(n => {
+                  const isMgmt = n.auteur_type === 'management' || n.auteur_type === 'admin'
+                  const borderColor = isMgmt ? 'rgba(99,102,241,0.5)' : 'rgba(168,200,0,0.25)'
+                  const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
+                  const date = new Date(n.aangemaakt_op)
+                  const dateLabel = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
+
+                  return (
+                    <div
+                      key={n.id}
+                      style={{
+                        padding: '10px 14px', marginBottom: 6, borderRadius: 3,
+                        background: isMgmt ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderLeft: `3px solid ${borderColor}`,
+                      }}
+                    >
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{n.tekst}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, gap: 12 }}>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--text-faint)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                          {n.auteur_naam} · {dateLabel}
+                        </span>
+                        <button
+                          onClick={() => deleteCyclusNotitie(n.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.6rem', color: 'var(--text-faint)', fontFamily: 'inherit', padding: '2px 0' }}
+                          aria-label="Aantekening verwijderen"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {cyclusNotities.length === 0 && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-faint)', padding: '0.5rem 0' }}>
+                    Nog geen aantekeningen bij deze cyclus.
+                  </div>
+                )}
+              </>
+            )}
+
+            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <textarea
+                value={cyclusNotitieTekst}
+                onChange={e => setCyclusNotitieTekst(e.target.value)}
+                placeholder="Aantekening toevoegen aan deze cyclus…"
+                maxLength={1000}
+                rows={3}
+                style={{
+                  width: '100%', boxSizing: 'border-box', resize: 'vertical',
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 3, padding: '10px 12px',
+                  color: 'var(--text-warm)', fontSize: '1rem', fontFamily: 'inherit', minHeight: 44,
+                }}
+              />
+              {cyclusNotitieError && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--red-text)' }}>{cyclusNotitieError}</div>
+              )}
+              <button
+                onClick={postCyclusNotitie}
+                disabled={cyclusNotitiePosting || !cyclusNotitieTekst.trim()}
+                style={{
+                  alignSelf: 'flex-end', padding: '10px 18px', minHeight: 44,
+                  background: 'rgba(168,200,0,0.9)', color: '#111',
+                  border: 'none', borderRadius: 3,
+                  fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em',
+                  textTransform: 'uppercase', fontFamily: 'inherit',
+                  cursor: cyclusNotitiePosting || !cyclusNotitieTekst.trim() ? 'default' : 'pointer',
+                  opacity: cyclusNotitiePosting || !cyclusNotitieTekst.trim() ? 0.5 : 1,
+                  touchAction: 'manipulation',
+                }}
+              >
+                {cyclusNotitiePosting ? 'Opslaan…' : 'Toevoegen'}
+              </button>
+            </div>
+          </div>
 
         </div>
       </div>

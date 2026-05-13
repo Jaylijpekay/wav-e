@@ -68,6 +68,19 @@ type Actie = {
   deadline: string | null
 }
 
+type Notitie = {
+  id: string
+  lid_id: string
+  evaluatie_id: string | null
+  auteur_id: string
+  auteur_type: 'trainer' | 'management' | 'admin'
+  auteur_naam: string
+  tekst: string
+  aangemaakt_op: string
+  toon_aan_trainer: boolean
+  gezien: boolean
+}
+
 type HealthSignal = {
   key: string
   label: string
@@ -143,6 +156,30 @@ const scoreColor = (score: number | null, inverted = false): string => {
   return 'var(--text-muted)'
 }
 
+function NotitieCard({ notitie, onDelete }: { notitie: Notitie; onDelete: () => void }) {
+  const isMgmt = notitie.auteur_type === 'management' || notitie.auteur_type === 'admin'
+  const date = new Date(notitie.aangemaakt_op)
+  const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
+  const dateLabel = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
+
+  return (
+    <div className={`ld-note-card${isMgmt ? ' ld-note-card-mgmt' : ''}`}>
+      {notitie.toon_aan_trainer && (
+        <span className="ld-note-badge">Urgent voor trainer</span>
+      )}
+      <div className="ld-note-text">{notitie.tekst}</div>
+      <div className="ld-note-footer">
+        <div className="ld-note-meta">
+          {notitie.auteur_naam} · {dateLabel}
+        </div>
+        <button className="ld-note-delete" onClick={onDelete}>
+          Verwijder
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function LedenDetail() {
   const { id } = useParams()
   const router = useRouter()
@@ -161,6 +198,12 @@ export default function LedenDetail() {
   const [trainerNaam, setTrainerNaam] = useState<string | null>(null)
   const [savingContact, setSavingContact] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  const [notities, setNotities] = useState<Notitie[]>([])
+  const [notitiesLoading, setNotitiesLoading] = useState(true)
+  const [notitiesTekst, setNotitiesTekst] = useState('')
+  const [notitiesPosting, setNotitiesPosting] = useState(false)
+  const [notitiesError, setNotitiesError] = useState<string | null>(null)
+  const [toonAlle, setToonAlle] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -187,6 +230,24 @@ export default function LedenDetail() {
       setLoading(false)
     }
     if (id) load()
+  }, [id])
+
+  useEffect(() => {
+    const fetchNotities = async () => {
+      setNotitiesLoading(true)
+      try {
+        const res = await fetch(`/api/notities/${id}`)
+        if (!res.ok) throw new Error('Ophalen mislukt')
+        const data = await res.json()
+        setNotities(data.notities ?? [])
+      } catch {
+        setNotities([])
+      } finally {
+        setNotitiesLoading(false)
+      }
+    }
+
+    if (id) fetchNotities()
   }, [id])
 
   const markActieAfgerond = async (actieId: string) => {
@@ -219,6 +280,54 @@ export default function LedenDetail() {
     setContactNotities('')
     setContactDoor('')
     setSavingContact(false)
+  }
+
+  const postNotitie = async () => {
+    if (!notitiesTekst.trim()) return
+    setNotitiesPosting(true)
+    setNotitiesError(null)
+
+    try {
+      const res = await fetch(`/api/notities/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tekst: notitiesTekst.trim() }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        setNotitiesError(err.error ?? 'Opslaan mislukt')
+        return
+      }
+
+      const data = await res.json()
+      const notitie = (data.notitie ?? data) as Notitie
+      setNotities(prev => [notitie, ...prev])
+      setNotitiesTekst('')
+    } catch {
+      setNotitiesError('Verbindingsfout')
+    } finally {
+      setNotitiesPosting(false)
+    }
+  }
+
+  const deleteNotitie = async (notitieId: string) => {
+    const previous = notities
+    setNotities(prev => prev.filter(n => n.id !== notitieId))
+
+    try {
+      const res = await fetch(`/api/notities/${id}/${notitieId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Verwijderen mislukt')
+    } catch {
+      try {
+        const res = await fetch(`/api/notities/${id}`)
+        if (!res.ok) throw new Error('Ophalen mislukt')
+        const data = await res.json()
+        setNotities(data.notities ?? [])
+      } catch {
+        setNotities(previous)
+      }
+    }
   }
 
   const latestEval = evaluaties[0] ?? null
@@ -529,6 +638,121 @@ export default function LedenDetail() {
         .ld-section-action:hover  { color: var(--wave-green); }
         .ld-section-action:active { color: var(--wave-green); }
 
+        /* ─── Notities ──────────────────────────────────────────────── */
+        .ld-notes-thread {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .ld-note-card {
+          padding: 12px 16px;
+          border-radius: var(--radius);
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-left: 3px solid rgba(168,200,0,0.25);
+          position: relative;
+        }
+
+        .ld-note-card-mgmt {
+          background: rgba(99,102,241,0.05);
+          border-left-color: rgba(99,102,241,0.5);
+        }
+
+        .ld-note-badge {
+          font-size: 0.58rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--color-amber-text, var(--amber-text));
+          background: rgba(217,119,6,0.1);
+          border: 1px solid rgba(217,119,6,0.2);
+          border-radius: 2px;
+          padding: 2px 6px;
+          margin-bottom: 6px;
+          display: inline-block;
+        }
+
+        .ld-note-text {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        .ld-note-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: 6px;
+        }
+
+        .ld-note-meta {
+          font-size: 0.62rem;
+          color: var(--border-strong);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        .ld-note-delete {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 0.62rem;
+          color: var(--color-red-text, var(--red-text));
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-weight: 600;
+          padding: 6px 0;
+          min-height: 32px;
+          font-family: var(--font-primary);
+          opacity: 0;
+          transition: opacity 0.15s;
+          touch-action: manipulation;
+        }
+
+        .ld-note-card:hover .ld-note-delete,
+        .ld-note-delete:focus-visible {
+          opacity: 1;
+        }
+
+        .ld-notes-more {
+          align-self: flex-start;
+          background: none;
+          border: none;
+          color: var(--border-strong);
+          cursor: pointer;
+          font-family: var(--font-primary);
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 10px 0;
+          min-height: 44px;
+          touch-action: manipulation;
+        }
+
+        .ld-notes-form {
+          margin-top: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .ld-notes-count {
+          font-size: 0.62rem;
+          color: var(--border-strong);
+          text-align: right;
+          letter-spacing: 0.06em;
+        }
+
+        .ld-notes-error {
+          font-size: 0.8rem;
+          color: var(--color-red-text, var(--red-text));
+        }
+
         /* ─── Empty state ───────────────────────────────────────────── */
         .ld-empty {
           display: flex;
@@ -801,6 +1025,8 @@ export default function LedenDetail() {
 
           .ld-input { padding: 14px 14px; min-height: 48px; font-size: 1rem; }
 
+          .ld-note-delete { opacity: 1; min-height: 44px; }
+
           .ld-done-btn { width: 48px; height: 48px; font-size: 1rem; }
 
           /* Health cards — slightly taller on tablet */
@@ -874,6 +1100,72 @@ export default function LedenDetail() {
 
             {/* Left column */}
             <div className="ld-col">
+
+              {/* Notities */}
+              <section className="ld-section">
+                <div className="ld-section-head">
+                  <span className="ld-section-label">Notities</span>
+                  {notities.length > 0 && (
+                    <span className="ld-section-badge">{notities.length}</span>
+                  )}
+                </div>
+
+                {notitiesLoading ? (
+                  <div className="ld-empty"><span>○</span><span>Laden…</span></div>
+                ) : (
+                  <>
+                    {notities.length === 0 ? (
+                      <div className="ld-empty"><span>○</span><span>Nog geen notities.</span></div>
+                    ) : (
+                      <div className="ld-notes-thread">
+                        {(toonAlle ? notities : notities.slice(0, 10)).map(notitie => (
+                          <NotitieCard
+                            key={notitie.id}
+                            notitie={notitie}
+                            onDelete={() => deleteNotitie(notitie.id)}
+                          />
+                        ))}
+                        {!toonAlle && notities.length > 10 && (
+                          <button className="ld-notes-more" onClick={() => setToonAlle(true)}>
+                            Toon alle {notities.length} notities
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="ld-notes-form">
+                  <textarea
+                    value={notitiesTekst}
+                    onChange={e => setNotitiesTekst(e.target.value)}
+                    placeholder="Schrijf een notitie…"
+                    maxLength={1000}
+                    rows={3}
+                    className="ld-input"
+                    style={{ resize: 'vertical', minHeight: 88 }}
+                  />
+                  {notitiesTekst.length >= 800 && (
+                    <div
+                      className="ld-notes-count"
+                      style={{ color: notitiesTekst.length >= 1000 ? 'var(--color-red-text, var(--red-text))' : undefined }}
+                    >
+                      {notitiesTekst.length}/1000
+                    </div>
+                  )}
+                  {notitiesError && (
+                    <div className="ld-notes-error">{notitiesError}</div>
+                  )}
+                  <button
+                    className="ld-btn-primary"
+                    onClick={postNotitie}
+                    disabled={notitiesPosting || !notitiesTekst.trim()}
+                    style={{ alignSelf: 'flex-end' }}
+                  >
+                    {notitiesPosting ? 'Opslaan…' : 'Toevoegen'}
+                  </button>
+                </div>
+              </section>
 
               {/* Evaluaties */}
               <section className="ld-section">
