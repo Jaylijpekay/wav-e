@@ -87,11 +87,22 @@ const isActieOverdue = (actie: Actie, today = todayIsoDate()) => {
   return actie.status === 'open' && deadline !== null && deadline < today
 }
 
+const getActieDeadlineDaysRemaining = (actie: Actie, today = todayIsoDate()) => {
+  if (actie.status !== 'open') return null
+  const deadline = getIsoDatePart(actie.deadline)
+  if (!deadline || deadline <= today) return null
+  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number)
+  const [deadlineYear, deadlineMonth, deadlineDay] = deadline.split('-').map(Number)
+  const todayTime = new Date(todayYear, todayMonth - 1, todayDay).getTime()
+  const deadlineTime = new Date(deadlineYear, deadlineMonth - 1, deadlineDay).getTime()
+  return Math.round((deadlineTime - todayTime) / 86400000)
+}
+
 const getActieDeadlineLabel = (actie: Actie, today = todayIsoDate()) => {
   if (actie.status === 'afgerond') return null
   const deadline = getIsoDatePart(actie.deadline)
   if (!deadline) return null
-  if (actie.status === 'open' && deadline < today) return { text: 'Verlopen', tone: 'overdue' as const }
+  if (actie.status === 'open' && deadline < today) return { text: 'VERLOPEN', tone: 'overdue' as const }
   if (deadline === today) return { text: 'Vandaag', tone: 'today' as const }
   const formatted = formatDeadlineDate(deadline)
   return formatted ? { text: `Deadline: ${formatted}`, tone: 'neutral' as const } : null
@@ -1014,9 +1025,8 @@ export default function TrainerDashboard() {
                       <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{mgmt.length}</span>
                     </div>
                     {mgmt.map(actie => {
-                      const dagen = daysSince(actie.aangemaakt)
-                      const isOud = dagen !== null && dagen > 7
                       const deadlineLabel = getActieDeadlineLabel(actie, today)
+                      const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
                       const overdue = isActieOverdue(actie, today)
                       return (
                         <div
@@ -1030,9 +1040,11 @@ export default function TrainerDashboard() {
                               <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
                             )}
                           </div>
-                          <div className="td-row-dagen" style={{ color: isOud ? 'var(--red-danger)' : 'var(--text-faint)' }}>
-                            {dagen === null ? '—' : `${dagen}d`}
-                          </div>
+                          {deadlineDaysRemaining !== null && (
+                            <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
+                              {deadlineDaysRemaining}d
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -1063,9 +1075,8 @@ export default function TrainerDashboard() {
                       </div>
 
                       {lidActies.map(actie => {
-                        const dagen = daysSince(actie.aangemaakt)
-                        const isOud = dagen !== null && dagen > 7
                         const deadlineLabel = getActieDeadlineLabel(actie, today)
+                        const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
                         const overdue = isActieOverdue(actie, today)
                         return (
                           <div
@@ -1080,9 +1091,11 @@ export default function TrainerDashboard() {
                                 <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
                               )}
                             </div>
-                            <div className="td-row-dagen" style={{ color: isOud ? 'var(--red-danger)' : 'var(--text-faint)' }}>
-                              {dagen === null ? '—' : `${dagen}d`}
-                            </div>
+                            {deadlineDaysRemaining !== null && (
+                              <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
+                                {deadlineDaysRemaining}d
+                              </div>
+                            )}
                           </div>
                         )
                       })}
