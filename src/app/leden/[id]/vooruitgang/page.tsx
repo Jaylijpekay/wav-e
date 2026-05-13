@@ -32,15 +32,13 @@ type Lid = {
 // ── Config ─────────────────────────────────────────────────────────────
 
 const METRICS = [
-  { key: 'slaap',    label: 'Slaap',    icon: '🌙', inv: false, color: '#4a90d9', tip: (v: number) => v >= 7 ? 'Goed hersteld ✓'       : v >= 6 ? 'Bijna op niveau'  : 'Slaaptekort — aandacht!' },
-  { key: 'energie',  label: 'Energie',  icon: '⚡', inv: false, color: '#d4a017', tip: (v: number) => v >= 7 ? 'Vol energie ✓'          : v >= 6 ? 'Redelijk'          : 'Energieniveau laag'      },
-  { key: 'stress',   label: 'Stress',   icon: '🧠', inv: true,  color: '#d94040', tip: (v: number) => v <= 5 ? 'Lekker ontspannen ✓'    : v <= 7 ? 'Beheersbaar'       : 'Hoge stressbelasting!'   },
-  { key: 'voeding',  label: 'Voeding',  icon: '🥗', inv: false, color: '#52a84a', tip: (v: number) => v >= 7 ? 'Voeding op orde ✓'      : v >= 6 ? 'Goed bezig'        : 'Ruimte voor verbetering' },
-  { key: 'beweging', label: 'Beweging', icon: '🏃', inv: false, color: '#1ab3a0', tip: (v: number) => v >= 7 ? 'Actief bezig ✓'         : v >= 6 ? 'Goed'              : 'Meer beweging gewenst'   },
-  { key: 'motivatie',label: 'Motivatie',icon: '🎯', inv: false, color: '#9b6fd4', tip: (v: number) => v >= 8 ? 'Hoog gemotiveerd ✓'     : v >= 6 ? 'Betrokken'         : 'Motivatie aandacht'      },
+  { key: 'slaap',    label: 'Slaap',    icon: '🌙', inv: false, color: 'var(--metric-blue)', tip: (v: number) => v >= 7 ? 'Goed hersteld ✓'       : v >= 6 ? 'Bijna op niveau'  : 'Slaaptekort — aandacht!' },
+  { key: 'energie',  label: 'Energie',  icon: '⚡', inv: false, color: 'var(--metric-gold)', tip: (v: number) => v >= 7 ? 'Vol energie ✓'          : v >= 6 ? 'Redelijk'          : 'Energieniveau laag'      },
+  { key: 'stress',   label: 'Stress',   icon: '🧠', inv: true,  color: 'var(--metric-red)', tip: (v: number) => v <= 5 ? 'Lekker ontspannen ✓'    : v <= 7 ? 'Beheersbaar'       : 'Hoge stressbelasting!'   },
+  { key: 'voeding',  label: 'Voeding',  icon: '🥗', inv: false, color: 'var(--metric-green)', tip: (v: number) => v >= 7 ? 'Voeding op orde ✓'      : v >= 6 ? 'Goed bezig'        : 'Ruimte voor verbetering' },
+  { key: 'beweging', label: 'Beweging', icon: '🏃', inv: false, color: 'var(--metric-teal)', tip: (v: number) => v >= 7 ? 'Actief bezig ✓'         : v >= 6 ? 'Goed'              : 'Meer beweging gewenst'   },
+  { key: 'motivatie',label: 'Motivatie',icon: '🎯', inv: false, color: 'var(--metric-purple)', tip: (v: number) => v >= 8 ? 'Hoog gemotiveerd ✓'     : v >= 6 ? 'Betrokken'         : 'Motivatie aandacht'      },
 ] as const
-
-type MetricKey = typeof METRICS[number]['key']
 
 const FYSIEK = [
   { key: 'gewicht_kg',    label: 'Gewicht',       unit: 'kg', lowerIsBetter: false },
@@ -58,9 +56,9 @@ const formatDate = (d: string | null) =>
 function sigCol(inv: boolean, val: number) {
   const bad  = inv ? val > 7 : val < 6
   const warn = inv ? val > 5 : val < 7
-  if (bad)  return { fill: '#fdeaea', stroke: '#e06060', text: '#8a2020' }
-  if (warn) return { fill: '#fff3d6', stroke: '#e0a800', text: '#7a5200' }
-  return       { fill: '#eef6d6', stroke: '#88c000', text: '#3a5e00' }
+  if (bad)  return { fill: 'var(--health-red-fill)', stroke: 'var(--health-red-line)', text: 'var(--health-red-text)' }
+  if (warn) return { fill: 'var(--health-amber-fill)', stroke: 'var(--health-amber-line)', text: 'var(--health-amber-text)' }
+  return       { fill: 'var(--report-green-tint)', stroke: 'var(--health-green-line)', text: 'var(--health-green-text)' }
 }
 
 // ── Ring component ─────────────────────────────────────────────────────
@@ -90,7 +88,7 @@ function Ring({
     if (!arc || !text) return
     const from = toOffset(prevVal.current)
     const to   = toOffset(val)
-    const col  = val !== null ? sigCol(metric.inv, val) : { fill: '#f5f5f5', stroke: '#ddd', text: '#aaa' }
+    const col  = val !== null ? sigCol(metric.inv, val) : { fill: 'var(--report-surface-soft)', stroke: 'var(--report-border-muted)', text: 'var(--report-text-soft)' }
     arc.setAttribute('stroke', col.stroke)
     if (fillRef.current) fillRef.current.setAttribute('fill', col.fill)
     const duration = 420
@@ -107,9 +105,9 @@ function Ring({
     }
     requestAnimationFrame(animate)
     prevVal.current = val
-  }, [val]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [val])
 
-  const col = val !== null ? sigCol(metric.inv, val) : { fill: '#f5f5f5', stroke: '#ddd', text: '#aaa' }
+  const col = val !== null ? sigCol(metric.inv, val) : { fill: 'var(--report-surface-soft)', stroke: 'var(--report-border-muted)', text: 'var(--report-text-soft)' }
   const initialOffset = toOffset(val)
 
   return (
@@ -146,7 +144,7 @@ function Ring({
           transition: 'transform 0.2s ease',
         }}
       >
-        <circle ref={fillRef} cx={cx} cy={cy} r={r} fill={col.fill} stroke="#efefef" strokeWidth="5" />
+        <circle ref={fillRef} cx={cx} cy={cy} r={r} fill={col.fill} stroke="var(--report-border-light)" strokeWidth="5" />
         <circle
           ref={arcRef}
           cx={cx} cy={cy} r={r} fill="none"
@@ -165,7 +163,7 @@ function Ring({
           {val !== null ? val : '\u2014'}
         </text>
       </svg>
-      <div style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>{metric.label}</div>
+      <div style={{ fontSize: 11, color: 'var(--wave-gray)', textAlign: 'center' }}>{metric.label}</div>
     </div>
   )
 }
@@ -191,8 +189,6 @@ function MetricChart({
 
   const vals = evals.map(e => e[metric.key as keyof Evaluatie] as number | null)
   const latestVal = vals[selectedIdx]
-  const col = latestVal !== null ? sigCol(metric.inv, latestVal) : { fill: '#f5f5f5', stroke: '#ccc', text: '#aaa' }
-
   const selectedVal = vals[selectedIdx] ?? null
   const lastVal     = [...vals].reverse().find(v => v !== null) ?? null
   let deltaEl: React.ReactNode = null
@@ -201,13 +197,13 @@ function MetricChart({
     const improved = metric.inv ? diff < 0 : diff > 0
     const sign = diff > 0 ? '+' : '−'
     deltaEl = (
-      <span style={{ fontSize: 12, fontWeight: 500, color: improved ? '#3a6e00' : '#a03030', minWidth: 32, textAlign: 'right' }}
+      <span style={{ fontSize: 12, fontWeight: 500, color: improved ? 'var(--delta-positive)' : 'var(--delta-negative)', minWidth: 32, textAlign: 'right' }}
         title={`C${evals[selectedIdx].cyclus} → C${evals[evals.length-1].cyclus}`}>
         {sign}{Math.abs(diff)}
       </span>
     )
   } else if (selectedVal !== null && lastVal !== null) {
-    deltaEl = <span style={{ fontSize: 12, color: '#ccc', minWidth: 32, textAlign: 'right' }}>±0</span>
+    deltaEl = <span style={{ fontSize: 12, color: 'var(--report-border-strong)', minWidth: 32, textAlign: 'right' }}>±0</span>
   } else {
     deltaEl = <span style={{ minWidth: 32 }} />
   }
@@ -230,7 +226,7 @@ function MetricChart({
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <div style={{ width: 48, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         <span style={{ fontSize: 15 }}>{metric.icon}</span>
-        <span style={{ fontSize: 10, color: '#999', textAlign: 'center', lineHeight: 1.2 }}>{metric.label}</span>
+        <span style={{ fontSize: 10, color: 'var(--report-text-muted)', textAlign: 'center', lineHeight: 1.2 }}>{metric.label}</span>
       </div>
 
       <div style={{ flex: 1, position: 'relative' }}>
@@ -239,7 +235,7 @@ function MetricChart({
             <line key={v}
               x1={padL} y1={yScale(v).toFixed(1)}
               x2={W - padR} y2={yScale(v).toFixed(1)}
-              stroke="#e8e8e8" strokeWidth="0.3"
+              stroke="var(--report-border)" strokeWidth="0.3"
             />
           ))}
           <rect
@@ -267,7 +263,7 @@ function MetricChart({
                 cx={p.x.toFixed(1)} cy={p.y.toFixed(1)}
                 // Larger dots for easier tapping on chart
                 r={isSel ? 7 : 5}
-                fill={isSel ? metric.color : '#fff'}
+                fill={isSel ? metric.color : 'var(--color-white)'}
                 stroke={metric.color} strokeWidth="2"
                 style={{ cursor: 'pointer' }}
                 onClick={() => onSelect(i)}
@@ -281,7 +277,7 @@ function MetricChart({
               key={e.id}
               x={xPos(i).toFixed(1)} y={H - 2}
               textAnchor="middle" fontSize="10"
-              fill={i === selectedIdx ? '#7aad00' : '#ccc'}
+              fill={i === selectedIdx ? 'var(--report-chart-selected)' : 'var(--report-border-strong)'}
               fontWeight={i === selectedIdx ? '600' : '400'}
               fontFamily="Raleway, system-ui, sans-serif"
             >
@@ -303,12 +299,12 @@ function FysiekTable({ evals }: { evals: Evaluatie[] }) {
     <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
-          <tr style={{ borderBottom: '1px solid #e8e8e8' }}>
-            <th style={{ padding: '10px 12px 10px 0', textAlign: 'left', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Meting</th>
+          <tr style={{ borderBottom: '1px solid var(--report-border)' }}>
+            <th style={{ padding: '10px 12px 10px 0', textAlign: 'left', color: 'var(--report-text-muted)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Meting</th>
             {evals.map(ev => (
-              <th key={ev.id} style={{ padding: '10px', textAlign: 'center', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>C{ev.cyclus}</th>
+              <th key={ev.id} style={{ padding: '10px', textAlign: 'center', color: 'var(--report-text-muted)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>C{ev.cyclus}</th>
             ))}
-            <th style={{ padding: '10px 0 10px 10px', textAlign: 'right', color: '#999', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Δ</th>
+            <th style={{ padding: '10px 0 10px 10px', textAlign: 'right', color: 'var(--report-text-muted)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Δ</th>
           </tr>
         </thead>
         <tbody>
@@ -320,22 +316,22 @@ function FysiekTable({ evals }: { evals: Evaluatie[] }) {
             const improved = diff !== null ? (lowerIsBetter ? diff < 0 : diff > 0) : null
 
             return (
-              <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                <td style={{ padding: '14px 12px 14px 0', color: '#444', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</td>
+              <tr key={key} style={{ borderBottom: '1px solid var(--report-border-soft)' }}>
+                <td style={{ padding: '14px 12px 14px 0', color: 'var(--text-quieter)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</td>
                 {evals.map(ev => {
                   const val = ev[key as keyof Evaluatie] as number | null
                   return (
-                    <td key={ev.id} style={{ padding: '14px 10px', textAlign: 'center', color: val !== null ? '#1a1a1a' : '#ccc' }}>
-                      {val !== null ? <>{val}{unit && <span style={{ fontSize: 10, color: '#aaa', marginLeft: 2 }}>{unit}</span>}</> : '—'}
+                    <td key={ev.id} style={{ padding: '14px 10px', textAlign: 'center', color: val !== null ? 'var(--surface-pressed)' : 'var(--report-border-strong)' }}>
+                      {val !== null ? <>{val}{unit && <span style={{ fontSize: 10, color: 'var(--report-text-soft)', marginLeft: 2 }}>{unit}</span>}</> : '—'}
                     </td>
                   )
                 })}
                 <td style={{ padding: '14px 0 14px 10px', textAlign: 'right' }}>
                   {diff !== null && diff !== 0 ? (
-                    <span style={{ fontWeight: 600, color: improved ? '#3a6e00' : '#a03030' }}>
+                    <span style={{ fontWeight: 600, color: improved ? 'var(--delta-positive)' : 'var(--delta-negative)' }}>
                       {diff > 0 ? '+' : '−'}{Math.abs(+diff.toFixed(1))}{unit && <span style={{ fontSize: 10, marginLeft: 1 }}>{unit}</span>}
                     </span>
-                  ) : <span style={{ color: '#ccc' }}>—</span>}
+                  ) : <span style={{ color: 'var(--report-border-strong)' }}>—</span>}
                 </td>
               </tr>
             )
@@ -378,13 +374,13 @@ export default function VooruitgangPage() {
   }, [id])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f8faf3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#A8C800' }} />
+    <div style={{ minHeight: '100vh', background: 'var(--report-surface-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--wave-green)' }} />
     </div>
   )
 
   if (!lid) return (
-    <div style={{ minHeight: '100vh', background: '#f8faf3', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontFamily: 'Raleway, sans-serif', fontSize: '0.8rem' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--report-surface-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--report-text-muted)', fontFamily: 'Raleway, sans-serif', fontSize: '0.8rem' }}>
       Lid niet gevonden.
     </div>
   )
@@ -392,9 +388,9 @@ export default function VooruitgangPage() {
   if (evals.length === 0) return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');`}</style>
-      <div style={{ minHeight: '100vh', background: '#f8faf3', color: '#aaa', fontFamily: 'Raleway, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <div style={{ minHeight: '100vh', background: 'var(--report-surface-muted)', color: 'var(--report-text-soft)', fontFamily: 'Raleway, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         <span style={{ fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Geen evaluaties gevonden</span>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#A8C800', fontFamily: 'Raleway, sans-serif', fontSize: '0.72rem', cursor: 'pointer', minHeight: 44 }}>
+        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--wave-green)', fontFamily: 'Raleway, sans-serif', fontSize: '0.72rem', cursor: 'pointer', minHeight: 44 }}>
           ← Terug naar {lid.voornaam}
         </button>
       </div>
@@ -410,12 +406,12 @@ export default function VooruitgangPage() {
 
         *, *::before, *::after { box-sizing: border-box; }
 
-        body { background: #f4f7ec; }
+        body { background: var(--report-green-soft); }
 
         .vg-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #f4f7ec;
+          background: var(--report-green-soft);
           font-family: Raleway, system-ui, sans-serif;
           padding-bottom: 60px;
           -webkit-tap-highlight-color: transparent;
@@ -423,8 +419,8 @@ export default function VooruitgangPage() {
 
         /* ── Header ── */
         .vg-header {
-          background: #fff;
-          border-bottom: 1px solid #e5ecd0;
+          background: var(--color-white);
+          border-bottom: 1px solid var(--report-green-border);
           padding: 0 24px;
           display: flex;
           align-items: center;
@@ -435,13 +431,13 @@ export default function VooruitgangPage() {
           z-index: 100;
         }
 
-        .vg-logo { font-size: 15px; font-weight: 700; color: #4a6e00; letter-spacing: -0.02em; }
-        .vg-logo span { color: #92b800; }
+        .vg-logo { font-size: 15px; font-weight: 700; color: var(--report-green-dark); letter-spacing: -0.02em; }
+        .vg-logo span { color: var(--report-green); }
 
         .vg-back {
           background: none;
           border: none;
-          color: #999;
+          color: var(--report-text-muted);
           font-family: Raleway, sans-serif;
           font-size: 0.72rem;
           cursor: pointer;
@@ -453,13 +449,13 @@ export default function VooruitgangPage() {
           align-items: center;
           touch-action: manipulation;
         }
-        .vg-back:hover  { color: #7aad00; }
-        .vg-back:active { color: #7aad00; }
+        .vg-back:hover  { color: var(--report-chart-selected); }
+        .vg-back:active { color: var(--report-chart-selected); }
 
         /* ── Card ── */
         .vg-card {
-          background: #fff;
-          border: 1px solid #e5ecd0;
+          background: var(--color-white);
+          border: 1px solid var(--report-green-border);
           border-radius: 16px;
           overflow: hidden;
           max-width: 680px;
@@ -467,24 +463,24 @@ export default function VooruitgangPage() {
         }
 
         .vg-card-head {
-          background: #f4f7ec;
+          background: var(--report-green-soft);
           padding: 20px 24px 16px;
-          border-bottom: 1px solid #e5ecd0;
+          border-bottom: 1px solid var(--report-green-border);
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
           gap: 12px;
         }
 
-        .vg-member-name { font-size: 22px; font-weight: 600; color: #1a1a1a; margin: 0 0 4px; letter-spacing: -0.02em; }
-        .vg-member-meta { font-size: 12px; color: #999; }
+        .vg-member-name { font-size: 22px; font-weight: 600; color: var(--surface-pressed); margin: 0 0 4px; letter-spacing: -0.02em; }
+        .vg-member-meta { font-size: 12px; color: var(--report-text-muted); }
 
         /* ── Cycle strip — horizontally scrollable on tablet ── */
         .vg-cycles-strip {
           display: flex;
           gap: 6px;
           padding: 12px 24px;
-          border-bottom: 1px solid #f0f0f0;
+          border-bottom: 1px solid var(--report-border-soft);
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
@@ -496,9 +492,9 @@ export default function VooruitgangPage() {
           padding: 8px 16px;
           min-height: 40px;
           border-radius: 20px;
-          border: 1.5px solid #dde0d8;
-          background: #fafafa;
-          color: #888;
+          border: 1.5px solid var(--report-green-border-muted);
+          background: var(--report-bg);
+          color: var(--wave-gray);
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
@@ -508,9 +504,9 @@ export default function VooruitgangPage() {
           flex-shrink: 0;
           touch-action: manipulation;
         }
-        .vg-cyc-btn:hover  { border-color: #92b800; color: #4a6e00; background: #f4f7ec; }
+        .vg-cyc-btn:hover  { border-color: var(--report-green); color: var(--report-green-dark); background: var(--report-green-soft); }
         .vg-cyc-btn:active { transform: scale(0.96); }
-        .vg-cyc-btn.active { border-color: #7aad00; background: #eef5d0; color: #3a5e00; }
+        .vg-cyc-btn.active { border-color: var(--report-chart-selected); background: var(--report-green-fill); color: var(--health-green-text); }
 
         /* ── Rings ── */
         .vg-rings {
@@ -518,7 +514,7 @@ export default function VooruitgangPage() {
           grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 8px;
           padding: 20px 24px;
-          border-bottom: 1px solid #f0f0f0;
+          border-bottom: 1px solid var(--report-border-soft);
         }
 
         /* ── Tabs ── */
@@ -530,7 +526,7 @@ export default function VooruitgangPage() {
           border-radius: 8px 8px 0 0;
           border: 1px solid transparent;
           background: transparent;
-          color: #aaa;
+          color: var(--report-text-soft);
           font-family: Raleway, sans-serif;
           font-size: 12px;
           font-weight: 600;
@@ -542,13 +538,13 @@ export default function VooruitgangPage() {
           touch-action: manipulation;
         }
         .vg-tab:active { transform: scale(0.96); }
-        .vg-tab.active { background: #f8faf3; border-color: #e5ecd0; color: #4a6e00; }
+        .vg-tab.active { background: var(--report-surface-muted); border-color: var(--report-green-border); color: var(--report-green-dark); }
 
         /* ── Tab body ── */
         .vg-tab-body {
           padding: 20px 24px 24px;
-          background: #f8faf3;
-          border-top: 1px solid #e5ecd0;
+          background: var(--report-surface-muted);
+          border-top: 1px solid var(--report-green-border);
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -557,8 +553,8 @@ export default function VooruitgangPage() {
         /* ── Footer ── */
         .vg-footer-strip {
           padding: 12px 24px;
-          background: #f4f7ec;
-          border-top: 1px solid #e5ecd0;
+          background: var(--report-green-soft);
+          border-top: 1px solid var(--report-green-border);
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -614,8 +610,8 @@ export default function VooruitgangPage() {
               <div className="vg-member-meta">{lid.lid_id} · {evals.length} cyclus{evals.length !== 1 ? 'sen' : ''}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>Cyclus {selectedEval.cyclus}</div>
-              <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{formatDate(selectedEval.datum)}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--surface-pressed)' }}>Cyclus {selectedEval.cyclus}</div>
+              <div style={{ fontSize: 12, color: 'var(--report-text-muted)', marginTop: 2 }}>{formatDate(selectedEval.datum)}</div>
             </div>
           </div>
 
@@ -675,7 +671,7 @@ export default function VooruitgangPage() {
           {/* Footer */}
           <div className="vg-footer-strip">
             <span />
-            <span style={{ fontSize: 11, color: '#bbb' }}>
+            <span style={{ fontSize: 11, color: 'var(--report-text-subtle)' }}>
               {evals[0] ? formatDate(evals[0].datum) : ''} – {formatDate(selectedEval.datum)}
             </span>
           </div>

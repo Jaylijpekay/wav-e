@@ -36,9 +36,9 @@ const STOPLIGHT = (key: string, val: number) => {
 }
 
 const COLORS = {
-  red:   { thumb: '#dc2626', label: '#f87171', track: 'rgba(220,38,38,0.25)',  glow: 'rgba(220,38,38,0.12)'  },
-  amber: { thumb: '#d97706', label: '#fbbf24', track: 'rgba(217,119,6,0.25)', glow: 'rgba(217,119,6,0.10)'  },
-  green: { thumb: '#16a34a', label: '#4ade80', track: 'rgba(22,163,74,0.25)', glow: 'rgba(22,163,74,0.10)'  },
+  red:   { thumb: 'var(--red-danger)', label: 'var(--red-text)', track: 'rgba(220,38,38,0.25)',  glow: 'rgba(220,38,38,0.12)'  },
+  amber: { thumb: 'var(--amber)', label: 'var(--amber-text)', track: 'rgba(217,119,6,0.25)', glow: 'rgba(217,119,6,0.10)'  },
+  green: { thumb: 'var(--green-signal)', label: 'var(--green-signal-text)', track: 'rgba(22,163,74,0.25)', glow: 'rgba(22,163,74,0.10)'  },
 }
 
 export default function GesprekNew() {
@@ -113,8 +113,8 @@ export default function GesprekNew() {
   }
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#A8C800', boxShadow: '0 0 12px rgba(168,200,0,0.5)' }} />
+    <div style={{ minHeight: '100vh', background: 'var(--color-black-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--wave-green)', boxShadow: '0 0 12px rgba(168,200,0,0.5)' }} />
     </div>
   )
 
@@ -128,8 +128,8 @@ export default function GesprekNew() {
         .gn-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #111;
-          color: #c8c6c0;
+          background: var(--color-black-soft);
+          color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           position: relative;
           -webkit-tap-highlight-color: transparent;
@@ -178,15 +178,15 @@ export default function GesprekNew() {
           cursor: pointer;
           text-decoration: none;
         }
-        .gn-wordmark-wav { font-size: 1rem; font-weight: 700; color: #B4B4B4; letter-spacing: -0.01em; }
-        .gn-wordmark-e   { font-size: 1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
+        .gn-wordmark-wav { font-size: 1rem; font-weight: 700; color: var(--wave-gray-light); letter-spacing: -0.01em; }
+        .gn-wordmark-e   { font-size: 1rem; font-weight: 700; color: var(--wave-green); letter-spacing: -0.01em; }
 
         .gn-page-title {
           font-size: 0.72rem;
           font-weight: 500;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
         }
 
         /* ── Form ── */
@@ -204,7 +204,7 @@ export default function GesprekNew() {
           font-size: 0.6rem;
           font-weight: 600;
           letter-spacing: 0.18em;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           text-transform: uppercase;
           margin-bottom: 1.25rem;
           margin-top: 0;
@@ -213,7 +213,7 @@ export default function GesprekNew() {
 
         .gn-divider {
           height: 1px;
-          background: #2a2a2a;
+          background: var(--border-muted-dark);
           margin: 2.5rem 0;
         }
 
@@ -227,16 +227,16 @@ export default function GesprekNew() {
           font-weight: 600;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           margin-bottom: 7px;
         }
 
         /* ── Inputs — min-height 44px, font ≥ 16px prevents iOS zoom ── */
         .gn-select, .gn-input, .gn-textarea {
-          background: #141414;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-deep);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
-          color: #c8c6c0;
+          color: var(--text-warm);
           padding: 12px 12px;
           min-height: 44px;
           font-size: 1rem;
@@ -248,10 +248,10 @@ export default function GesprekNew() {
           transition: border-color 0.15s, box-shadow 0.15s;
         }
         .gn-select:focus, .gn-input:focus, .gn-textarea:focus {
-          border-color: #A8C800;
+          border-color: var(--wave-green);
           box-shadow: 0 0 0 3px rgba(168,200,0,0.08);
         }
-        .gn-select option { background: #141414; }
+        .gn-select option { background: var(--surface-deep); }
         .gn-textarea { resize: vertical; line-height: 1.6; min-height: 120px; }
 
         /* ── Slider grid ── */
@@ -262,8 +262,8 @@ export default function GesprekNew() {
         }
 
         .gn-slider-card {
-          background: #141414;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-deep);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
           padding: 18px 18px 14px;
           transition: border-color 0.25s ease;
@@ -279,7 +279,7 @@ export default function GesprekNew() {
         .gn-slider-label {
           font-size: 0.82rem;
           font-weight: 600;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           letter-spacing: 0.02em;
         }
 
@@ -310,12 +310,12 @@ export default function GesprekNew() {
         /* Track */
         .gn-slider::-webkit-slider-runnable-track {
           height: 4px;
-          background: #1e1e1e;
+          background: var(--bg-base);
           border-radius: 2px;
         }
         .gn-slider::-moz-range-track {
           height: 4px;
-          background: #1e1e1e;
+          background: var(--bg-base);
           border-radius: 2px;
         }
 
@@ -325,7 +325,7 @@ export default function GesprekNew() {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: var(--thumb-color, #A8C800);
+          background: var(--thumb-color, var(--wave-green));
           cursor: pointer;
           margin-top: -12px;
           box-shadow: 0 0 6px rgba(0,0,0,0.5);
@@ -338,7 +338,7 @@ export default function GesprekNew() {
           height: 28px;
           border-radius: 50%;
           border: none;
-          background: var(--thumb-color, #A8C800);
+          background: var(--thumb-color, var(--wave-green));
           cursor: pointer;
           box-shadow: 0 0 6px rgba(0,0,0,0.5);
         }
@@ -352,7 +352,7 @@ export default function GesprekNew() {
 
         .gn-slider-hint {
           font-size: 0.6rem;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           letter-spacing: 0.04em;
         }
 
@@ -366,10 +366,10 @@ export default function GesprekNew() {
         .gn-toggle-group { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
 
         .gn-toggle-btn {
-          background: #141414;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-deep);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           /* Larger tap target */
           padding: 12px 20px;
           min-height: 44px;
@@ -383,17 +383,17 @@ export default function GesprekNew() {
           flex: 1;
         }
         .gn-toggle-btn:hover  { border-color: rgba(168,200,0,0.3); }
-        .gn-toggle-btn:active { border-color: rgba(168,200,0,0.4); background: #1a1a1a; }
+        .gn-toggle-btn:active { border-color: rgba(168,200,0,0.4); background: var(--surface-pressed); }
         .gn-toggle-btn.active {
-          background: #1a1a1a;
+          background: var(--surface-pressed);
           border-color: rgba(168,200,0,0.5);
-          color: #A8C800;
+          color: var(--wave-green);
         }
 
         /* ── Internal block ── */
         .gn-internal-block {
-          background: #111;
-          border: 1px solid #1e1e1e;
+          background: var(--color-black-soft);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
           padding: 18px 18px 14px;
         }
@@ -404,7 +404,7 @@ export default function GesprekNew() {
           font-weight: 700;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: #818cf8;
+          color: var(--color-accent-text);
           background: rgba(99,102,241,0.1);
           border: 1px solid rgba(99,102,241,0.2);
           border-radius: 2px;
@@ -417,7 +417,7 @@ export default function GesprekNew() {
           background: rgba(220,38,38,0.07);
           border: 1px solid rgba(220,38,38,0.2);
           border-radius: 3px;
-          color: #f87171;
+          color: var(--red-text);
           padding: 12px 16px;
           font-size: 0.82rem;
           margin-bottom: 1.5rem;
@@ -442,14 +442,14 @@ export default function GesprekNew() {
           padding: 12px 22px;
           min-height: 48px;
           border-radius: 3px;
-          border: 1px solid #1e1e1e;
+          border: 1px solid var(--bg-base);
           background: transparent;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s;
           touch-action: manipulation;
         }
-        .gn-cancel-btn:hover  { border-color: rgba(168,200,0,0.3); color: #666; }
+        .gn-cancel-btn:hover  { border-color: rgba(168,200,0,0.3); color: var(--text-mid); }
         .gn-cancel-btn:active { border-color: rgba(168,200,0,0.4); }
 
         .gn-submit-btn {
@@ -461,23 +461,23 @@ export default function GesprekNew() {
           padding: 12px 28px;
           min-height: 48px;
           border-radius: 3px;
-          border: 1px solid #A8C800;
-          background: #A8C800;
-          color: #111;
+          border: 1px solid var(--wave-green);
+          background: var(--wave-green);
+          color: var(--color-black-soft);
           cursor: pointer;
           transition: background 0.2s, box-shadow 0.2s;
           touch-action: manipulation;
         }
         .gn-submit-btn:hover:not(:disabled) {
-          background: #95B400;
+          background: var(--wave-green-hover);
           box-shadow: 0 4px 16px rgba(168,200,0,0.35);
         }
         .gn-submit-btn:active:not(:disabled) {
-          background: #8aaa00;
+          background: var(--wave-green-active);
           transform: scale(0.97);
         }
         .gn-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .gn-submit-btn.success  { background: #16a34a; border-color: #16a34a; color: #fff; }
+        .gn-submit-btn.success  { background: var(--green-signal); border-color: var(--green-signal); color: var(--color-white); }
 
         @keyframes gnFadeUp {
           from { opacity: 0; transform: translateY(10px); }
@@ -568,7 +568,7 @@ export default function GesprekNew() {
                 const sig = STOPLIGHT(key, val)
                 const col = COLORS[sig as keyof typeof COLORS]
                 return (
-                  <div key={key} className="gn-slider-card" style={{ borderColor: col.glow !== 'rgba(168,200,0,0.10)' ? col.glow : '#1e1e1e' }}>
+                  <div key={key} className="gn-slider-card" style={{ borderColor: col.glow !== 'rgba(168,200,0,0.10)' ? col.glow : 'var(--bg-base)' }}>
                     <div className="gn-slider-top">
                       <span className="gn-slider-label">{label}</span>
                       <span className="gn-slider-value" style={{ color: col.label }}>{val}</span>
@@ -642,10 +642,10 @@ export default function GesprekNew() {
               <div className="gn-internal-block" style={{ margin: 0 }}>
                 <span className="gn-internal-tag">intern · management</span>
                 <div className="gn-slider-top">
-                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#B4B4B4' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--wave-gray-light)' }}>
                     Tevredenheid over Wav-e
                   </span>
-                  <span className="gn-slider-value" style={{ color: tevredenheid >= 7 ? '#4ade80' : tevredenheid >= 5 ? '#fbbf24' : '#f87171' }}>
+                  <span className="gn-slider-value" style={{ color: tevredenheid >= 7 ? 'var(--green-signal-text)' : tevredenheid >= 5 ? 'var(--amber-text)' : 'var(--red-text)' }}>
                     {tevredenheid}
                   </span>
                 </div>
@@ -655,7 +655,7 @@ export default function GesprekNew() {
                   value={tevredenheid}
                   onChange={e => setTevredenheid(Number(e.target.value))}
                   className="gn-slider"
-                  style={{ ['--thumb-color' as string]: tevredenheid >= 7 ? '#16a34a' : tevredenheid >= 5 ? '#d97706' : '#dc2626' } as React.CSSProperties}
+                  style={{ ['--thumb-color' as string]: tevredenheid >= 7 ? 'var(--green-signal)' : tevredenheid >= 5 ? 'var(--amber)' : 'var(--red-danger)' } as React.CSSProperties}
                 />
                 <div className="gn-slider-meta">
                   <span className="gn-slider-hint">Ontevreden</span>

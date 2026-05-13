@@ -111,8 +111,8 @@ export default function ConsolePage() {
         .con-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #111;
-          color: #c8c6c0;
+          background: var(--color-black-soft);
+          color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           display: flex;
           flex-direction: column;
@@ -157,14 +157,14 @@ export default function ConsolePage() {
           align-items: baseline;
           gap: 1px;
         }
-        .con-wordmark-wav { font-size: 1rem; font-weight: 700; color: #3a3a3a; }
-        .con-wordmark-e   { font-size: 1rem; font-weight: 700; color: #A8C800; }
+        .con-wordmark-wav { font-size: 1rem; font-weight: 700; color: var(--text-faint); }
+        .con-wordmark-e   { font-size: 1rem; font-weight: 700; color: var(--wave-green); }
 
         .con-back {
           background: none;
-          border: 1px solid #2a2a2a;
+          border: 1px solid var(--border-muted-dark);
           border-radius: 3px;
-          color: #3a3a3a;
+          color: var(--text-faint);
           font-family: 'Raleway', sans-serif;
           font-size: 0.72rem;
           font-weight: 600;
@@ -181,8 +181,8 @@ export default function ConsolePage() {
           align-items: center;
           justify-content: center;
         }
-        .con-back:hover { border-color: #3a3a3a; color: #666; }
-        .con-back:active { border-color: #444; color: #888; }
+        .con-back:hover { border-color: var(--text-faint); color: var(--text-mid); }
+        .con-back:active { border-color: var(--text-quieter); color: var(--wave-gray); }
 
         /* ── Card wrapper ── */
         .con-card {
@@ -199,7 +199,7 @@ export default function ConsolePage() {
           font-weight: 700;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #3a3a3a;
+          color: var(--text-faint);
           text-align: center;
         }
 
@@ -212,8 +212,8 @@ export default function ConsolePage() {
         }
 
         .con-mode-btn {
-          background: #141414;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-deep);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
           /* Generous padding for fat-finger tapping */
           padding: 40px 24px;
@@ -243,12 +243,12 @@ export default function ConsolePage() {
         .con-mode-label {
           font-size: 1rem;
           font-weight: 700;
-          color: #c8c6c0;
+          color: var(--text-warm);
           letter-spacing: 0.04em;
         }
         .con-mode-sub {
           font-size: 0.72rem;
-          color: #3a3a3a;
+          color: var(--text-faint);
           letter-spacing: 0.05em;
           text-align: center;
           line-height: 1.5;
@@ -264,8 +264,8 @@ export default function ConsolePage() {
         }
 
         .con-person-btn {
-          background: #141414;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-deep);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
           /* Taller for easier tapping */
           padding: 28px 16px;
@@ -295,19 +295,19 @@ export default function ConsolePage() {
           width: 52px;
           height: 52px;
           border-radius: 50%;
-          background: #1e1e1e;
+          background: var(--bg-base);
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 1.2rem;
           font-weight: 700;
-          color: #A8C800;
+          color: var(--wave-green);
         }
 
         .con-person-name {
           font-size: 0.85rem;
           font-weight: 600;
-          color: #c8c6c0;
+          color: var(--text-warm);
           text-align: center;
           line-height: 1.3;
         }
@@ -317,7 +317,7 @@ export default function ConsolePage() {
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #2a2a2a;
+          color: var(--border-muted-dark);
         }
 
         /* ── PIN entry ── */
@@ -331,7 +331,7 @@ export default function ConsolePage() {
         .con-pin-name {
           font-size: 1.2rem;
           font-weight: 700;
-          color: #c8c6c0;
+          color: var(--text-warm);
         }
 
         .con-pin-dots {
@@ -344,18 +344,18 @@ export default function ConsolePage() {
           width: 16px;
           height: 16px;
           border-radius: 50%;
-          border: 2px solid #2a2a2a;
+          border: 2px solid var(--border-muted-dark);
           transition: background 0.15s, border-color 0.15s, transform 0.1s;
         }
         .con-pin-dot.filled {
-          background: #A8C800;
-          border-color: #A8C800;
+          background: var(--wave-green);
+          border-color: var(--wave-green);
           transform: scale(1.1);
         }
 
         .con-pin-error {
           font-size: 0.78rem;
-          color: #f87171;
+          color: var(--red-text);
           letter-spacing: 0.04em;
           height: 20px;
           text-align: center;
@@ -371,8 +371,8 @@ export default function ConsolePage() {
         }
 
         .con-key {
-          background: #141414;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-deep);
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
           /* Large touch targets — minimum 72px tall */
           padding: 22px 0;
@@ -380,7 +380,7 @@ export default function ConsolePage() {
           font-family: 'Raleway', sans-serif;
           font-size: 1.5rem;
           font-weight: 600;
-          color: #c8c6c0;
+          color: var(--text-warm);
           cursor: pointer;
           text-align: center;
           transition: background 0.08s, border-color 0.08s, transform 0.08s;
@@ -388,7 +388,7 @@ export default function ConsolePage() {
           touch-action: manipulation;
         }
         .con-key:active:not(:disabled) {
-          background: #1c1c1c;
+          background: var(--surface-control);
           border-color: rgba(168,200,0,0.4);
           transform: scale(0.94);
         }
@@ -398,7 +398,7 @@ export default function ConsolePage() {
         }
         .con-key.delete {
           font-size: 1.1rem;
-          color: #555;
+          color: var(--text-dim);
         }
         .con-key.empty {
           background: transparent;
@@ -413,14 +413,14 @@ export default function ConsolePage() {
           flex-direction: column;
           align-items: center;
           gap: 16px;
-          color: #3a3a3a;
+          color: var(--text-faint);
           text-align: center;
         }
         .con-invalid-dot {
           width: 8px;
           height: 8px;
           border-radius: 50%;
-          background: #dc2626;
+          background: var(--red-danger);
         }
         .con-invalid-text {
           font-size: 0.85rem;
@@ -432,7 +432,7 @@ export default function ConsolePage() {
           width: 8px;
           height: 8px;
           border-radius: 50%;
-          background: #A8C800;
+          background: var(--wave-green);
           box-shadow: 0 0 12px rgba(168,200,0,0.5);
           animation: pulse 1.4s ease-in-out infinite;
         }

@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
 /* ============================================================
    WAV-E STUDIOS — DESIGN TOKENS
@@ -7,10 +7,20 @@
 :root {
   /* Brand colors */
   --wave-green:        #A8C800;
+  --wave-green-hover:  #95B400;
+  --wave-green-active: #8aaa00;
   --wave-green-dim:    rgba(168, 200, 0, 0.10);
   --wave-green-border: rgba(168, 200, 0, 0.25);
   --wave-gray:         #888888;
   --wave-gray-light:   #B4B4B4;
+
+  /* Core palette */
+  --color-white:        #ffffff;
+  --color-black:        #000000;
+  --color-black-soft:   #111111;
+  --color-accent:       #6366f1;
+  --color-accent-text:  #818cf8;
+  --color-info:         #60a5fa;
 
   /* App backgrounds — Claude UI gray scale */
   --bg-base:           #1e1e1e;
@@ -20,9 +30,18 @@
   /* Surfaces */
   --surface-base:      #262626;
   --surface-raised:    #2f2f2f;
+  --surface-deep:      #141414;
+  --surface-dark:      #161616;
+  --surface-control:   #1c1c1c;
+  --surface-pressed:   #1a1a1a;
+  --surface-hover-dark:#181818;
   --surface-hover:     rgba(168, 200, 0, 0.06);
 
   /* Borders */
+  --border-black:      #222222;
+  --border-deep:       #171717;
+  --border-dark:       #1e1e1e;
+  --border-muted-dark: #2a2a2a;
   --border-subtle:     #2f2f2f;
   --border-default:    #383838;
   --border-strong:     #4a4a4a;
@@ -34,17 +53,77 @@
   --text-muted:        #6e6e6e;
   --text-disabled:     #4a4a4a;
   --text-green:        #A8C800;
+  --text-warm:         #c8c6c0;
+  --text-mid:          #666666;
+  --text-low:          #5A5A5A;
+  --text-soft:         #777777;
+  --text-dim:          #555555;
+  --text-quieter:      #444444;
+  --text-faint:        #3a3a3a;
+  --text-very-faint:   #333333;
+  --text-ghost:        #2e2e2e;
+  --text-hidden:       #2a2a2a;
 
   /* Stoplights */
   --red:                 #ef4444;
+  --red-danger:          #dc2626;
+  --color-stoplight-rood: var(--red-danger);
+  --red-text:            #f87171;
+  --red-dim:             #7f1d1d;
   --red-bg:              rgba(239, 68, 68, 0.08);
   --red-border:          rgba(239, 68, 68, 0.20);
   --amber:               #d97706;
+  --amber-text:          #fbbf24;
+  --amber-dim:           #78350f;
   --amber-bg:            rgba(217, 119, 6, 0.08);
   --amber-border:        rgba(217, 119, 6, 0.20);
   --green-signal:        #16a34a;
+  --green-signal-bright: #22c55e;
+  --green-signal-text:   #4ade80;
+  --green-signal-dim:    #14532d;
   --green-signal-bg:     rgba(22, 163, 74, 0.08);
   --green-signal-border: rgba(22, 163, 74, 0.20);
+
+  /* Light report palette */
+  --report-bg:             #fafafa;
+  --report-surface:        #ffffff;
+  --report-surface-muted:  #f8faf3;
+  --report-surface-soft:   #f5f5f5;
+  --report-green-soft:     #f4f7ec;
+  --report-green-border:   #e5ecd0;
+  --report-green-border-muted: #dde0d8;
+  --report-green-fill:     #eef5d0;
+  --report-green-tint:     #eef6d6;
+  --report-border:         #e8e8e8;
+  --report-border-soft:    #f0f0f0;
+  --report-border-muted:   #dddddd;
+  --report-border-strong:  #cccccc;
+  --report-border-light:   #efefef;
+  --report-text:           #1a1a1a;
+  --report-text-muted:     #999999;
+  --report-text-soft:      #aaaaaa;
+  --report-text-subtle:    #bbbbbb;
+  --report-green:          #92b800;
+  --report-green-dark:     #4a6e00;
+  --report-chart-selected: #7aad00;
+
+  /* Metric colors */
+  --metric-blue:        #4a90d9;
+  --metric-gold:        #d4a017;
+  --metric-red:         #d94040;
+  --metric-green:       #52a84a;
+  --metric-teal:        #1ab3a0;
+  --metric-purple:      #9b6fd4;
+  --health-red-fill:    #fdeaea;
+  --health-red-line:    #e06060;
+  --health-red-text:    #8a2020;
+  --health-amber-fill:  #fff3d6;
+  --health-amber-line:  #e0a800;
+  --health-amber-text:  #7a5200;
+  --health-green-line:  #88c000;
+  --health-green-text:  #3a5e00;
+  --delta-positive:     #3a6e00;
+  --delta-negative:     #a03030;
 
   /* Typography */
   --font-primary: 'Raleway', sans-serif;
@@ -97,63 +176,8 @@ body::before {
 }
 
 /* ============================================================
-   FLOATY ANIMATIONS
-   ============================================================ */
-@keyframes float-a {
-  0%, 100% { transform: translateY(0px);  box-shadow: var(--shadow-float-md); }
-  50%       { transform: translateY(-4px); box-shadow: var(--shadow-float-lg); }
-}
-@keyframes float-b {
-  0%, 100% { transform: translateY(-2px); box-shadow: var(--shadow-float-md); }
-  50%       { transform: translateY(2px);  box-shadow: var(--shadow-float-sm); }
-}
-@keyframes float-c {
-  0%, 100% { transform: translateY(-1px); box-shadow: var(--shadow-float-sm); }
-  50%       { transform: translateY(3px);  box-shadow: var(--shadow-float-md); }
-}
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes pulse-border {
-  0%, 100% { border-color: var(--border-green); }
-  50%       { border-color: var(--wave-green); }
-}
-
-.float-a { animation: float-a 5s ease-in-out infinite; }
-.float-b { animation: float-b 6s ease-in-out infinite; }
-.float-c { animation: float-c 7s ease-in-out infinite; }
-
-.fade-up   { animation: fade-up 0.4s ease-out both; }
-.fade-up-1 { animation: fade-up 0.4s ease-out 0.05s both; }
-.fade-up-2 { animation: fade-up 0.4s ease-out 0.10s both; }
-.fade-up-3 { animation: fade-up 0.4s ease-out 0.15s both; }
-.fade-up-4 { animation: fade-up 0.4s ease-out 0.20s both; }
-.fade-up-5 { animation: fade-up 0.4s ease-out 0.25s both; }
-
-/* ============================================================
-   LAYOUT
-   ============================================================ */
-.container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 1.5rem 4rem;
-  position: relative;
-  z-index: 1;
-}
-
-/* ============================================================
    NAV
    ============================================================ */
-.nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(30, 30, 30, 0.92);
-  border-bottom: 1px solid var(--border-green);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
 .nav-inner {
   max-width: 1100px;
   margin: 0 auto;
@@ -166,7 +190,6 @@ body::before {
 .nav-logo     { display: flex; align-items: baseline; gap: 0; text-decoration: none; cursor: pointer; background: none; border: none; padding: 0; }
 .nav-logo-wav { color: var(--wave-gray);  font-family: var(--font-primary); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
 .nav-logo-e   { color: var(--wave-green); font-family: var(--font-primary); font-weight: 700; font-size: 1.1rem; }
-.nav-links    { display: flex; align-items: center; gap: 2px; }
 .nav-link {
   font-family: var(--font-primary);
   font-size: 0.72rem;
@@ -186,51 +209,8 @@ body::before {
 .nav-link.active { color: var(--wave-green); background: var(--wave-green-dim); }
 
 /* ============================================================
-   PAGE HEADER
-   ============================================================ */
-.page-header { padding: 2.5rem 0 2rem; }
-.page-title {
-  font-family: var(--font-primary);
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-}
-.page-title span { color: var(--wave-green); }
-.page-subtitle {
-  font-family: var(--font-primary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-top: 0.35rem;
-}
-
-/* ============================================================
-   CARDS
-   ============================================================ */
-.card {
-  background: var(--surface-base);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-float-md);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
-}
-.card:hover {
-  box-shadow: var(--shadow-float-hover);
-  transform: translateY(-2px);
-}
-
-/* ============================================================
    TABLES
    ============================================================ */
-.table-wrapper {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -261,144 +241,6 @@ tbody td {
   color: var(--text-primary);
   vertical-align: middle;
 }
-
-/* ============================================================
-   BUTTONS
-   ============================================================ */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--font-primary);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.55rem 1.1rem;
-  border-radius: var(--radius-button);
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.18s ease;
-  white-space: nowrap;
-}
-.btn-primary {
-  background: var(--wave-green);
-  color: #111;
-  border-color: var(--wave-green);
-  box-shadow: 0 2px 8px rgba(168,200,0,0.2);
-}
-.btn-primary:hover {
-  background: #95B400;
-  border-color: #95B400;
-  box-shadow: 0 4px 14px rgba(168,200,0,0.35);
-  transform: translateY(-1px);
-}
-.btn-secondary {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border-default);
-}
-.btn-secondary:hover {
-  color: var(--wave-green);
-  border-color: var(--border-green);
-  background: var(--wave-green-dim);
-}
-.btn-ghost {
-  background: transparent;
-  color: var(--text-muted);
-  border-color: transparent;
-}
-.btn-ghost:hover {
-  color: var(--text-secondary);
-  background: var(--surface-raised);
-}
-
-/* ============================================================
-   BADGES
-   ============================================================ */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-primary);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 0.2rem 0.55rem;
-  border-radius: var(--radius-badge);
-  border: 1px solid transparent;
-}
-.badge-red   { background: var(--red-bg);           color: var(--red);          border-color: var(--red-border); }
-.badge-amber { background: var(--amber-bg);          color: var(--amber);        border-color: var(--amber-border); }
-.badge-green { background: var(--green-signal-bg);   color: var(--green-signal); border-color: var(--green-signal-border); }
-.badge-gray  { background: var(--surface-raised);    color: var(--text-muted);   border-color: var(--border-subtle); }
-
-/* ============================================================
-   SIGNAL CARDS
-   ============================================================ */
-.signal-card       { padding: 1rem 1.25rem; border-left: 3px solid; border-radius: var(--radius-card); font-size: 0.85rem; }
-.signal-card-red   { background: var(--red-bg);          border-color: var(--red);          color: var(--red); }
-.signal-card-amber { background: var(--amber-bg);         border-color: var(--amber);        color: var(--amber); }
-.signal-card-green { background: var(--green-signal-bg);  border-color: var(--green-signal); color: var(--green-signal); }
-
-/* ============================================================
-   FORMS
-   ============================================================ */
-.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
-.form-label {
-  font-family: var(--font-primary);
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-.form-input,
-.form-select,
-.form-textarea {
-  font-family: var(--font-primary);
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  background: var(--surface-base);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-card);
-  padding: 0.6rem 0.9rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  width: 100%;
-  outline: none;
-}
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  border-color: var(--wave-green);
-  box-shadow: 0 0 0 3px var(--wave-green-dim);
-}
-
-/* ============================================================
-   MISC
-   ============================================================ */
-.section-label {
-  font-family: var(--font-primary);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.divider {
-  border: none;
-  border-top: 1px solid var(--border-subtle);
-  margin: 1.5rem 0;
-}
-.alert {
-  padding: 0.9rem 1.1rem;
-  border-radius: var(--radius-card);
-  font-size: 0.875rem;
-  border: 1px solid;
-}
-.alert-error   { background: var(--red-bg);          color: var(--red);          border-color: var(--red-border); }
-.alert-success { background: var(--green-signal-bg); color: var(--green-signal); border-color: var(--green-signal-border); }
 
 /* ============================================================
    SCROLLBAR

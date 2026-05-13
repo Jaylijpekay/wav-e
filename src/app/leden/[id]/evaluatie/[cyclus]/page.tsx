@@ -49,9 +49,9 @@ const STOPLIGHT = (key: string, val: number) => {
 }
 
 const COLORS = {
-  red:   { thumb: '#dc2626', label: '#f87171', track: 'rgba(220,38,38,0.18)',  bg: 'rgba(220,38,38,0.06)'  },
-  amber: { thumb: '#d97706', label: '#fbbf24', track: 'rgba(217,119,6,0.18)', bg: 'rgba(217,119,6,0.06)'  },
-  green: { thumb: '#16a34a', label: '#4ade80', track: 'rgba(22,163,74,0.18)', bg: 'rgba(22,163,74,0.06)'  },
+  red:   { thumb: 'var(--red-danger)', label: 'var(--red-text)', track: 'rgba(220,38,38,0.18)',  bg: 'rgba(220,38,38,0.06)'  },
+  amber: { thumb: 'var(--amber)', label: 'var(--amber-text)', track: 'rgba(217,119,6,0.18)', bg: 'rgba(217,119,6,0.06)'  },
+  green: { thumb: 'var(--green-signal)', label: 'var(--green-signal-text)', track: 'rgba(22,163,74,0.18)', bg: 'rgba(22,163,74,0.06)'  },
 }
 
 const SLIDERS = [
@@ -74,7 +74,7 @@ const delta = (curr: number | null, prev: number | null): { val: number; sign: s
   return {
     val: Math.abs(diff),
     sign: diff > 0 ? '+' : '−',
-    color: diff > 0 ? '#4ade80' : '#f87171',
+    color: diff > 0 ? 'var(--green-signal-text)' : 'var(--red-text)',
   }
 }
 
@@ -122,13 +122,13 @@ export default function EvaluatieDetail() {
   }, [id, cyclus])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#A8C800', boxShadow: '0 0 12px rgba(168,200,0,0.5)' }} />
+    <div style={{ minHeight: '100vh', background: 'var(--color-black-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--wave-green)', boxShadow: '0 0 12px rgba(168,200,0,0.5)' }} />
     </div>
   )
 
   if (!ev || !lid) return (
-    <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontFamily: 'Raleway, sans-serif', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-black-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontFamily: 'Raleway, sans-serif', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
       Evaluatie niet gevonden.
     </div>
   )
@@ -145,8 +145,8 @@ export default function EvaluatieDetail() {
         .ev-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #111;
-          color: #c8c6c0;
+          background: var(--color-black-soft);
+          color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           position: relative;
           -webkit-tap-highlight-color: transparent;
@@ -189,7 +189,7 @@ export default function EvaluatieDetail() {
         .ev-back {
           background: none;
           border: none;
-          color: #555;
+          color: var(--text-dim);
           font-family: 'Raleway', sans-serif;
           font-size: 0.72rem;
           font-weight: 500;
@@ -207,15 +207,15 @@ export default function EvaluatieDetail() {
           text-overflow: ellipsis;
           max-width: 60%;
         }
-        .ev-back:hover  { color: #A8C800; }
-        .ev-back:active { color: #A8C800; }
+        .ev-back:hover  { color: var(--wave-green); }
+        .ev-back:active { color: var(--wave-green); }
 
         .ev-header-title {
           font-size: 0.72rem;
           font-weight: 500;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           flex-shrink: 0;
         }
 
@@ -236,7 +236,7 @@ export default function EvaluatieDetail() {
         .ev-name {
           font-size: 1.4rem;
           font-weight: 700;
-          color: #fff;
+          color: var(--color-white);
           letter-spacing: -0.02em;
           margin: 0 0 8px;
         }
@@ -248,22 +248,22 @@ export default function EvaluatieDetail() {
         .ev-tag {
           font-size: 0.62rem;
           font-weight: 500;
-          color: #555;
-          border: 1px solid #1e1e1e;
+          color: var(--text-dim);
+          border: 1px solid var(--bg-base);
           border-radius: 2px;
           padding: 4px 8px;
           letter-spacing: 0.07em;
           text-transform: uppercase;
         }
         .ev-tag-highlight {
-          color: #A8C800;
+          color: var(--wave-green);
           border-color: rgba(168,200,0,0.2);
         }
 
         /* ── Divider ── */
         .ev-divider {
           height: 1px;
-          background: #1e1e1e;
+          background: var(--bg-base);
           margin: 2rem 0;
         }
 
@@ -272,7 +272,7 @@ export default function EvaluatieDetail() {
           font-size: 0.6rem;
           font-weight: 600;
           letter-spacing: 0.18em;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           text-transform: uppercase;
           margin-bottom: 1.25rem;
           display: block;
@@ -285,8 +285,8 @@ export default function EvaluatieDetail() {
           gap: 12px;
         }
         .ev-slider-card {
-          background: #161616;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-dark);
+          border: 1px solid var(--bg-base);
           border-radius: 4px;
           padding: 16px 16px 14px;
           animation: evFadeUp 0.4s ease-out both;
@@ -302,7 +302,7 @@ export default function EvaluatieDetail() {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #777;
+          color: var(--text-soft);
         }
         .ev-slider-right {
           display: flex;
@@ -325,7 +325,7 @@ export default function EvaluatieDetail() {
           position: relative;
           height: 6px;
           border-radius: 3px;
-          background: #1e1e1e;
+          background: var(--bg-base);
           margin: 6px 0 10px;
         }
         .ev-track-fill {
@@ -352,7 +352,7 @@ export default function EvaluatieDetail() {
         }
         .ev-slider-hint {
           font-size: 0.58rem;
-          color: #444;
+          color: var(--text-quieter);
           letter-spacing: 0.04em;
         }
 
@@ -363,8 +363,8 @@ export default function EvaluatieDetail() {
           gap: 10px;
         }
         .ev-fysiek-card {
-          background: #161616;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-dark);
+          border: 1px solid var(--bg-base);
           border-radius: 4px;
           padding: 14px 14px;
         }
@@ -373,17 +373,17 @@ export default function EvaluatieDetail() {
           font-weight: 600;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: #555;
+          color: var(--text-dim);
           margin-bottom: 6px;
         }
         .ev-fysiek-value {
           font-size: 1.1rem;
           font-weight: 700;
-          color: #B4B4B4;
+          color: var(--wave-gray-light);
           letter-spacing: -0.01em;
         }
         .ev-fysiek-empty {
-          color: #333;
+          color: var(--text-very-faint);
           font-size: 0.75rem;
         }
 
@@ -398,24 +398,24 @@ export default function EvaluatieDetail() {
           border-radius: 3px;
           border: 1px solid;
         }
-        .ev-doelen-ja  { color: #4ade80; border-color: rgba(22,163,74,0.3);  background: rgba(22,163,74,0.06); }
-        .ev-doelen-nee { color: #f87171; border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.06); }
-        .ev-doelen-nvt { color: #555;    border-color: #1e1e1e;              background: #161616; }
+        .ev-doelen-ja  { color: var(--green-signal-text); border-color: rgba(22,163,74,0.3);  background: rgba(22,163,74,0.06); }
+        .ev-doelen-nee { color: var(--red-text); border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.06); }
+        .ev-doelen-nvt { color: var(--text-dim);    border-color: var(--bg-base);              background: var(--surface-dark); }
 
         /* ── Notities ── */
         .ev-notities {
-          background: #161616;
-          border: 1px solid #1e1e1e;
+          background: var(--surface-dark);
+          border: 1px solid var(--bg-base);
           border-radius: 4px;
           padding: 16px 16px;
           font-size: 0.85rem;
-          color: #c8c6c0;
+          color: var(--text-warm);
           line-height: 1.7;
           white-space: pre-wrap;
           word-break: break-word;
         }
         .ev-notities-empty {
-          color: #333;
+          color: var(--text-very-faint);
           font-style: italic;
         }
 
@@ -533,7 +533,7 @@ export default function EvaluatieDetail() {
                 <div key={label} className="ev-fysiek-card">
                   <div className="ev-fysiek-label">{label}</div>
                   {val !== null
-                    ? <div className="ev-fysiek-value">{val}{unit && <span style={{ fontSize: '0.65rem', color: '#555', marginLeft: 3 }}>{unit}</span>}</div>
+                    ? <div className="ev-fysiek-value">{val}{unit && <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginLeft: 3 }}>{unit}</span>}</div>
                     : <div className="ev-fysiek-value ev-fysiek-empty">—</div>
                   }
                 </div>
@@ -547,13 +547,13 @@ export default function EvaluatieDetail() {
           <section style={{ animationDelay: '0.15s' }}>
             <span className="ev-section-label">Doelen & notities</span>
             <div style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#555', marginBottom: 10 }}>Doelen behaald</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 10 }}>Doelen behaald</div>
               <span className={`ev-doelen-pill ${ev.doelen_behaald === true ? 'ev-doelen-ja' : ev.doelen_behaald === false ? 'ev-doelen-nee' : 'ev-doelen-nvt'}`}>
                 {ev.doelen_behaald === true ? 'Ja' : ev.doelen_behaald === false ? 'Nee' : 'N.v.t.'}
               </span>
             </div>
             <div>
-              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#555', marginBottom: 10 }}>Notities</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 10 }}>Notities</div>
               {ev.notities
                 ? <div className="ev-notities">{ev.notities}</div>
                 : <div className="ev-notities ev-notities-empty">Geen notities</div>

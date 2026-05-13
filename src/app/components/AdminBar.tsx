@@ -74,9 +74,9 @@ export default function AdminBar() {
           font-weight: 700;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: #A8C800;
+          color: var(--wave-green);
           padding: 0 6px 0 2px;
-          border-right: 1px solid #2a2a2a;
+          border-right: 1px solid var(--border-muted-dark);
           margin-right: 4px;
           white-space: nowrap;
         }
@@ -87,9 +87,9 @@ export default function AdminBar() {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #888;
+          color: var(--wave-gray);
           background: none;
-          border: 1px solid #222;
+          border: 1px solid var(--border-black);
           border-radius: 5px;
           padding: 5px 12px;
           cursor: pointer;
@@ -97,7 +97,7 @@ export default function AdminBar() {
           white-space: nowrap;
         }
         .ab-btn:hover {
-          color: #A8C800;
+          color: var(--wave-green);
           border-color: rgba(168,200,0,0.3);
           background: rgba(168,200,0,0.05);
         }
@@ -112,7 +112,7 @@ export default function AdminBar() {
           left: 50%;
           transform: translateX(-50%);
           background: rgba(20,20,20,0.98);
-          border: 1px solid #2a2a2a;
+          border: 1px solid var(--border-muted-dark);
           border-radius: 6px;
           min-width: 220px;
           max-height: 280px;
@@ -136,19 +136,19 @@ export default function AdminBar() {
         .ab-dropdown-name {
           font-size: 0.72rem;
           font-weight: 600;
-          color: #c8c6c0;
+          color: var(--text-warm);
           letter-spacing: 0.02em;
         }
         .ab-dropdown-id {
           font-size: 0.6rem;
-          color: #444;
+          color: var(--text-quieter);
           letter-spacing: 0.06em;
           white-space: nowrap;
         }
 
         .ab-dropdown::-webkit-scrollbar { width: 4px; }
         .ab-dropdown::-webkit-scrollbar-track { background: transparent; }
-        .ab-dropdown::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+        .ab-dropdown::-webkit-scrollbar-thumb { background: var(--border-muted-dark); border-radius: 2px; }
       `}</style>
 
       <div className="ab-bar">
@@ -174,7 +174,7 @@ export default function AdminBar() {
           {trainersOpen && (
             <div className="ab-dropdown">
               {trainers.length === 0
-                ? <div style={{ padding: '10px', color: '#444', fontSize: '0.7rem' }}>Geen trainers</div>
+                ? <div style={{ padding: '10px', color: 'var(--text-quieter)', fontSize: '0.7rem' }}>Geen trainers</div>
                 : trainers.map(t => (
                   <div
                     key={t.id}
@@ -201,7 +201,7 @@ export default function AdminBar() {
           {ledenOpen && (
             <div className="ab-dropdown">
               {leden.length === 0
-                ? <div style={{ padding: '10px', color: '#444', fontSize: '0.7rem' }}>Geen leden</div>
+                ? <div style={{ padding: '10px', color: 'var(--text-quieter)', fontSize: '0.7rem' }}>Geen leden</div>
                 : leden.map(l => (
                   <div
                     key={l.id}

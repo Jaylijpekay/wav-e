@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -33,36 +34,27 @@ type Trainer = {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-const daysSince = (date: string | null): number | null => {
-  if (!date) return null
-  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
-}
-
-const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
-  const dagsSindsContact = daysSince(lid.laatste_contact)
-  const dagsSindsEval    = daysSince(lid.laatste_evaluatie)
-  const hasRedLifestyle  =
-    (lid.slaap   !== null && lid.slaap   < 6) ||
-    (lid.energie !== null && lid.energie < 6) ||
-    (lid.stress  !== null && lid.stress  > 7)
-
-  if (dagsSindsEval === null || dagsSindsEval > 42 || hasRedLifestyle) return 'red'
-  if (dagsSindsContact === null || dagsSindsContact > 14 || lid.open_acties > 0) return 'amber'
+const toUiStoplight = (stoplight: ReturnType<typeof getStoplight>): 'red' | 'amber' | 'green' => {
+  if (stoplight === 'rood') return 'red'
+  if (stoplight === 'oranje') return 'amber'
   return 'green'
 }
 
+const getLidStoplight = (lid: Lid): 'red' | 'amber' | 'green' =>
+  toUiStoplight(getStoplight(daysSince(getLatestContactDatum(lid.laatste_contact, lid.laatste_evaluatie))))
+
 const STOPLIGHT = {
-  red:   { dot: '#dc2626', bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)',  text: '#f87171',  label: 'Aandacht' },
-  amber: { dot: '#d97706', bg: 'rgba(217,119,6,0.07)',  border: 'rgba(217,119,6,0.18)',  text: '#fbbf24',  label: 'Let op'   },
-  green: { dot: '#16a34a', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.18)',  text: '#4ade80',  label: 'Op koers' },
+  red:   { dot: 'var(--red-danger)', bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)',  text: 'var(--red-text)',  label: 'Aandacht' },
+  amber: { dot: 'var(--amber)', bg: 'rgba(217,119,6,0.07)',  border: 'rgba(217,119,6,0.18)',  text: 'var(--amber-text)',  label: 'Let op'   },
+  green: { dot: 'var(--green-signal)', bg: 'rgba(22,163,74,0.07)',  border: 'rgba(22,163,74,0.18)',  text: 'var(--green-signal-text)',  label: 'Op koers' },
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  actief:   '#4ade80',
-  bevroren: '#60a5fa',
-  'on hold': '#fbbf24',
-  stopt:    '#f87171',
-  inactief: '#555',
+  actief:   'var(--green-signal-text)',
+  bevroren: 'var(--color-info)',
+  'on hold': 'var(--amber-text)',
+  stopt:    'var(--red-text)',
+  inactief: 'var(--text-dim)',
 }
 
 const formatDate = (d: string | null) =>
@@ -110,9 +102,10 @@ export default function MijnLedenPage() {
       const enriched: Lid[] = ledenData.map(l => {
         const lastContact = contacten?.find(c => c.lid_id === l.id)
         const lastEval    = evaluaties?.find(e => e.lid_id === l.id)
+        const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
         return {
           ...l,
-          laatste_contact:    lastContact?.datum   ?? null,
+          laatste_contact:    lastContactDatum,
           laatste_evaluatie:  lastEval?.datum      ?? null,
           slaap:              lastEval?.slaap      ?? null,
           energie:            lastEval?.energie    ?? null,
@@ -128,13 +121,13 @@ export default function MijnLedenPage() {
   }, [trainerId])
 
   const counts = {
-    red:   leden.filter(l => getStoplight(l) === 'red').length,
-    amber: leden.filter(l => getStoplight(l) === 'amber').length,
-    green: leden.filter(l => getStoplight(l) === 'green').length,
+    red:   leden.filter(l => getLidStoplight(l) === 'red').length,
+    amber: leden.filter(l => getLidStoplight(l) === 'amber').length,
+    green: leden.filter(l => getLidStoplight(l) === 'green').length,
   }
 
   const visible = leden.filter(l => {
-    if (filter !== 'all' && getStoplight(l) !== filter) return false
+    if (filter !== 'all' && getLidStoplight(l) !== filter) return false
     if (search) {
       const q = search.toLowerCase()
       return (
@@ -154,8 +147,8 @@ export default function MijnLedenPage() {
 
         .ml-root {
           min-height: 100vh;
-          background: #111;
-          color: #c8c6c0;
+          background: var(--color-black-soft);
+          color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
         }
         .ml-root::before {
@@ -184,14 +177,14 @@ export default function MijnLedenPage() {
         }
         .ml-back {
           background: none; border: none;
-          color: #555; font-family: 'Raleway', sans-serif;
+          color: var(--text-dim); font-family: 'Raleway', sans-serif;
           font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em;
           cursor: pointer; padding: 0; transition: color 0.15s;
         }
-        .ml-back:hover { color: #A8C800; }
+        .ml-back:hover { color: var(--wave-green); }
         .ml-header-title {
           font-size: 0.72rem; font-weight: 500;
-          letter-spacing: 0.1em; text-transform: uppercase; color: #B4B4B4;
+          letter-spacing: 0.1em; text-transform: uppercase; color: var(--wave-gray-light);
         }
 
         /* Body */
@@ -203,11 +196,11 @@ export default function MijnLedenPage() {
 
         /* Page title */
         .ml-title {
-          font-size: 1.3rem; font-weight: 700; color: #fff;
+          font-size: 1.3rem; font-weight: 700; color: var(--color-white);
           letter-spacing: -0.02em; margin: 0 0 6px;
         }
         .ml-subtitle {
-          font-size: 0.7rem; color: #444; letter-spacing: 0.06em;
+          font-size: 0.7rem; color: var(--text-quieter); letter-spacing: 0.06em;
           margin-bottom: 1.75rem;
         }
 
@@ -217,36 +210,36 @@ export default function MijnLedenPage() {
         }
         .ml-filter-btn {
           display: flex; align-items: center; gap: 7px;
-          background: #161616; border: 1px solid #1e1e1e;
+          background: var(--surface-dark); border: 1px solid var(--bg-base);
           border-radius: 3px; padding: 7px 14px;
           font-family: 'Raleway', sans-serif;
           font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
-          text-transform: uppercase; color: #555;
+          text-transform: uppercase; color: var(--text-dim);
           cursor: pointer; transition: all 0.15s;
         }
-        .ml-filter-btn:hover { border-color: #2a2a2a; color: #888; }
-        .ml-filter-btn.active { color: #c8c6c0; border-color: #333; background: #1a1a1a; }
+        .ml-filter-btn:hover { border-color: var(--border-muted-dark); color: var(--wave-gray); }
+        .ml-filter-btn.active { color: var(--text-warm); border-color: var(--text-very-faint); background: var(--surface-pressed); }
         .ml-filter-dot {
           width: 7px; height: 7px; border-radius: 50%;
         }
         .ml-filter-count {
-          font-size: 0.62rem; color: #444;
+          font-size: 0.62rem; color: var(--text-quieter);
         }
 
         /* Search */
         .ml-search {
           width: 100%; box-sizing: border-box;
-          background: #161616; border: 1px solid #1e1e1e; border-radius: 3px;
+          background: var(--surface-dark); border: 1px solid var(--bg-base); border-radius: 3px;
           padding: 9px 14px; margin-bottom: 1.25rem;
-          font-family: 'Raleway', sans-serif; font-size: 0.82rem; color: #c8c6c0;
+          font-family: 'Raleway', sans-serif; font-size: 0.82rem; color: var(--text-warm);
           outline: none; transition: border-color 0.15s;
         }
-        .ml-search::placeholder { color: #2e2e2e; }
+        .ml-search::placeholder { color: var(--text-ghost); }
         .ml-search:focus { border-color: rgba(168,200,0,0.25); }
 
         /* Table */
         .ml-table-wrap {
-          border: 1px solid #1a1a1a; border-radius: 3px; overflow: hidden;
+          border: 1px solid var(--surface-pressed); border-radius: 3px; overflow: hidden;
           animation: mlFadeUp 0.3s ease-out both;
         }
         .ml-table {
@@ -254,31 +247,31 @@ export default function MijnLedenPage() {
         }
         .ml-th {
           font-size: 0.58rem; font-weight: 600; letter-spacing: 0.12em;
-          text-transform: uppercase; color: #333;
+          text-transform: uppercase; color: var(--text-very-faint);
           padding: 10px 16px; text-align: left;
-          background: #141414; border-bottom: 1px solid #1a1a1a;
+          background: var(--surface-deep); border-bottom: 1px solid var(--surface-pressed);
         }
         .ml-th:last-child { text-align: right; }
         .ml-tr {
-          background: #141414; border-bottom: 1px solid #171717;
+          background: var(--surface-deep); border-bottom: 1px solid var(--border-deep);
           cursor: pointer; transition: background 0.12s;
         }
         .ml-tr:last-child { border-bottom: none; }
-        .ml-tr:hover { background: #181818; }
+        .ml-tr:hover { background: var(--surface-hover-dark); }
         .ml-td {
           padding: 13px 16px; vertical-align: middle;
-          font-size: 0.78rem; color: #666;
+          font-size: 0.78rem; color: var(--text-mid);
         }
 
         /* Name cell */
-        .ml-name { font-size: 0.875rem; font-weight: 600; color: #c8c6c0; margin-bottom: 2px; }
-        .ml-lid-id { font-size: 0.62rem; color: #2e2e2e; letter-spacing: 0.06em; }
+        .ml-name { font-size: 0.875rem; font-weight: 600; color: var(--text-warm); margin-bottom: 2px; }
+        .ml-lid-id { font-size: 0.62rem; color: var(--text-ghost); letter-spacing: 0.06em; }
 
         /* Contact/eval cells */
-        .ml-days-ok  { color: #3a3a3a; font-variant-numeric: tabular-nums; }
-        .ml-days-warn { color: #fbbf24; font-variant-numeric: tabular-nums; font-weight: 600; }
-        .ml-days-red  { color: #f87171; font-variant-numeric: tabular-nums; font-weight: 600; }
-        .ml-never { color: #2a2a2a; font-style: italic; font-size: 0.72rem; }
+        .ml-days-ok  { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+        .ml-days-warn { color: var(--amber-text); font-variant-numeric: tabular-nums; font-weight: 600; }
+        .ml-days-red  { color: var(--red-text); font-variant-numeric: tabular-nums; font-weight: 600; }
+        .ml-never { color: var(--border-muted-dark); font-style: italic; font-size: 0.72rem; }
 
         /* Stoplight dot */
         .ml-dot {
@@ -298,18 +291,18 @@ export default function MijnLedenPage() {
           display: inline-flex; align-items: center; justify-content: center;
           width: 20px; height: 20px; border-radius: 3px;
           font-size: 0.65rem; font-weight: 700;
-          background: rgba(220,38,38,0.12); color: #f87171;
+          background: rgba(220,38,38,0.12); color: var(--red-text);
         }
 
         /* Empty */
         .ml-empty {
           text-align: center; padding: 4rem 0;
-          font-size: 0.8rem; color: #2a2a2a; letter-spacing: 0.06em;
+          font-size: 0.8rem; color: var(--border-muted-dark); letter-spacing: 0.06em;
         }
 
         /* Count label */
         .ml-count {
-          font-size: 0.62rem; color: #333; letter-spacing: 0.06em;
+          font-size: 0.62rem; color: var(--text-very-faint); letter-spacing: 0.06em;
           margin-bottom: 0.75rem;
         }
 
@@ -390,12 +383,12 @@ export default function MijnLedenPage() {
                   </thead>
                   <tbody>
                     {visible.map(lid => {
-                      const sig = getStoplight(lid)
+                      const sig = getLidStoplight(lid)
                       const col = STOPLIGHT[sig]
                       const dagContact = daysSince(lid.laatste_contact)
                       const dagEval    = daysSince(lid.laatste_evaluatie)
 
-                      const contactClass = dagContact === null ? '' : dagContact > 14 ? 'ml-days-red' : dagContact > 10 ? 'ml-days-warn' : 'ml-days-ok'
+                      const contactClass = dagContact === null ? '' : dagContact > 28 ? 'ml-days-red' : dagContact > 14 ? 'ml-days-warn' : 'ml-days-ok'
                       const evalClass    = dagEval    === null ? '' : dagEval    > 42 ? 'ml-days-red' : dagEval    > 35 ? 'ml-days-warn' : 'ml-days-ok'
 
                       return (
@@ -417,11 +410,11 @@ export default function MijnLedenPage() {
                             {lid.status ? (
                               <span
                                 className="ml-status"
-                                style={{ color: STATUS_COLOR[lid.status.toLowerCase()] ?? '#555' }}
+                                style={{ color: STATUS_COLOR[lid.status.toLowerCase()] ?? 'var(--text-dim)' }}
                               >
                                 {lid.status}
                               </span>
-                            ) : <span style={{ color: '#2a2a2a' }}>—</span>}
+                            ) : <span style={{ color: 'var(--border-muted-dark)' }}>—</span>}
                           </td>
 
                           {/* Laatste contact */}
@@ -450,14 +443,14 @@ export default function MijnLedenPage() {
 
                           {/* Startdatum */}
                           <td className="ml-td">
-                            <span style={{ color: '#3a3a3a', fontSize: '0.72rem' }}>{formatDate(lid.startdatum)}</span>
+                            <span style={{ color: 'var(--text-faint)', fontSize: '0.72rem' }}>{formatDate(lid.startdatum)}</span>
                           </td>
 
                           {/* Open acties */}
                           <td className="ml-td" style={{ textAlign: 'right' }}>
                             {lid.open_acties > 0
                               ? <span className="ml-acties-badge">{lid.open_acties}</span>
-                              : <span style={{ color: '#2a2a2a' }}>—</span>
+                              : <span style={{ color: 'var(--border-muted-dark)' }}>—</span>
                             }
                           </td>
 

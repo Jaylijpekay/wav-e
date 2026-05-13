@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 import Navigation from '@/app/components/Navigation'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -58,26 +59,18 @@ type StudioCounts = {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-const daysSince = (date: string | null): number | null => {
-  if (!date) return null
-  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
-}
-
-const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
-  const dagsSindsContact = daysSince(lid.laatste_contact)
-  const dagsSindsEval    = daysSince(lid.laatste_evaluatie)
-  const hasRedLifestyle  =
-    (lid.slaap   !== null && lid.slaap   < 6) ||
-    (lid.energie !== null && lid.energie < 6) ||
-    (lid.stress  !== null && lid.stress  > 7)
-  if (dagsSindsEval === null || dagsSindsEval > 42 || hasRedLifestyle) return 'red'
-  if (dagsSindsContact === null || dagsSindsContact > 14) return 'amber'
+const toUiStoplight = (stoplight: ReturnType<typeof getStoplight>): 'red' | 'amber' | 'green' => {
+  if (stoplight === 'rood') return 'red'
+  if (stoplight === 'oranje') return 'amber'
   return 'green'
 }
 
+const getLidStoplight = (lid: Lid): 'red' | 'amber' | 'green' =>
+  toUiStoplight(getStoplight(daysSince(getLatestContactDatum(lid.laatste_contact, lid.laatste_evaluatie))))
+
 const daysSinceLabel = (date: string | null, neverLabel = 'Nooit gebruikt'): string => {
-  if (!date) return neverLabel
-  const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+  const d = daysSince(date)
+  if (d === null) return neverLabel
   if (d === 0) return 'Vandaag'
   if (d === 1) return 'Gisteren'
   return `${d} dagen geleden`
@@ -89,12 +82,12 @@ const consoleUrl = (token: string): string => {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  actief:    '#4ade80',
-  bevroren:  '#60a5fa',
-  'on hold': '#fbbf24',
-  on_hold:   '#fbbf24',
-  stopt:     '#f87171',
-  inactief:  '#555',
+  actief:    'var(--green-signal-text)',
+  bevroren:  'var(--color-info)',
+  'on hold': 'var(--amber-text)',
+  on_hold:   'var(--amber-text)',
+  stopt:     'var(--red-text)',
+  inactief:  'var(--text-dim)',
 }
 
 const inputStyle: React.CSSProperties = {
@@ -228,7 +221,7 @@ function AddLidModal({
         </Field>
 
         {error && (
-          <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
+          <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
             {error}
           </div>
         )}
@@ -237,7 +230,7 @@ function AddLidModal({
           <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             Annuleren
           </button>
-          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Opslaan…' : 'Lid toevoegen'}
           </button>
         </div>
@@ -317,10 +310,10 @@ function ActieModal({
         <Field label="Deadline (optioneel)">
           <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={inputStyle} />
         </Field>
-        {error && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuleren</button>
-          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Opslaan…' : 'Toewijzen'}
           </button>
         </div>
@@ -388,10 +381,10 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
         <Field label="Wachtwoord">
           <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 tekens" style={inputStyle} />
         </Field>
-        {error && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
+        {error && <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuleren</button>
-          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={save} disabled={saving} style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Opslaan…' : 'Trainer toevoegen'}
           </button>
         </div>
@@ -456,7 +449,7 @@ function ConsolePanel() {
         </div>
         <button
           onClick={() => { setFormOpen(o => !o); setNewNaam('') }}
-          style={{ background: formOpen ? 'none' : 'var(--color-accent, #6366f1)', color: formOpen ? 'var(--text-muted)' : '#fff', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          style={{ background: formOpen ? 'none' : 'var(--color-accent, var(--color-accent))', color: formOpen ? 'var(--text-muted)' : 'var(--color-white)', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >
           {formOpen ? '× Annuleren' : '+ Nieuwe console'}
         </button>
@@ -478,7 +471,7 @@ function ConsolePanel() {
           <button
             onClick={createToken}
             disabled={saving || !newNaam.trim()}
-            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-end', opacity: saving || !newNaam.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}
+            style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-end', opacity: saving || !newNaam.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}
           >
             {saving ? 'Aanmaken…' : 'Aanmaken'}
           </button>
@@ -499,12 +492,12 @@ function ConsolePanel() {
           </div>
           <button
             onClick={() => copyUrl(t)}
-            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? '#4ade80' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? 'var(--green-signal-text)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             {copiedId === t.id ? '✓ Gekopieerd' : 'Kopieer URL'}
           </button>
           {t.actief
-            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
+            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: 'var(--red-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
             : <button onClick={() => reactivateToken(t.id)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Heractiveren</button>
           }
         </div>
@@ -583,9 +576,10 @@ export default function ManagementPage() {
     const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
       const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
       const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
+      const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
       return {
         ...l,
-        laatste_contact:   lastContact?.datum ?? null,
+        laatste_contact:   lastContactDatum,
         laatste_evaluatie: lastEval?.datum    ?? null,
         slaap:             lastEval?.slaap    ?? null,
         energie:           lastEval?.energie  ?? null,
@@ -599,8 +593,8 @@ export default function ManagementPage() {
       stats[t.id] = {
         trainer_id:  t.id,
         totaal:      tLeden.length,
-        rood:        tLeden.filter(l => getStoplight(l) === 'red').length,
-        amber:       tLeden.filter(l => getStoplight(l) === 'amber').length,
+        rood:        tLeden.filter(l => getLidStoplight(l) === 'red').length,
+        amber:       tLeden.filter(l => getLidStoplight(l) === 'amber').length,
         open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
       }
     }
@@ -686,7 +680,7 @@ export default function ManagementPage() {
           </div>
           <button
             onClick={() => setShowAddLid(true)}
-            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >
             + Lid toevoegen
           </button>
@@ -695,11 +689,11 @@ export default function ManagementPage() {
         {/* Studio counts */}
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           {([
-            { label: 'Actief',   value: counts.actief,   color: '#16a34a' },
-            { label: 'Bevroren', value: counts.bevroren, color: '#d97706' },
-            { label: 'On hold',  value: counts.on_hold,  color: '#d97706' },
-            { label: 'Stopt',    value: counts.stopt,    color: '#dc2626' },
-            { label: 'Inactief', value: counts.inactief, color: '#444'    },
+            { label: 'Actief',   value: counts.actief,   color: 'var(--green-signal)' },
+            { label: 'Bevroren', value: counts.bevroren, color: 'var(--amber)' },
+            { label: 'On hold',  value: counts.on_hold,  color: 'var(--amber)' },
+            { label: 'Stopt',    value: counts.stopt,    color: 'var(--red-danger)' },
+            { label: 'Inactief', value: counts.inactief, color: 'var(--text-quieter)'    },
           ]).map(({ label, value, color }) => (
             <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ fontSize: 26, fontWeight: 800, color }}>{value}</div>
@@ -746,13 +740,13 @@ export default function ManagementPage() {
                       >
                         {t.voornaam} {t.achternaam}
                       </span>
-                      {!t.actief && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555' }}>inactief</span>}
+                      {!t.actief && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>inactief</span>}
                     </td>
                     <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--text-muted)' }}>{t.email}</td>
                     <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>{s.totaal}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.rood > 0 ? '#f87171' : 'var(--text-muted)', textAlign: 'center' }}>{s.rood}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.amber > 0 ? '#fbbf24' : 'var(--text-muted)', textAlign: 'center' }}>{s.amber}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.open_acties > 0 ? '#818cf8' : 'var(--text-muted)', textAlign: 'center' }}>{s.open_acties}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.rood > 0 ? 'var(--red-text)' : 'var(--text-muted)', textAlign: 'center' }}>{s.rood}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.amber > 0 ? 'var(--amber-text)' : 'var(--text-muted)', textAlign: 'center' }}>{s.amber}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.open_acties > 0 ? 'var(--color-accent-text)' : 'var(--text-muted)', textAlign: 'center' }}>{s.open_acties}</td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <button
                         onClick={() => openActieFromTrainer(t)}
@@ -768,8 +762,8 @@ export default function ManagementPage() {
                         <button
                           onClick={() => deactivateTrainer(t)}
                           disabled={deactivating === t.id}
-                          style={{ background: 'none', border: 'none', padding: '5px 0', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => { if (deactivating !== t.id) e.currentTarget.style.textDecorationColor = '#f87171' }}
+                          style={{ background: 'none', border: 'none', padding: '5px 0', color: 'var(--red-text)', fontSize: 12, fontWeight: 600, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => { if (deactivating !== t.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
                           onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
                         >
                           {deactivating === t.id ? '…' : 'Deactiveer'}
@@ -851,8 +845,8 @@ export default function ManagementPage() {
                         <button
                           onClick={e => { e.stopPropagation(); deactivateLid(l) }}
                           disabled={deactivating === l.id}
-                          style={{ background: 'none', border: 'none', padding: '4px 0', color: '#f87171', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = '#f87171' }}
+                          style={{ background: 'none', border: 'none', padding: '4px 0', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
                           onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
                         >
                           {deactivating === l.id ? '…' : 'Deactiveer'}

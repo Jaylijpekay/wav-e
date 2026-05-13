@@ -132,7 +132,7 @@ export default function Navigation() {
           transition: color 0.15s, border-color 0.15s;
           margin-left: 8px;
         }
-        .nav-logout:hover:not(:disabled) { color: #f87171; border-color: rgba(248,113,113,0.4); }
+        .nav-logout:hover:not(:disabled) { color: var(--red-text); border-color: rgba(248,113,113,0.4); }
         .nav-logout:disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>
 

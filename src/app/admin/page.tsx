@@ -68,9 +68,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ============================================================
 
 const ROLE_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  admin:      { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', label: 'Admin' },
-  management: { bg: 'rgba(217,119,6,0.10)',  color: '#fbbf24', label: 'Management' },
-  trainer:    { bg: 'rgba(22,163,74,0.10)',   color: '#4ade80', label: 'Trainer' },
+  admin:      { bg: 'rgba(99,102,241,0.12)', color: 'var(--color-accent-text)', label: 'Admin' },
+  management: { bg: 'rgba(217,119,6,0.10)',  color: 'var(--amber-text)', label: 'Management' },
+  trainer:    { bg: 'rgba(22,163,74,0.10)',   color: 'var(--green-signal-text)', label: 'Trainer' },
 }
 
 function RoleBadge({ role }: { role: string | null }) {
@@ -130,7 +130,7 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{trainer.naam}</div>
             {trainer.type === 'management' && (
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fbbf24', background: 'rgba(217,119,6,0.10)', padding: '2px 7px', borderRadius: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--amber-text)', background: 'rgba(217,119,6,0.10)', padding: '2px 7px', borderRadius: 4 }}>
                 management
               </span>
             )}
@@ -138,8 +138,8 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: trainer.has_pin ? '#4ade80' : '#3a3a3a', display: 'inline-block' }} />
-          <span style={{ fontSize: 11, color: trainer.has_pin ? '#4ade80' : '#555', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: trainer.has_pin ? 'var(--green-signal-text)' : 'var(--text-faint)', display: 'inline-block' }} />
+          <span style={{ fontSize: 11, color: trainer.has_pin ? 'var(--green-signal-text)' : 'var(--text-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
             {trainer.has_pin ? 'PIN ingesteld' : 'Geen PIN'}
           </span>
         </div>
@@ -180,16 +180,16 @@ function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void
           </div>
 
           {error && (
-            <div style={{ fontSize: 12, color: '#f87171', padding: '6px 10px', background: 'rgba(220,38,38,0.07)', borderRadius: 6 }}>{error}</div>
+            <div style={{ fontSize: 12, color: 'var(--red-text)', padding: '6px 10px', background: 'rgba(220,38,38,0.07)', borderRadius: 6 }}>{error}</div>
           )}
           {ok && (
-            <div style={{ fontSize: 12, color: '#4ade80', padding: '6px 10px', background: 'rgba(22,163,74,0.07)', borderRadius: 6 }}>✓ PIN opgeslagen</div>
+            <div style={{ fontSize: 12, color: 'var(--green-signal-text)', padding: '6px 10px', background: 'rgba(22,163,74,0.07)', borderRadius: 6 }}>✓ PIN opgeslagen</div>
           )}
 
           <button
             onClick={save}
             disabled={saving || pin.length < 4 || confirm.length < 4}
-            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving || pin.length < 4 || confirm.length < 4 ? 0.5 : 1, alignSelf: 'flex-start' }}
+            style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving || pin.length < 4 || confirm.length < 4 ? 0.5 : 1, alignSelf: 'flex-start' }}
           >
             {saving ? 'Opslaan…' : 'PIN opslaan'}
           </button>
@@ -267,7 +267,7 @@ function ConsolePanel() {
         </div>
         <button
           onClick={() => { setFormOpen(o => !o); setNewNaam('') }}
-          style={{ background: formOpen ? 'none' : 'var(--color-accent, #6366f1)', color: formOpen ? 'var(--text-muted)' : '#fff', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          style={{ background: formOpen ? 'none' : 'var(--color-accent, var(--color-accent))', color: formOpen ? 'var(--text-muted)' : 'var(--color-white)', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >
           {formOpen ? '× Annuleren' : '+ Nieuwe console'}
         </button>
@@ -289,7 +289,7 @@ function ConsolePanel() {
           <button
             onClick={createToken}
             disabled={saving || !newNaam.trim()}
-            style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving || !newNaam.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}
+            style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving || !newNaam.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}
           >
             {saving ? 'Aanmaken…' : 'Aanmaken'}
           </button>
@@ -314,12 +314,12 @@ function ConsolePanel() {
           </div>
           <button
             onClick={() => copyUrl(t)}
-            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? '#4ade80' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: copiedId === t.id ? 'var(--green-signal-text)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             {copiedId === t.id ? '✓ Gekopieerd' : 'Kopieer URL'}
           </button>
           {t.actief
-            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
+            ? <button onClick={() => revokeToken(t.id)} style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: 'var(--red-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
             : <button onClick={() => reactivateToken(t.id)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Heractiveren</button>
           }
         </div>
@@ -409,7 +409,7 @@ export default function AdminPage() {
         </div>
         <button
           onClick={() => { setShowForm(f => !f); resetForm() }}
-          style={{ background: showForm ? 'var(--bg-raised)' : 'var(--color-accent, #6366f1)', color: showForm ? 'var(--text-muted)' : '#fff', border: showForm ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          style={{ background: showForm ? 'var(--bg-raised)' : 'var(--color-accent, var(--color-accent))', color: showForm ? 'var(--text-muted)' : 'var(--color-white)', border: showForm ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >
           {showForm ? '× Annuleren' : '+ Nieuwe gebruiker'}
         </button>
@@ -418,7 +418,7 @@ export default function AdminPage() {
       <div style={{ padding: '32px', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
         {formOk && !showForm && (
-          <div style={{ fontSize: 13, color: '#4ade80', padding: '10px 16px', background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)' }}>✓ {formOk}</div>
+          <div style={{ fontSize: 13, color: 'var(--green-signal-text)', padding: '10px 16px', background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)' }}>✓ {formOk}</div>
         )}
 
         {/* Create form */}
@@ -439,9 +439,9 @@ export default function AdminPage() {
                 </select>
               </Field>
             </div>
-            {formError && <div style={{ fontSize: 13, color: '#f87171', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{formError}</div>}
-            {formOk   && <div style={{ fontSize: 13, color: '#4ade80', padding: '8px 12px', background: 'rgba(22,163,74,0.07)', borderRadius: 8 }}>✓ {formOk}</div>}
-            <button onClick={createUser} disabled={saving} style={{ background: 'var(--color-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1, alignSelf: 'flex-start' }}>
+            {formError && <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{formError}</div>}
+            {formOk   && <div style={{ fontSize: 13, color: 'var(--green-signal-text)', padding: '8px 12px', background: 'rgba(22,163,74,0.07)', borderRadius: 8 }}>✓ {formOk}</div>}
+            <button onClick={createUser} disabled={saving} style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1, alignSelf: 'flex-start' }}>
               {saving ? 'Aanmaken…' : 'Aanmaken'}
             </button>
           </div>
@@ -468,7 +468,7 @@ export default function AdminPage() {
                   <button
                     onClick={() => deleteUser(u.id, u.email ?? '')}
                     disabled={deleting === u.id}
-                    style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, color: '#f87171', padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: deleting === u.id ? 'default' : 'pointer', opacity: deleting === u.id ? 0.5 : 1 }}
+                    style={{ background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, color: 'var(--red-text)', padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: deleting === u.id ? 'default' : 'pointer', opacity: deleting === u.id ? 0.5 : 1 }}
                   >
                     {deleting === u.id ? '…' : 'Verwijder'}
                   </button>

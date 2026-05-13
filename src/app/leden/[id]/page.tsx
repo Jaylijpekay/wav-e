@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
-import Navigation from '@/app/components/Navigation'
+import { daysSince, getLatestContactDatum } from '@/lib/stoplight'
 
 type Lid = {
   id: string
@@ -67,11 +67,6 @@ const formatDate = (date: string | null): string => {
   return new Date(date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const daysSince = (date: string | null): number | null => {
-  if (!date) return null
-  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
-}
-
 const buildHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
   const make = (key: string, label: string, value: number | null, unit: string, inverted: boolean): HealthSignal => {
     if (value === null) return { key, label, value, unit, status: 'empty', reden: 'Nog niet gemeten', inverted }
@@ -96,23 +91,23 @@ const HEALTH = {
   red:   {
     bg:     'rgba(var(--color-red-rgb, 220,38,38), 0.07)',
     border: 'rgba(var(--color-red-rgb, 220,38,38), 0.18)',
-    dot:    'var(--color-red, #dc2626)',
-    text:   'var(--color-red-text, #f87171)',
-    dim:    'var(--color-red-dim, #7f1d1d)',
+    dot:    'var(--color-red, var(--red-danger))',
+    text:   'var(--color-red-text, var(--red-text))',
+    dim:    'var(--color-red-dim, var(--red-dim))',
   },
   amber: {
     bg:     'rgba(var(--color-amber-rgb, 217,119,6), 0.07)',
     border: 'rgba(var(--color-amber-rgb, 217,119,6), 0.18)',
-    dot:    'var(--color-amber, #d97706)',
-    text:   'var(--color-amber-text, #fbbf24)',
-    dim:    'var(--color-amber-dim, #78350f)',
+    dot:    'var(--color-amber, var(--amber))',
+    text:   'var(--color-amber-text, var(--amber-text))',
+    dim:    'var(--color-amber-dim, var(--amber-dim))',
   },
   green: {
     bg:     'rgba(var(--color-success-rgb, 22,163,74), 0.07)',
     border: 'rgba(var(--color-success-rgb, 22,163,74), 0.18)',
-    dot:    'var(--color-success, #16a34a)',
-    text:   'var(--color-success-text, #4ade80)',
-    dim:    'var(--color-success-dim, #14532d)',
+    dot:    'var(--color-success, var(--green-signal))',
+    text:   'var(--color-success-text, var(--green-signal-text))',
+    dim:    'var(--color-success-dim, var(--green-signal-dim))',
   },
   empty: {
     bg:     'var(--bg-surface)',
@@ -127,8 +122,8 @@ const scoreColor = (score: number | null, inverted = false): string => {
   if (score === null) return 'var(--border-strong)'
   const bad = inverted ? score > 7 : score < 6
   const ok  = inverted ? score <= 5 : score > 7
-  if (bad) return 'var(--color-red, #ef4444)'
-  if (ok)  return 'var(--color-success, #22c55e)'
+  if (bad) return 'var(--color-red, var(--red))'
+  if (ok)  return 'var(--color-success, var(--green-signal-bright))'
   return 'var(--text-muted)'
 }
 
@@ -212,7 +207,8 @@ export default function LedenDetail() {
 
   const latestEval = evaluaties[0] ?? null
   const healthSignals = buildHealthSignals(latestEval)
-  const lastContactDays = daysSince(contacten[0]?.datum ?? null)
+  const lastContactDatum = getLatestContactDatum(contacten[0]?.datum, latestEval?.datum)
+  const lastContactDays = daysSince(lastContactDatum)
 
   if (loading) return (
     <div style={{
@@ -365,8 +361,8 @@ export default function LedenDetail() {
           white-space: nowrap;
           touch-action: manipulation;
         }
-        .ld-btn-primary:hover    { background: #95B400; box-shadow: var(--shadow-green); }
-        .ld-btn-primary:active   { background: #8aaa00; transform: scale(0.97); }
+        .ld-btn-primary:hover    { background: var(--wave-green-hover); box-shadow: var(--shadow-green); }
+        .ld-btn-primary:active   { background: var(--wave-green-active); transform: scale(0.97); }
         .ld-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
         /* ─── Body ──────────────────────────────────────────────────── */
@@ -427,8 +423,8 @@ export default function LedenDetail() {
           letter-spacing: 0.07em;
           text-transform: uppercase;
         }
-        .ld-meta-tag-warn  { color: var(--color-amber, #d97706); border-color: rgba(217,119,6,0.25); }
-        .ld-meta-tag-alert { color: var(--color-red, #dc2626);   border-color: rgba(220,38,38,0.25); }
+        .ld-meta-tag-warn  { color: var(--color-amber, var(--amber)); border-color: rgba(217,119,6,0.25); }
+        .ld-meta-tag-alert { color: var(--color-red, var(--red-danger));   border-color: rgba(220,38,38,0.25); }
 
         .ld-identity-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
         .ld-contact-link {
@@ -756,12 +752,12 @@ export default function LedenDetail() {
         }
         .ld-done-btn:hover {
           border-color: rgba(22,163,74,0.4);
-          color: var(--color-success, #16a34a);
+          color: var(--color-success, var(--green-signal));
           background: rgba(22,163,74,0.06);
         }
         .ld-done-btn:active {
           border-color: rgba(22,163,74,0.6);
-          color: var(--color-success, #16a34a);
+          color: var(--color-success, var(--green-signal));
           background: rgba(22,163,74,0.12);
           transform: scale(0.93);
         }
@@ -1043,7 +1039,7 @@ export default function LedenDetail() {
                             className="ld-actie-row"
                             style={{
                               borderLeftColor: isOverdue
-                                ? 'var(--color-red, #dc2626)'
+                                ? 'var(--color-red, var(--red-danger))'
                                 : 'rgba(22,163,74,0.3)',
                             }}
                           >
@@ -1052,7 +1048,7 @@ export default function LedenDetail() {
                               <div className="ld-actie-meta">
                                 {formatDate(actie.aangemaakt)}
                                 {actie.deadline && (
-                                  <span style={{ color: isOverdue ? 'var(--color-red, #dc2626)' : 'var(--border-strong)' }}>
+                                  <span style={{ color: isOverdue ? 'var(--color-red, var(--red-danger))' : 'var(--border-strong)' }}>
                                     {' '}· deadline {formatDate(actie.deadline)}
                                   </span>
                                 )}

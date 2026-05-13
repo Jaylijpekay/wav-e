@@ -149,7 +149,7 @@ export default function LoginPage() {
 
         .login-error {
           font-size: 12px;
-          color: #f87171;
+          color: var(--red-text);
           background: rgba(248,113,113,0.08);
           border: 1px solid rgba(248,113,113,0.2);
           border-radius: 6px;
@@ -158,7 +158,7 @@ export default function LoginPage() {
 
         .login-button {
           background: var(--wave-green);
-          color: #000;
+          color: var(--color-black);
           border: none;
           border-radius: 8px;
           padding: 12px;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 
 type Lid = {
   id: string
@@ -25,6 +26,8 @@ type Actie = {
   achternaam: string
   omschrijving: string
   aangemaakt: string
+  deadline: string | null
+  status: 'open' | 'afgerond' | 'overdue'
   is_management: boolean
 }
 
@@ -40,51 +43,70 @@ type Trainer = {
   naam: string
 }
 
-type Signal = {
-  label: string
-  reden: string
+const toUiStoplight = (stoplight: ReturnType<typeof getStoplight>): 'red' | 'amber' | 'green' => {
+  if (stoplight === 'rood') return 'red'
+  if (stoplight === 'oranje') return 'amber'
+  return 'green'
 }
 
-const daysSince = (date: string | null): number | null => {
-  if (!date) return null
-  return Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
-}
-
-const getSignals = (lid: Lid): Signal[] => {
-  const signals: Signal[] = []
-  const dagsSindsContact = daysSince(lid.laatste_contact)
-  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
-  if (dagsSindsContact === null || dagsSindsContact > 14)
-    signals.push({ label: 'Geen contact', reden: dagsSindsContact === null ? 'Nog nooit' : `${dagsSindsContact} dagen geleden` })
-  if (dagsSindsEval === null || dagsSindsEval > 42)
-    signals.push({ label: 'Geen evaluatie', reden: dagsSindsEval === null ? 'Nog nooit' : `${dagsSindsEval} dagen geleden` })
-  if (lid.open_acties > 0)
-    signals.push({ label: 'Open acties', reden: `${lid.open_acties} actie${lid.open_acties > 1 ? 's' : ''}` })
-  if (lid.slaap !== null && lid.slaap < 6)
-    signals.push({ label: 'Slaap rood', reden: `Score ${lid.slaap}/10` })
-  if (lid.energie !== null && lid.energie < 6)
-    signals.push({ label: 'Energie rood', reden: `Score ${lid.energie}/10` })
-  if (lid.stress !== null && lid.stress > 7)
-    signals.push({ label: 'Stress rood', reden: `Score ${lid.stress}/10` })
-  return signals
-}
-
-const getStoplight = (lid: Lid): 'red' | 'amber' | 'green' => {
-  const signals = getSignals(lid)
-  if (signals.length === 0) return 'green'
-  const dagsSindsEval = daysSince(lid.laatste_evaluatie)
-  const hasRedLifestyle =
-    (lid.slaap !== null && lid.slaap < 6) ||
-    (lid.energie !== null && lid.energie < 6) ||
-    (lid.stress !== null && lid.stress > 7)
-  if (dagsSindsEval === null || dagsSindsEval > 42 || hasRedLifestyle) return 'red'
-  return 'amber'
-}
+const getLidStoplight = (lid: Lid): 'red' | 'amber' | 'green' =>
+  toUiStoplight(getStoplight(daysSince(getLatestContactDatum(lid.laatste_contact, lid.laatste_evaluatie))))
 
 const STOPLIGHT = {
-  red:   { dot: '#dc2626', bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.2)',   text: '#f87171' },
-  amber: { dot: '#d97706', bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.2)',   text: '#fbbf24' },
-  green: { dot: '#16a34a', bg: 'rgba(22,163,74,0.08)',   border: 'rgba(22,163,74,0.2)',   text: '#4ade80' },
+  red:   { dot: 'var(--red-danger)', bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.2)',   text: 'var(--red-text)' },
+  amber: { dot: 'var(--amber)', bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.2)',   text: 'var(--amber-text)' },
+  green: { dot: 'var(--green-signal)', bg: 'rgba(22,163,74,0.08)',   border: 'rgba(22,163,74,0.2)',   text: 'var(--green-signal-text)' },
+}
+
+const DUTCH_MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
+
+const todayIsoDate = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const addDaysIsoDate = (isoDate: string, days: number) => {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const date = new Date(year, month - 1, day + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+const getIsoDatePart = (iso: string | null) => iso?.slice(0, 10) ?? null
+
+const formatDeadlineDate = (iso: string) => {
+  const [year, month, day] = iso.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return null
+  return `${String(day).padStart(2, '0')} ${DUTCH_MONTHS[month - 1]}`
+}
+
+const isActieOverdue = (actie: Actie, today = todayIsoDate()) => {
+  const deadline = getIsoDatePart(actie.deadline)
+  return actie.status === 'open' && deadline !== null && deadline < today
+}
+
+const getActieDeadlineLabel = (actie: Actie, today = todayIsoDate()) => {
+  if (actie.status === 'afgerond') return null
+  const deadline = getIsoDatePart(actie.deadline)
+  if (!deadline) return null
+  if (actie.status === 'open' && deadline < today) return { text: 'Verlopen', tone: 'overdue' as const }
+  if (deadline === today) return { text: 'Vandaag', tone: 'today' as const }
+  const formatted = formatDeadlineDate(deadline)
+  return formatted ? { text: `Deadline: ${formatted}`, tone: 'neutral' as const } : null
+}
+
+const getLidActieSortTier = (acties: Actie[], today = todayIsoDate()) => {
+  const nextWeek = addDaysIsoDate(today, 7)
+  const openActies = acties.filter(a => a.status === 'open')
+  if (openActies.some(a => isActieOverdue(a, today))) return 0
+  if (openActies.some(a => {
+    const deadline = getIsoDatePart(a.deadline)
+    return deadline !== null && deadline >= today && deadline <= nextWeek
+  })) return 1
+  if (openActies.length > 0) return 2
+  return 3
 }
 
 // ── Add Lid Modal (trainer version) ───────────────────────────────────
@@ -152,11 +174,11 @@ function AddLidModal({
   }
 
   const inputStyle: React.CSSProperties = {
-    background: '#1a1a1a',
-    border: '1px solid #2a2a2a',
+    background: 'var(--surface-pressed)',
+    border: '1px solid var(--border-muted-dark)',
     borderRadius: 3,
     padding: '10px 12px',
-    color: '#c8c6c0',
+    color: 'var(--text-warm)',
     fontSize: '0.88rem',
     width: '100%',
     boxSizing: 'border-box',
@@ -166,7 +188,7 @@ function AddLidModal({
 
   const labelStyle: React.CSSProperties = {
     fontSize: '0.65rem',
-    color: '#3a3a3a',
+    color: 'var(--text-faint)',
     textTransform: 'uppercase',
     letterSpacing: '0.1em',
     fontWeight: 600,
@@ -177,15 +199,15 @@ function AddLidModal({
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 6, padding: '28px', width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ background: 'var(--surface-dark)', border: '1px solid var(--border-muted-dark)', borderRadius: 6, padding: '28px', width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         <div>
-          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#c8c6c0' }}>Nieuw lid toevoegen</div>
-          <div style={{ fontSize: '0.72rem', color: '#3a3a3a', marginTop: 4, letterSpacing: '0.05em' }}>Dit lid wordt aan jou gekoppeld</div>
+          <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-warm)' }}>Nieuw lid toevoegen</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-faint)', marginTop: 4, letterSpacing: '0.05em' }}>Dit lid wordt aan jou gekoppeld</div>
         </div>
 
         {loadingId ? (
-          <div style={{ color: '#3a3a3a', fontSize: '0.85rem', padding: '20px 0', textAlign: 'center' }}>Laden…</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: '0.85rem', padding: '20px 0', textAlign: 'center' }}>Laden…</div>
         ) : (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -222,7 +244,7 @@ function AddLidModal({
             </div>
 
             {error && (
-              <div style={{ fontSize: '0.8rem', color: '#f87171', padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 3 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--red-text)', padding: '10px 14px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 3 }}>
                 {error}
               </div>
             )}
@@ -293,8 +315,8 @@ export default function TrainerDashboard() {
       ] = await Promise.all([
         supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
         supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
-        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
-        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt').eq('trainer_id', trainerId as string).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
+        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
+        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').eq('trainer_id', trainerId as string).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
       ])
 
       const openActiesPerLid: Record<string, number> = {}
@@ -303,9 +325,10 @@ export default function TrainerDashboard() {
       const enrichedLeden: Lid[] = ledenData.map(l => {
         const lastContact = contacten?.find(c => c.lid_id === l.id)
         const lastEval = evaluaties?.find(e => e.lid_id === l.id)
+        const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
         return {
           id: l.id, lid_id: l.lid_id, voornaam: l.voornaam, achternaam: l.achternaam,
-          laatste_contact: lastContact?.datum ?? null,
+          laatste_contact: lastContactDatum,
           laatste_evaluatie: lastEval?.datum ?? null,
           slaap: lastEval?.slaap ?? null,
           energie: lastEval?.energie ?? null,
@@ -322,6 +345,7 @@ export default function TrainerDashboard() {
           id: a.id, lid_uuid: a.lid_id, lid_id: lid?.lid_id ?? '—',
           voornaam: lid?.voornaam ?? '—', achternaam: lid?.achternaam ?? '',
           omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+          deadline: a.deadline ?? null, status: a.status,
           is_management: false,
         }
       })
@@ -330,6 +354,7 @@ export default function TrainerDashboard() {
         id: a.id, lid_uuid: null, lid_id: '',
         voornaam: 'Management', achternaam: '',
         omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
+        deadline: a.deadline ?? null, status: a.status,
         is_management: true,
       }))
 
@@ -359,12 +384,12 @@ export default function TrainerDashboard() {
   }
 
   const counts = {
-    red:   leden.filter(l => getStoplight(l) === 'red').length,
-    amber: leden.filter(l => getStoplight(l) === 'amber').length,
-    green: leden.filter(l => getStoplight(l) === 'green').length,
+    red:   leden.filter(l => getLidStoplight(l) === 'red').length,
+    amber: leden.filter(l => getLidStoplight(l) === 'amber').length,
+    green: leden.filter(l => getLidStoplight(l) === 'green').length,
   }
 
-  const ledenByStoplight = (sig: 'red' | 'amber' | 'green') => leden.filter(l => getStoplight(l) === sig)
+  const ledenByStoplight = (sig: 'red' | 'amber' | 'green') => leden.filter(l => getLidStoplight(l) === sig)
 
   return (
     <>
@@ -376,8 +401,8 @@ export default function TrainerDashboard() {
         .td-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #111;
-          color: #c8c6c0;
+          background: var(--color-black-soft);
+          color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           position: relative;
           -webkit-tap-highlight-color: transparent;
@@ -427,8 +452,8 @@ export default function TrainerDashboard() {
           text-decoration: none;
           flex-shrink: 0;
         }
-        .td-wordmark-wav { font-size: 1.1rem; font-weight: 700; color: #5A5A5A; letter-spacing: -0.01em; }
-        .td-wordmark-e   { font-size: 1.1rem; font-weight: 700; color: #A8C800; letter-spacing: -0.01em; }
+        .td-wordmark-wav { font-size: 1.1rem; font-weight: 700; color: var(--text-low); letter-spacing: -0.01em; }
+        .td-wordmark-e   { font-size: 1.1rem; font-weight: 700; color: var(--wave-green); letter-spacing: -0.01em; }
 
         .td-header-right {
           display: flex;
@@ -440,7 +465,7 @@ export default function TrainerDashboard() {
         .td-trainer-name {
           font-size: 0.72rem;
           font-weight: 500;
-          color: #3a3a3a;
+          color: var(--text-faint);
           letter-spacing: 0.06em;
           text-transform: uppercase;
           margin-right: 2px;
@@ -457,9 +482,9 @@ export default function TrainerDashboard() {
           padding: 10px 16px;
           min-height: 44px;
           border-radius: 3px;
-          border: 1px solid #2a2a2a;
+          border: 1px solid var(--border-muted-dark);
           background: transparent;
-          color: #666;
+          color: var(--text-mid);
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s, background 0.15s;
           white-space: nowrap;
@@ -467,12 +492,12 @@ export default function TrainerDashboard() {
         }
         .td-btn-secondary:hover {
           border-color: rgba(168,200,0,0.4);
-          color: #A8C800;
+          color: var(--wave-green);
           background: rgba(168,200,0,0.06);
         }
         .td-btn-secondary:active {
           border-color: rgba(168,200,0,0.5);
-          color: #A8C800;
+          color: var(--wave-green);
           background: rgba(168,200,0,0.08);
         }
 
@@ -485,20 +510,20 @@ export default function TrainerDashboard() {
           padding: 10px 16px;
           min-height: 44px;
           border-radius: 3px;
-          border: 1px solid #A8C800;
-          background: #A8C800;
-          color: #111;
+          border: 1px solid var(--wave-green);
+          background: var(--wave-green);
+          color: var(--color-black-soft);
           cursor: pointer;
           transition: background 0.15s, box-shadow 0.15s;
           white-space: nowrap;
           touch-action: manipulation;
         }
         .td-btn-primary:hover {
-          background: #95B400;
+          background: var(--wave-green-hover);
           box-shadow: 0 4px 14px rgba(168,200,0,0.3);
         }
         .td-btn-primary:active {
-          background: #8aaa00;
+          background: var(--wave-green-active);
           transform: scale(0.97);
         }
 
@@ -507,8 +532,8 @@ export default function TrainerDashboard() {
           position: absolute;
           top: calc(100% + 8px);
           right: 0;
-          background: #161616;
-          border: 1px solid #2a2a2a;
+          background: var(--surface-dark);
+          border: 1px solid var(--border-muted-dark);
           border-radius: 4px;
           min-width: 240px;
           z-index: 200;
@@ -528,7 +553,7 @@ export default function TrainerDashboard() {
           justify-content: space-between;
           padding: 14px 16px;
           cursor: pointer;
-          border-bottom: 1px solid #1e1e1e;
+          border-bottom: 1px solid var(--bg-base);
           transition: background 0.1s;
           min-height: 48px;
         }
@@ -536,9 +561,9 @@ export default function TrainerDashboard() {
         .td-dropdown-item:hover  { background: rgba(168,200,0,0.06); }
         .td-dropdown-item:active { background: rgba(168,200,0,0.10); }
 
-        .td-dropdown-name  { font-size: 0.88rem; color: #c8c6c0; font-weight: 500; }
-        .td-dropdown-meta  { font-size: 0.72rem; color: #3a3a3a; letter-spacing: 0.05em; }
-        .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: #3a3a3a; text-align: center; }
+        .td-dropdown-name  { font-size: 0.88rem; color: var(--text-warm); font-weight: 500; }
+        .td-dropdown-meta  { font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.05em; }
+        .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: var(--text-faint); text-align: center; }
 
         /* ── Body ── */
         .td-body {
@@ -575,8 +600,8 @@ export default function TrainerDashboard() {
           border-radius: 3px;
           font-family: 'Raleway', sans-serif;
           transition: all 0.2s ease;
-          border: 1px solid #1e1e1e;
-          background: #141414;
+          border: 1px solid var(--bg-base);
+          background: var(--surface-deep);
           touch-action: manipulation;
         }
 
@@ -599,7 +624,7 @@ export default function TrainerDashboard() {
 
         .td-summary-label {
           font-size: 0.7rem;
-          color: #3a3a3a;
+          color: var(--text-faint);
           letter-spacing: 0.06em;
           text-transform: uppercase;
           font-weight: 500;
@@ -607,7 +632,7 @@ export default function TrainerDashboard() {
 
         .td-summary-chevron {
           font-size: 0.6rem;
-          color: #2a2a2a;
+          color: var(--border-muted-dark);
           margin-left: 2px;
         }
 
@@ -624,8 +649,8 @@ export default function TrainerDashboard() {
           position: absolute;
           top: calc(100% + 6px);
           left: 0;
-          background: #161616;
-          border: 1px solid #2a2a2a;
+          background: var(--surface-dark);
+          border: 1px solid var(--border-muted-dark);
           border-radius: 4px;
           min-width: 220px;
           z-index: 200;
@@ -648,13 +673,13 @@ export default function TrainerDashboard() {
           font-weight: 600;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: #3a3a3a;
+          color: var(--text-faint);
         }
 
         .td-section-count {
           font-size: 0.65rem;
-          color: #2a2a2a;
-          background: #1a1a1a;
+          color: var(--border-muted-dark);
+          background: var(--surface-pressed);
           padding: 2px 7px;
           border-radius: 2px;
           font-weight: 600;
@@ -665,7 +690,7 @@ export default function TrainerDashboard() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          border: 1px solid #1e1e1e;
+          border: 1px solid var(--bg-base);
           border-radius: 3px;
           overflow: hidden;
           animation: fadeUp 0.4s ease-out 0.15s both;
@@ -677,25 +702,36 @@ export default function TrainerDashboard() {
           gap: 1.5rem;
           padding: 18px 20px;
           min-height: 56px;
-          background: #141414;
+          background: var(--surface-deep);
           border-left: 3px solid transparent;
           cursor: pointer;
           transition: background 0.15s;
           touch-action: manipulation;
         }
 
-        .td-row:active:not(.no-nav) { background: #1a1a1a; }
+        .td-row:active:not(.no-nav) { background: var(--surface-pressed); }
         .td-row.no-nav { cursor: default; }
+        .td-row.overdue { border-left-color: var(--color-stoplight-rood); }
 
-        .td-row-actie { flex: 1; font-size: 0.85rem; color: #555; line-height: 1.4; }
+        .td-row-actie { flex: 1; font-size: 0.85rem; color: var(--text-dim); line-height: 1.4; }
         .td-row-dagen { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
+        .td-row-deadline {
+          margin-top: 5px;
+          font-size: 0.62rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .td-row-deadline.neutral { color: var(--text-faint); }
+        .td-row-deadline.today { color: var(--amber-text); }
+        .td-row-deadline.overdue { color: var(--color-stoplight-rood); }
 
         .td-mgmt-badge {
           font-size: 0.58rem;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #818cf8;
+          color: var(--color-accent-text);
           background: rgba(99,102,241,0.1);
           border: 1px solid rgba(99,102,241,0.2);
           border-radius: 2px;
@@ -705,7 +741,7 @@ export default function TrainerDashboard() {
         }
 
         .td-empty {
-          color: #2a2a2a;
+          color: var(--border-muted-dark);
           font-size: 0.85rem;
           padding: 4rem 0;
           text-align: center;
@@ -715,8 +751,8 @@ export default function TrainerDashboard() {
         /* ── Group header rows ── */
         .td-group-header {
           padding: 10px 20px 8px;
-          background: #111;
-          border-bottom: 1px solid #1e1e1e;
+          background: var(--color-black-soft);
+          border-bottom: 1px solid var(--bg-base);
           display: flex;
           align-items: center;
           gap: 8px;
@@ -724,7 +760,7 @@ export default function TrainerDashboard() {
           min-height: 44px;
           touch-action: manipulation;
         }
-        .td-group-header:active { background: #161616; }
+        .td-group-header:active { background: var(--surface-dark); }
         .td-group-header.no-nav { cursor: default; }
 
         /* ── Tablet breakpoint ── */
@@ -852,8 +888,8 @@ export default function TrainerDashboard() {
                     <button
                       className={`td-summary-card${isClickable ? ' clickable' : ''}`}
                       style={{
-                        background: isOpen ? col.bg : '#141414',
-                        borderColor: isOpen ? col.border : '#1e1e1e',
+                        background: isOpen ? col.bg : 'var(--surface-deep)',
+                        borderColor: isOpen ? col.border : 'var(--bg-base)',
                         cursor: isClickable ? 'pointer' : 'default',
                       }}
                       onClick={() => isClickable && setOpenStoplight(isOpen ? null : sig)}
@@ -895,8 +931,8 @@ export default function TrainerDashboard() {
                     <button
                       className={`td-summary-card${isClickable ? ' clickable' : ''}`}
                       style={{
-                        background: isOpen ? col.bg : '#141414',
-                        borderColor: isOpen ? col.border : '#1e1e1e',
+                        background: isOpen ? col.bg : 'var(--surface-deep)',
+                        borderColor: isOpen ? col.border : 'var(--bg-base)',
                         cursor: isClickable ? 'pointer' : 'default',
                       }}
                       onClick={() => isClickable && setOpenStoplight(isOpen ? null : 'green')}
@@ -927,7 +963,7 @@ export default function TrainerDashboard() {
               })()}
 
               <div className="td-summary-total">
-                <span className="td-summary-count" style={{ color: '#3a3a3a' }}>{leden.length}</span>
+                <span className="td-summary-count" style={{ color: 'var(--text-faint)' }}>{leden.length}</span>
                 <span className="td-summary-label">Actieve leden</span>
               </div>
             </div>
@@ -947,14 +983,6 @@ export default function TrainerDashboard() {
             const mgmt   = acties.filter(a => a.is_management)
             const member = acties.filter(a => !a.is_management)
 
-            const lidOrder = leden
-              .slice()
-              .sort((a, b) => {
-                const order = { red: 0, amber: 1, green: 2 }
-                return order[getStoplight(a)] - order[getStoplight(b)]
-              })
-              .map(l => l.id)
-
             const groups: Record<string, Actie[]> = {}
             for (const a of member) {
               if (!a.lid_uuid) continue
@@ -962,9 +990,17 @@ export default function TrainerDashboard() {
               groups[a.lid_uuid].push(a)
             }
 
-            const sortedLidIds = Object.keys(groups).sort(
-              (a, b) => lidOrder.indexOf(a) - lidOrder.indexOf(b)
-            )
+            const today = todayIsoDate()
+            const sortedLidIds = Object.keys(groups).sort((a, b) => {
+              const tierDiff = getLidActieSortTier(groups[a], today) - getLidActieSortTier(groups[b], today)
+              if (tierDiff !== 0) return tierDiff
+
+              const lidA = leden.find(l => l.id === a)
+              const lidB = leden.find(l => l.id === b)
+              const nameA = `${lidA?.voornaam ?? ''} ${lidA?.achternaam ?? ''}`.trim()
+              const nameB = `${lidB?.voornaam ?? ''} ${lidB?.achternaam ?? ''}`.trim()
+              return nameA.localeCompare(nameB, 'nl', { sensitivity: 'base' })
+            })
 
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -973,17 +1009,28 @@ export default function TrainerDashboard() {
                 {mgmt.length > 0 && (
                   <div className="td-list">
                     <div className="td-group-header no-nav">
-                      <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#818cf8' }}>Management</span>
-                      <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{mgmt.length}</span>
+                      <span style={{ width: 3, height: 12, background: 'var(--color-accent)', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-accent-text)' }}>Management</span>
+                      <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{mgmt.length}</span>
                     </div>
                     {mgmt.map(actie => {
                       const dagen = daysSince(actie.aangemaakt)
                       const isOud = dagen !== null && dagen > 7
+                      const deadlineLabel = getActieDeadlineLabel(actie, today)
+                      const overdue = isActieOverdue(actie, today)
                       return (
-                        <div key={actie.id} className="td-row no-nav" style={{ borderLeftColor: '#6366f1' }}>
-                          <div className="td-row-actie" style={{ color: '#888' }}>{actie.omschrijving}</div>
-                          <div className="td-row-dagen" style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}>
+                        <div
+                          key={actie.id}
+                          className={`td-row no-nav${overdue ? ' overdue' : ''}`}
+                          style={{ borderLeftColor: overdue ? 'var(--color-stoplight-rood)' : 'var(--color-accent)' }}
+                        >
+                          <div className="td-row-actie" style={{ color: 'var(--wave-gray)' }}>
+                            {actie.omschrijving}
+                            {deadlineLabel && (
+                              <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
+                            )}
+                          </div>
+                          <div className="td-row-dagen" style={{ color: isOud ? 'var(--red-danger)' : 'var(--text-faint)' }}>
                             {dagen === null ? '—' : `${dagen}d`}
                           </div>
                         </div>
@@ -996,7 +1043,7 @@ export default function TrainerDashboard() {
                 {sortedLidIds.map(lidUuid => {
                   const lidActies = groups[lidUuid]
                   const lid = leden.find(l => l.id === lidUuid)
-                  const sig = lid ? getStoplight(lid) : 'green'
+                  const sig = lid ? getLidStoplight(lid) : 'green'
                   const col = STOPLIGHT[sig]
 
                   return (
@@ -1009,8 +1056,8 @@ export default function TrainerDashboard() {
                         <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: col.text }}>
                           {lid ? `${lid.voornaam} ${lid.achternaam}` : '—'}
                         </span>
-                        <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 2 }}>{lidActies.length}</span>
-                        <span style={{ fontSize: '0.6rem', color: '#2a2a2a', marginLeft: 'auto', letterSpacing: '0.06em' }}>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{lidActies.length}</span>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 'auto', letterSpacing: '0.06em' }}>
                           {lid?.lid_id}
                         </span>
                       </div>
@@ -1018,15 +1065,22 @@ export default function TrainerDashboard() {
                       {lidActies.map(actie => {
                         const dagen = daysSince(actie.aangemaakt)
                         const isOud = dagen !== null && dagen > 7
+                        const deadlineLabel = getActieDeadlineLabel(actie, today)
+                        const overdue = isActieOverdue(actie, today)
                         return (
                           <div
                             key={actie.id}
-                            className="td-row"
-                            style={{ borderLeftColor: col.dot }}
+                            className={`td-row${overdue ? ' overdue' : ''}`}
+                            style={{ borderLeftColor: overdue ? 'var(--color-stoplight-rood)' : col.dot }}
                             onClick={() => router.push(`/leden/${lidUuid}`)}
                           >
-                            <div className="td-row-actie">{actie.omschrijving}</div>
-                            <div className="td-row-dagen" style={{ color: isOud ? '#dc2626' : '#3a3a3a' }}>
+                            <div className="td-row-actie">
+                              {actie.omschrijving}
+                              {deadlineLabel && (
+                                <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
+                              )}
+                            </div>
+                            <div className="td-row-dagen" style={{ color: isOud ? 'var(--red-danger)' : 'var(--text-faint)' }}>
                               {dagen === null ? '—' : `${dagen}d`}
                             </div>
                           </div>
