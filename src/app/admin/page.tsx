@@ -17,6 +17,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 
 // ============================================================
 // TYPES
@@ -237,32 +238,38 @@ function ConsolePanel() {
   const [loading,   setLoading]   = useState(true)
   const [formOpen,  setFormOpen]  = useState(false)
   const [newNaam,   setNewNaam]   = useState('')
+  const [newToken,  setNewToken]  = useState<string | null>(null)
   const [saving,    setSaving]    = useState(false)
   const [copiedId,  setCopiedId]  = useState<string | null>(null)
 
-  const loadTokens = useCallback(async () => {
+  const loadTokens = useCallback(async (): Promise<ConsoleToken[]> => {
     const res = await fetch('/api/admin/console-tokens')
-    if (!res.ok) { setLoading(false); return }
+    if (!res.ok) { setLoading(false); return [] }
     const data = await res.json()
-    setTokens(data.tokens ?? [])
+    const loadedTokens = data.tokens ?? []
+    setTokens(loadedTokens)
     setLoading(false)
+    return loadedTokens
   }, [])
 
   useEffect(() => { loadTokens() }, [loadTokens])
 
   const createToken = async () => {
-    if (!newNaam.trim()) return
+    const naam = newNaam.trim()
+    if (!naam) return
     setSaving(true)
+    setNewToken(null)
     const res = await fetch('/api/admin/console-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ naam: newNaam.trim() }),
+      body: JSON.stringify({ naam }),
     })
     setSaving(false)
     if (!res.ok) return
+    const loadedTokens = await loadTokens()
+    const createdToken = loadedTokens.find(t => t.naam === naam && t.actief) ?? loadedTokens[0]
+    setNewToken(createdToken?.token ?? null)
     setNewNaam('')
-    setFormOpen(false)
-    loadTokens()
   }
 
   const revokeToken     = async (id: string) => { await fetch(`/api/admin/console-tokens?id=${id}`, { method: 'DELETE' }); loadTokens() }
@@ -274,6 +281,8 @@ function ConsolePanel() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const newConsoleUrl = newToken ? `https://wav-e.vercel.app/console?token=${newToken}` : ''
+
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: formOpen || tokens.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
@@ -282,7 +291,7 @@ function ConsolePanel() {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Apparaten met toegang zonder trainer-login</div>
         </div>
         <button
-          onClick={() => { setFormOpen(o => !o); setNewNaam('') }}
+          onClick={() => { setFormOpen(o => !o); setNewNaam(''); setNewToken(null) }}
           style={{ background: formOpen ? 'none' : 'var(--color-accent, var(--color-accent))', color: formOpen ? 'var(--text-muted)' : 'var(--color-white)', border: formOpen ? '1px solid var(--border-subtle)' : 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >
           {formOpen ? '× Annuleren' : '+ Nieuwe console'}
@@ -290,13 +299,14 @@ function ConsolePanel() {
       </div>
 
       {formOpen && (
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-raised)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={labelStyle}>Naam apparaat</label>
             <input
               type="text"
               value={newNaam}
-              onChange={e => setNewNaam(e.target.value)}
+              onChange={e => { setNewNaam(e.target.value); setNewToken(null) }}
               placeholder="bijv. iPad Studio Vloer"
               style={{ ...inputStyle, width: 'auto' }}
               onKeyDown={e => { if (e.key === 'Enter' && newNaam.trim()) createToken() }}
@@ -309,6 +319,20 @@ function ConsolePanel() {
           >
             {saving ? 'Aanmaken…' : 'Aanmaken'}
           </button>
+          </div>
+
+          {newToken && (
+            <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+              <div style={{ color: 'var(--text-muted)', marginBottom: 6 }}>Token aangemaakt:</div>
+              <code style={{ display: 'block', padding: '10px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, wordBreak: 'break-all' }}>
+                {newToken}
+              </code>
+              <p className="text-sm text-gray-500 mt-4 mb-2">Scan met tablet camera:</p>
+              <div style={{ display: 'inline-flex', padding: 12, background: 'var(--color-white)', borderRadius: 8 }}>
+                <QRCodeSVG value={newConsoleUrl} size={200} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -59,6 +59,12 @@ type Trainer = {
   naam: string
 }
 
+interface MomentumProps {
+  gesprekken: number
+  actiesAfgerond: number
+  // v0.2: sessiesGegeven will be added here when Onlineafspraken.nl integration lands
+}
+
 const toUiStoplight = (stoplight: ReturnType<typeof getStoplight>): 'red' | 'amber' | 'green' => {
   if (stoplight === 'rood') return 'red'
   if (stoplight === 'oranje') return 'amber'
@@ -134,6 +140,55 @@ const getLidActieSortTier = (acties: Actie[], today = todayIsoDate()) => {
   })) return 1
   if (openActies.length > 0) return 2
   return 3
+}
+
+const greeting = () => {
+  const h = new Date().getHours()
+  if (h < 12) return 'Goedemorgen'
+  if (h < 18) return 'Goedemiddag'
+  return 'Goedenavond'
+}
+
+function MomentumStrip({ gesprekken, actiesAfgerond }: MomentumProps) {
+  const [dispGesprekken, setDispGesprekken] = useState(0)
+  const [dispActies, setDispActies] = useState(0)
+
+  useEffect(() => {
+    if (gesprekken === 0 && actiesAfgerond === 0) return
+    const duration = 800
+    const steps = 40
+    const interval = duration / steps
+    let step = 0
+    const timer = setInterval(() => {
+      step++
+      const t = step / steps
+      const eased = 1 - Math.pow(1 - t, 3)
+      setDispGesprekken(Math.round(eased * gesprekken))
+      setDispActies(Math.round(eased * actiesAfgerond))
+      if (step >= steps) clearInterval(timer)
+    }, interval)
+    return () => clearInterval(timer)
+  }, [gesprekken, actiesAfgerond])
+
+  const maand = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][new Date().getMonth()]
+
+  return (
+    <div className="td-momentum">
+      <div className="td-momentum-label">Deze maand · {maand}</div>
+      <div className="td-momentum-counters">
+        <div className="td-momentum-item">
+          <span className="td-momentum-number">{dispGesprekken}</span>
+          <span className="td-momentum-sublabel">Gesprekken</span>
+        </div>
+        <div className="td-momentum-divider" />
+        <div className="td-momentum-item">
+          <span className="td-momentum-number">{dispActies}</span>
+          <span className="td-momentum-sublabel">Acties afgerond</span>
+        </div>
+        {/* v0.2 slot: sessiesGegeven counter goes here */}
+      </div>
+    </div>
+  )
 }
 
 // ── Add Lid Modal (trainer version) ───────────────────────────────────
@@ -314,6 +369,7 @@ export default function TrainerDashboard() {
   const [openStoplight, setOpenStoplight] = useState<'red' | 'amber' | 'green' | null>(null)
   const [showAddLid, setShowAddLid] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [momentum, setMomentum] = useState<MomentumProps>({ gesprekken: 0, actiesAfgerond: 0 })
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplichtRef = useRef<HTMLDivElement>(null)
@@ -329,22 +385,36 @@ export default function TrainerDashboard() {
         .from('leden').select('id, lid_id, voornaam, achternaam')
         .eq('trainer_id', trainerId).eq('actief', true).order('voornaam')
 
-      if (!ledenData || ledenData.length === 0) { setLoading(false); return }
+      if (!ledenData || ledenData.length === 0) { setMomentum({ gesprekken: 0, actiesAfgerond: 0 }); setLoading(false); return }
       setLedenDropdown(ledenData)
 
       const lidIds = ledenData.map(l => l.id)
+      const now = new Date()
+      const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+      const today = todayIsoDate()
 
       const [
         { data: contacten },
         { data: evaluaties },
         { data: actiesData },
         { data: trainerActies },
+        { data: evalsMaand },
+        { data: actiesAfgerondData },
       ] = await Promise.all([
         supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
         supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
         supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
         supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').eq('trainer_id', trainerId as string).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
+        // Momentum: gesprekken (evaluaties) deze maand
+        supabase.from('evaluaties').select('id').in('lid_id', lidIds).gte('datum', firstOfMonth).lte('datum', today),
+        // Momentum: acties afgerond deze maand
+        supabase.from('acties').select('id').in('lid_id', lidIds).eq('status', 'afgerond').gte('afgerond_op', firstOfMonth),
       ])
+
+      setMomentum({
+        gesprekken: evalsMaand?.length ?? 0,
+        actiesAfgerond: actiesAfgerondData?.length ?? 0,
+      })
 
       const openActiesPerLid: Record<string, number> = {}
       for (const a of actiesData ?? []) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
@@ -428,7 +498,7 @@ export default function TrainerDashboard() {
         .td-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: var(--color-black-soft);
+          background: #1a1c18;
           color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           position: relative;
@@ -437,12 +507,10 @@ export default function TrainerDashboard() {
 
         .td-root::before {
           content: '';
-          position: fixed;
-          top: -20%;
-          right: -10%;
-          width: 55%;
-          height: 55%;
-          background: radial-gradient(ellipse, rgba(168,200,0,0.05) 0%, transparent 70%);
+          position: fixed; inset: 0;
+          background:
+            radial-gradient(ellipse 70% 50% at 90% -10%, rgba(168,200,0,0.07) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 40% at 10% 90%, rgba(168,200,0,0.03) 0%, transparent 60%);
           pointer-events: none;
           z-index: 0;
         }
@@ -601,6 +669,66 @@ export default function TrainerDashboard() {
           z-index: 1;
         }
 
+        .td-greeting {
+          margin-bottom: 2rem;
+          animation: fadeUp 0.5s ease-out both;
+        }
+
+        .td-greeting-text {
+          font-size: 1.55rem; font-weight: 700; color: var(--text-warm);
+          letter-spacing: -0.01em; line-height: 1.2;
+        }
+
+        .td-greeting-sub {
+          font-size: 0.72rem; color: var(--text-faint);
+          letter-spacing: 0.08em; margin-top: 4px; text-transform: uppercase;
+        }
+
+        .td-momentum {
+          margin-bottom: 2rem;
+          padding: 20px 24px;
+          border-radius: 4px;
+          border: 1px solid rgba(168,200,0,0.18);
+          background: rgba(168,200,0,0.05);
+          animation: fadeUp 0.5s ease-out 0.08s both;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .td-momentum::before {
+          content: '';
+          position: absolute; top: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(168,200,0,0.5), transparent);
+        }
+
+        .td-momentum-label {
+          font-size: 0.6rem; font-weight: 700; letter-spacing: 0.14em;
+          text-transform: uppercase; color: var(--wave-green); margin-bottom: 12px; opacity: 0.7;
+        }
+
+        .td-momentum-counters {
+          display: flex; align-items: center;
+        }
+
+        .td-momentum-item {
+          display: flex; flex-direction: column; gap: 3px; flex: 1;
+        }
+
+        .td-momentum-number {
+          font-size: 2.4rem; font-weight: 700; letter-spacing: -0.03em;
+          line-height: 1; color: var(--wave-green); font-variant-numeric: tabular-nums;
+        }
+
+        .td-momentum-sublabel {
+          font-size: 0.68rem; color: var(--text-faint);
+          letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500;
+        }
+
+        .td-momentum-divider {
+          width: 1px; height: 48px;
+          background: rgba(168,200,0,0.15); margin: 0 28px; flex-shrink: 0;
+        }
+
         /* ── Stoplight bar ── */
         .td-summary-bar {
           display: flex;
@@ -608,7 +736,7 @@ export default function TrainerDashboard() {
           margin-bottom: 2rem;
           flex-wrap: wrap;
           align-items: flex-start;
-          animation: fadeUp 0.4s ease-out both;
+          animation: fadeUp 0.4s ease-out 0.14s both;
           position: relative;
           z-index: 10;
         }
@@ -627,8 +755,8 @@ export default function TrainerDashboard() {
           border-radius: 3px;
           font-family: 'Raleway', sans-serif;
           transition: all 0.2s ease;
-          border: 1px solid var(--bg-base);
-          background: var(--surface-deep);
+          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.03);
           touch-action: manipulation;
         }
 
@@ -692,7 +820,7 @@ export default function TrainerDashboard() {
           align-items: center;
           gap: 10px;
           margin-bottom: 1rem;
-          animation: fadeUp 0.4s ease-out 0.1s both;
+          animation: fadeUp 0.4s ease-out 0.20s both;
         }
 
         .td-section-title {
@@ -717,10 +845,10 @@ export default function TrainerDashboard() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          border: 1px solid var(--bg-base);
+          border: 1px solid rgba(255,255,255,0.05);
           border-radius: 3px;
           overflow: hidden;
-          animation: fadeUp 0.4s ease-out 0.15s both;
+          animation: fadeUp 0.4s ease-out 0.22s both;
         }
 
         .td-row {
@@ -729,13 +857,14 @@ export default function TrainerDashboard() {
           gap: 1.5rem;
           padding: 18px 20px;
           min-height: 56px;
-          background: var(--surface-deep);
+          background: rgba(255,255,255,0.02);
           border-left: 3px solid transparent;
           cursor: pointer;
           transition: background 0.15s;
           touch-action: manipulation;
         }
 
+        .td-row:hover:not(.no-nav) { background: rgba(255,255,255,0.04); }
         .td-row:active:not(.no-nav) { background: var(--surface-pressed); }
         .td-row.no-nav { cursor: default; }
         .td-row.overdue { border-left-color: var(--color-stoplight-rood); }
@@ -767,6 +896,16 @@ export default function TrainerDashboard() {
           display: inline-block;
         }
 
+        .td-notities { margin-bottom: 2rem; animation: fadeUp 0.5s ease-out 0.18s both; }
+        .td-notitie-card {
+          padding: 14px 18px; margin-bottom: 8px; border-radius: 3px;
+          background: rgba(99,102,241,0.06);
+          border: 1px solid rgba(99,102,241,0.16);
+          border-left: 3px solid rgba(99,102,241,0.5);
+        }
+        .td-notitie-tekst { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
+        .td-notitie-meta  { font-size: 0.62rem; color: var(--text-faint); letter-spacing: 0.06em; margin-top: 6px; text-transform: uppercase; }
+
         .td-empty {
           color: var(--border-muted-dark);
           font-size: 0.85rem;
@@ -778,8 +917,8 @@ export default function TrainerDashboard() {
         /* ── Group header rows ── */
         .td-group-header {
           padding: 10px 20px 8px;
-          background: var(--color-black-soft);
-          border-bottom: 1px solid var(--bg-base);
+          background: rgba(255,255,255,0.02);
+          border-bottom: 1px solid rgba(255,255,255,0.04);
           display: flex;
           align-items: center;
           gap: 8px;
@@ -802,6 +941,8 @@ export default function TrainerDashboard() {
           }
 
           .td-body { padding: 2rem 2rem 6rem; }
+
+          .td-momentum-number { font-size: 3rem; }
 
           .td-summary-card { padding: 16px 20px; min-height: 56px; }
 
@@ -900,6 +1041,20 @@ export default function TrainerDashboard() {
         </header>
 
         <div className="td-body">
+          {!loading && trainer && (
+            <div className="td-greeting">
+              <div className="td-greeting-text">{greeting()}, {trainer.naam.split(' ')[0]}.</div>
+              <div className="td-greeting-sub">Hier is je overzicht voor vandaag</div>
+            </div>
+          )}
+
+          {!loading && (
+            <MomentumStrip
+              gesprekken={momentum.gesprekken}
+              actiesAfgerond={momentum.actiesAfgerond}
+            />
+          )}
+
           {/* Stoplight summary bar */}
           {!loading && (
             <div className="td-summary-bar" ref={stoplichtRef}>
@@ -915,8 +1070,8 @@ export default function TrainerDashboard() {
                     <button
                       className={`td-summary-card${isClickable ? ' clickable' : ''}`}
                       style={{
-                        background: isOpen ? col.bg : 'var(--surface-deep)',
-                        borderColor: isOpen ? col.border : 'var(--bg-base)',
+                        background: isOpen ? col.bg : 'rgba(255,255,255,0.03)',
+                        borderColor: isOpen ? col.border : 'rgba(255,255,255,0.06)',
                         cursor: isClickable ? 'pointer' : 'default',
                       }}
                       onClick={() => isClickable && setOpenStoplight(isOpen ? null : sig)}
@@ -958,8 +1113,8 @@ export default function TrainerDashboard() {
                     <button
                       className={`td-summary-card${isClickable ? ' clickable' : ''}`}
                       style={{
-                        background: isOpen ? col.bg : 'var(--surface-deep)',
-                        borderColor: isOpen ? col.border : 'var(--bg-base)',
+                        background: isOpen ? col.bg : 'rgba(255,255,255,0.03)',
+                        borderColor: isOpen ? col.border : 'rgba(255,255,255,0.06)',
                         cursor: isClickable ? 'pointer' : 'default',
                       }}
                       onClick={() => isClickable && setOpenStoplight(isOpen ? null : 'green')}
@@ -995,6 +1150,24 @@ export default function TrainerDashboard() {
               </div>
             </div>
           )}
+
+          {/* Management notities — v0.1.1 ready slot
+              When notities table exists, fetch from /api/notities/trainer/[trainerId]
+              and render here. Management writes; trainers see read-only. */}
+          {/* {managementNotities.length > 0 && (
+            <div className="td-notities">
+              <div className="td-section-header">
+                <span className="td-section-title">Van management</span>
+                <span className="td-section-count">{managementNotities.length}</span>
+              </div>
+              {managementNotities.map(n => (
+                <div key={n.id} className="td-notitie-card">
+                  <div className="td-notitie-tekst">{n.tekst}</div>
+                  <div className="td-notitie-meta">{n.auteur_naam} · {new Date(n.aangemaakt_op).toLocaleDateString('nl-NL')}</div>
+                </div>
+              ))}
+            </div>
+          )} */}
 
           {/* Open acties */}
           <div className="td-section-header">
