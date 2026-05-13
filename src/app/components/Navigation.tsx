@@ -11,6 +11,7 @@ export default function Navigation() {
   const pathname = usePathname()
   const [role, setRole] = useState<NavRole>(null)
   const [loggingOut, setLoggingOut] = useState(false)
+  const trainerIdFromPath = pathname.match(/^\/trainer\/([^/]+)/)?.[1]
 
   useEffect(() => {
     const load = async () => {
@@ -39,10 +40,17 @@ export default function Navigation() {
     router.push('/login')
   }
 
-  const trainerLinks = [
-    { href: '/leden',       label: 'Leden'   },
-    { href: '/gesprek/new', label: 'Gesprek' },
-  ]
+  const trainerLinks = trainerIdFromPath
+    ? [
+        { href: `/trainer/${trainerIdFromPath}`, label: 'Dashboard' },
+        { href: `/trainer/${trainerIdFromPath}/leden`, label: 'Leden' },
+        { href: `/trainer/${trainerIdFromPath}/acties`, label: 'Acties' },
+        { href: '/gesprek/new', label: 'Gesprek' },
+      ]
+    : [
+        { href: '/leden', label: 'Leden' },
+        { href: '/gesprek/new', label: 'Gesprek' },
+      ]
 
   const managementLinks = [
     { href: '/management', label: 'Management' },

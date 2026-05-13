@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
+import Navigation from '@/app/components/Navigation'
 
 type Lid = {
   id: string
@@ -212,24 +213,17 @@ export default function TrainerActiesPage() {
         .td-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #1a1c18;
+          background: var(--bg-base);
           color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           position: relative;
           -webkit-tap-highlight-color: transparent;
         }
 
-        .td-root::before {
-          content: '';
-          position: fixed; inset: 0;
-          background:
-            radial-gradient(ellipse 70% 50% at 90% -10%, rgba(168,200,0,0.07) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 40% at 10% 90%, rgba(168,200,0,0.03) 0%, transparent 60%);
-          pointer-events: none;
-          z-index: 0;
-        }
+        .td-root::before { display: none; }
 
         .td-header {
+          display: none;
           position: sticky;
           top: 0;
           z-index: 100;
@@ -348,7 +342,7 @@ export default function TrainerActiesPage() {
         .td-body {
           max-width: 1100px;
           margin: 0 auto;
-          padding: 2rem 1.5rem 6rem;
+          padding: 32px 24px 6rem;
           position: relative;
           z-index: 1;
         }
@@ -469,7 +463,7 @@ export default function TrainerActiesPage() {
             font-size: 0.78rem;
           }
 
-          .td-body { padding: 2rem 2rem 6rem; }
+          .td-body { padding: 32px 24px 6rem; }
 
           .td-dropdown-item { padding: 16px 20px; min-height: 54px; }
           .td-dropdown-name { font-size: 0.95rem; }
@@ -494,6 +488,8 @@ export default function TrainerActiesPage() {
       `}</style>
 
       <div className="td-root">
+        <Navigation />
+
         <header className="td-header">
           <div className="td-header-inner">
             <div className="td-wordmark">

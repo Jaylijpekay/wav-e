@@ -20,6 +20,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
+import Navigation from '@/app/components/Navigation'
 
 type Lid = {
   id: string
@@ -617,22 +618,14 @@ export default function TrainerDashboard() {
         .td-root {
           min-height: 100vh;
           min-height: 100dvh;
-          background: #1a1c18;
+          background: var(--bg-base);
           color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
           position: relative;
           -webkit-tap-highlight-color: transparent;
         }
 
-        .td-root::before {
-          content: '';
-          position: fixed; inset: 0;
-          background:
-            radial-gradient(ellipse 70% 50% at 90% -10%, rgba(168,200,0,0.07) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 40% at 10% 90%, rgba(168,200,0,0.03) 0%, transparent 60%);
-          pointer-events: none;
-          z-index: 0;
-        }
+        .td-root::before { display: none; }
 
         /* ── Header ── */
         .td-header {
@@ -783,7 +776,7 @@ export default function TrainerDashboard() {
         .td-body {
           max-width: 1100px;
           margin: 0 auto;
-          padding: 2rem 1.5rem 6rem;
+          padding: 32px 24px 6rem;
           position: relative;
           z-index: 1;
         }
@@ -1196,7 +1189,7 @@ export default function TrainerDashboard() {
             font-size: 0.78rem;
           }
 
-          .td-body { padding: 2rem 2rem 6rem; }
+          .td-body { padding: 32px 24px 6rem; }
 
           .td-momentum-number { font-size: 3rem; }
 
@@ -1234,6 +1227,8 @@ export default function TrainerDashboard() {
       `}</style>
 
       <div className="td-root">
+        <Navigation />
+
         {/* Add Lid Modal */}
         {showAddLid && (
           <AddLidModal
@@ -1242,33 +1237,6 @@ export default function TrainerDashboard() {
             onSaved={() => setRefreshKey(k => k + 1)}
           />
         )}
-
-        {/* Header */}
-        <header className="td-header">
-          <div className="td-header-inner">
-            <div className="td-wordmark">
-              <span className="td-wordmark-wav">wav-e</span>
-              <span className="td-wordmark-e"> studios</span>
-            </div>
-
-            <div className="td-header-right">
-              {trainer?.naam && (
-                <span className="td-trainer-name">{trainer.naam}</span>
-              )}
-
-              <button
-                className="td-btn-secondary"
-                onClick={async () => {
-                  const supabase = getSupabase()
-                  await supabase.auth.signOut()
-                  router.push('/login')
-                }}
-              >
-                Uitloggen
-              </button>
-            </div>
-          </div>
-        </header>
 
         <div className="td-body">
           {!loading && trainer && (

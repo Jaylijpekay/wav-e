@@ -20,6 +20,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
+import Navigation from '@/app/components/Navigation'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -163,19 +164,11 @@ export default function MijnLedenPage() {
 
         .ml-root {
           min-height: 100vh;
-          background: var(--color-black-soft);
+          background: var(--bg-base);
           color: var(--text-warm);
           font-family: 'Raleway', sans-serif;
         }
-        .ml-root::before {
-          content: '';
-          position: fixed;
-          top: -20%; right: -10%;
-          width: 55%; height: 55%;
-          background: radial-gradient(ellipse, rgba(168,200,0,0.04) 0%, transparent 70%);
-          pointer-events: none;
-          z-index: 0;
-        }
+        .ml-root::before { display: none; }
 
         /* Header */
         .ml-header {
@@ -205,8 +198,8 @@ export default function MijnLedenPage() {
 
         /* Body */
         .ml-body {
-          max-width: 960px; margin: 0 auto;
-          padding: 2rem 2rem 6rem;
+          max-width: 1100px; margin: 0 auto;
+          padding: 32px 24px 6rem;
           position: relative; z-index: 1;
         }
 
@@ -329,14 +322,7 @@ export default function MijnLedenPage() {
       `}</style>
 
       <div className="ml-root">
-        <header className="ml-header">
-          <div className="ml-header-inner">
-            <button className="ml-back" onClick={() => router.push(`/trainer/${trainerId}`)}>
-              ← Dashboard
-            </button>
-            <span className="ml-header-title">Mijn leden</span>
-          </div>
-        </header>
+        <Navigation />
 
         <div className="ml-body">
           <h1 className="ml-title">
