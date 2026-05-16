@@ -67,18 +67,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: trainerErr?.message ?? 'Trainer aanmaken mislukt' }, { status: 500 })
     }
 
-    const { error: roleErr } = await supabase
+    const { data: roleData, error: roleErr } = await supabase
       .from('user_roles')
       .insert({ user_id: user.id, role: newRole, trainer_id: trainerRow.id })
+      .select('id')
 
-    if (roleErr) {
+    if (roleErr || !roleData?.length) {
       await supabase
         .from('trainers')
         .update({ actief: false })
         .eq('id', trainerRow.id)
         .select('id')
       await supabase.auth.admin.deleteUser(user.id)
-      return NextResponse.json({ error: roleErr.message }, { status: 500 })
+      return NextResponse.json({ error: 'Aanmaken mislukt: rol kon niet worden opgeslagen' }, { status: 500 })
     }
   }
 
@@ -94,18 +95,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: mgmtErr?.message ?? 'Management aanmaken mislukt' }, { status: 500 })
     }
 
-    const { error: roleErr } = await supabase
+    const { data: roleData, error: roleErr } = await supabase
       .from('user_roles')
       .insert({ user_id: user.id, role: newRole, trainer_id: null })
+      .select('id')
 
-    if (roleErr) {
+    if (roleErr || !roleData?.length) {
       await supabase
         .from('management_gebruikers')
         .update({ actief: false })
         .eq('id', mgmtRow.id)
         .select('id')
       await supabase.auth.admin.deleteUser(user.id)
-      return NextResponse.json({ error: roleErr.message }, { status: 500 })
+      return NextResponse.json({ error: 'Aanmaken mislukt: rol kon niet worden opgeslagen' }, { status: 500 })
     }
   }
 

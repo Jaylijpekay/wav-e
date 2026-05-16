@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude update *)",
+      "Bash(/c/Users/Dell/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe update *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(git diff *)"
+    ]
+  }
+}

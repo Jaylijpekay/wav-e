@@ -750,6 +750,7 @@ export default function ManagementPage() {
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
   const [unreadCounts, setUnreadCounts]   = useState<Record<string, number>>({})
+  const [totalUnread, setTotalUnread]     = useState(0)
   const [nextLidId, setNextLidId]         = useState('WE-001')
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
@@ -815,18 +816,18 @@ export default function ManagementPage() {
       supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
     ])
 
-    const { data: unreadData } = await supabase
-      .from('trainer_notities')
-      .select('trainer_id')
-      .eq('auteur_type', 'trainer')
-      .eq('gelezen_door_management', false)
-      .eq('verwijderd', false)
-
-    const counts: Record<string, number> = {}
-    for (const row of unreadData ?? []) {
-      counts[row.trainer_id] = (counts[row.trainer_id] ?? 0) + 1
+    const unreadRes = await fetch('/api/trainer-notities')
+    if (unreadRes.ok) {
+      const { berichten } = await unreadRes.json()
+      const arr = (berichten ?? []) as { trainer_id: string; gelezen_door_management: boolean }[]
+      const unreadOnly = arr.filter(b => !b.gelezen_door_management)
+      setTotalUnread(unreadOnly.length)
+      const counts: Record<string, number> = {}
+      for (const b of unreadOnly) {
+        counts[b.trainer_id] = (counts[b.trainer_id] ?? 0) + 1
+      }
+      setUnreadCounts(counts)
     }
-    setUnreadCounts(counts)
 
     const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
       const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
@@ -943,12 +944,25 @@ export default function ManagementPage() {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Management</h1>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
           </div>
-          <button
-            onClick={() => setShowAddLid(true)}
-            style={{ ...touchButtonStyle, background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            + Lid toevoegen
-          </button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <a
+              href="/management/berichten"
+              style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
+            >
+              Berichten
+              {totalUnread > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, background: 'rgba(99,102,241,0.15)', color: 'var(--color-accent-text)', fontSize: 10, fontWeight: 700, padding: '0 5px', lineHeight: 1 }}>
+                  {totalUnread}
+                </span>
+              )}
+            </a>
+            <button
+              onClick={() => setShowAddLid(true)}
+              style={{ ...touchButtonStyle, background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              + Lid toevoegen
+            </button>
+          </div>
         </div>
 
         {/* Studio counts */}
