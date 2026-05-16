@@ -252,6 +252,7 @@ function ConsolePanel() {
     return loadedTokens
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial API load hydrates this client panel after mount.
   useEffect(() => { loadTokens() }, [loadTokens])
 
   const createToken = async () => {
@@ -401,6 +402,7 @@ export default function AdminPage() {
     setLoading(false)
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial API load hydrates the admin dashboard after mount.
   useEffect(() => { load() }, [load])
 
   const resetForm = () => {

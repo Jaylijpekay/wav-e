@@ -1,23 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
-
-function getServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
-
-async function getSessionUserId(): Promise<string | null> {
+async function getAdminContext() {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -25,17 +14,24 @@ async function getSessionUserId(): Promise<string | null> {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id ?? null
-}
 
-export async function GET(_req: NextRequest) {
-  const userId = await getSessionUserId()
-  if (userId !== ADMIN_UUID) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    return { supabase, user: null, error: NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 }) }
   }
 
-  const supabase = getServiceClient()
+  const { data: role } = await supabase.rpc('get_my_role')
+  if (role !== 'admin') {
+    return { supabase, user: null, error: NextResponse.json({ error: 'Geen toegang' }, { status: 403 }) }
+  }
+
+  return { supabase, user, error: null }
+}
+
+export async function GET() {
+  const { supabase, user: currentUser, error: authError } = await getAdminContext()
+  if (authError) return authError
+  if (!currentUser) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
   const { data: { users }, error } = await supabase.auth.admin.listUsers()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -58,7 +54,7 @@ export async function GET(_req: NextRequest) {
       id: u.id,
       email: u.email,
       created_at: u.created_at,
-      role: u.id === ADMIN_UUID ? 'admin' : (roleRow?.role ?? null),
+      role: u.id === currentUser.id ? 'admin' : (roleRow?.role ?? null),
       trainer_id: roleRow?.trainer_id ?? null,
       trainer_naam: trainer ? `${trainer.voornaam} ${trainer.achternaam}` : null,
     }

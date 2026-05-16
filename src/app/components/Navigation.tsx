@@ -19,16 +19,8 @@ export default function Navigation() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
-      if (user.id === ADMIN_UUID) { setRole('admin'); return }
-
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single()
-
-      setRole((data?.role as NavRole) ?? null)
+      const { data: role } = await supabase.rpc('get_my_role')
+      setRole((role as NavRole) ?? null)
     }
     load()
   }, [])

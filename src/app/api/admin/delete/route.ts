@@ -1,23 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
+async function getAdminClient() {
+  const cookieStore = await cookies()
 
-function getServiceClient() {
-  return createClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
-
-async function getSessionUserId(): Promise<string | null> {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -25,14 +15,18 @@ async function getSessionUserId(): Promise<string | null> {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id ?? null
 }
 
 export async function DELETE(req: NextRequest) {
-  const userId = await getSessionUserId()
-  if (userId !== ADMIN_UUID) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const supabase = await getAdminClient()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  }
+
+  const { data: role } = await supabase.rpc('get_my_role')
+  if (role !== 'admin') {
+    return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
   const { target_user_id } = await req.json()
@@ -40,36 +34,53 @@ export async function DELETE(req: NextRequest) {
   if (!target_user_id) {
     return NextResponse.json({ error: 'target_user_id verplicht' }, { status: 400 })
   }
-  if (target_user_id === ADMIN_UUID) {
-    return NextResponse.json({ error: 'Admin account kan niet verwijderd worden' }, { status: 403 })
-  }
 
-  const supabase = getServiceClient()
-
-  // 1. Fetch user_roles to determine role and trainer_id before deleting
-  const { data: roleRow } = await supabase
+  const { data: roleRow, error: roleError } = await supabase
     .from('user_roles')
     .select('role, trainer_id')
     .eq('user_id', target_user_id)
-    .single()
+    .maybeSingle()
 
-  // 2. Delete profile row from the correct table
-  if (roleRow?.role === 'trainer' && roleRow.trainer_id) {
-    await supabase.from('trainers').delete().eq('id', roleRow.trainer_id)
+  if (roleError) {
+    return NextResponse.json({ error: roleError.message }, { status: 500 })
   }
 
-  if (roleRow?.role === 'management') {
-    // management_gebruikers is keyed by email — fetch email from auth first
-    const { data: { user: authUser } } = await supabase.auth.admin.getUserById(target_user_id)
-    if (authUser?.email) {
-      await supabase.from('management_gebruikers').delete().eq('email', authUser.email)
+  if (!roleRow) {
+    return NextResponse.json({ error: 'Gebruiker heeft geen verwijderbare rol' }, { status: 400 })
+  }
+
+  if (roleRow.role === 'trainer' && roleRow.trainer_id) {
+    const { data, error } = await supabase
+      .from('trainers')
+      .update({ actief: false })
+      .eq('id', roleRow.trainer_id)
+      .select('id')
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data?.length) return NextResponse.json({ error: 'Trainer niet gevonden' }, { status: 404 })
+  }
+
+  if (roleRow.role === 'management') {
+    const { data: { user: authUser }, error: authUserError } = await supabase.auth.admin.getUserById(target_user_id)
+
+    if (authUserError) {
+      return NextResponse.json({ error: authUserError.message }, { status: 500 })
     }
+
+    if (!authUser?.email) {
+      return NextResponse.json({ error: 'Management gebruiker niet gevonden' }, { status: 404 })
+    }
+
+    const { data, error } = await supabase
+      .from('management_gebruikers')
+      .update({ actief: false })
+      .eq('email', authUser.email)
+      .select('id')
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data?.length) return NextResponse.json({ error: 'Management gebruiker niet gevonden' }, { status: 404 })
   }
 
-  // 3. Delete user_roles row
-  await supabase.from('user_roles').delete().eq('user_id', target_user_id)
-
-  // 4. Delete auth user
   const { error } = await supabase.auth.admin.deleteUser(target_user_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

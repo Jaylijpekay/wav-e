@@ -16,10 +16,10 @@ const CONSOLE_ROUTE = '/console'
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 
 // ============================================================
-// MIDDLEWARE
+// PROXY
 // ============================================================
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
 
   // ----------------------------------------------------------
@@ -104,7 +104,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // ----------------------------------------------------------
-  // 4. ADMIN GATE — superuser UUID only
+  // 4. ADMIN GATE - superuser UUID only
   // ----------------------------------------------------------
 
   if (ADMIN_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
@@ -128,7 +128,7 @@ export async function middleware(request: NextRequest) {
 
   const role = roleRow?.role
 
-  // Root redirect — send each role to their home
+  // Root redirect - send each role to their home
   if (pathname === '/') {
     if (user.id === ADMIN_UUID) return NextResponse.redirect(new URL('/admin', request.url))
     if (role === 'management') return NextResponse.redirect(new URL('/management', request.url))
@@ -142,7 +142,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // /leden (exact list) is trainer-only — management has their own overview.
+  // /leden (exact list) is trainer-only - management has their own overview.
   // /leden/[id] and deeper + /gesprek are accessible to both trainer and management
   // (Karim is management but also acts as trainer).
   const isTrainerOnly = pathname === '/leden'

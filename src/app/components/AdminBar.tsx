@@ -4,8 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
-const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
-
 export default function AdminBar() {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
@@ -21,7 +19,10 @@ export default function AdminBar() {
     const check = async () => {
       const supabase = getSupabase()
       const { data: { user } } = await supabase.auth.getUser()
-      if (user?.id !== ADMIN_UUID) return
+      if (!user) return
+
+      const { data: role } = await supabase.rpc('get_my_role')
+      if (role !== 'admin') return
 
       setVisible(true)
 

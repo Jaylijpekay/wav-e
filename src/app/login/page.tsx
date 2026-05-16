@@ -43,30 +43,25 @@ export default function LoginPage() {
       return
     }
 
-    const user = data.user
-    const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
+    const { data: role } = await supabase.rpc('get_my_role')
 
-    if (user.id === ADMIN_UUID) {
+    if (role === 'admin') {
       router.push('/admin')
       return
     }
 
-    const { data: roleRow } = await supabase
-      .from('user_roles')
-      .select('role, trainer_id')
-      .eq('user_id', user.id)
-      .single()
+    const { data: trainerId } = await supabase.rpc('get_my_trainer_id')
 
-    if (!roleRow) {
+    if (!role) {
       setError('Geen rol gevonden voor dit account. Neem contact op met de beheerder.')
       setLoading(false)
       return
     }
 
-    if (roleRow.role === 'management') {
+    if (role === 'management') {
       router.push('/management')
-    } else if (roleRow.role === 'trainer' && roleRow.trainer_id) {
-      router.push(`/trainer/${roleRow.trainer_id}`)
+    } else if (role === 'trainer' && trainerId) {
+      router.push(`/trainer/${trainerId}`)
     } else {
       router.push('/')
     }

@@ -16,7 +16,7 @@
  * /api/console/validate, /api/console/people, /api/console/verify-pin
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Person = {
@@ -85,7 +85,7 @@ export default function ConsolePage() {
     setPin(p => p.slice(0, -1))
   }
 
-  const verify = async () => {
+  const verify = useCallback(async () => {
     if (pin.length !== 4 || !selected || !mode) return
     setVerifying(true)
     setPinError(null)
@@ -110,11 +110,12 @@ export default function ConsolePage() {
     } else {
       router.push('/management')
     }
-  }
+  }, [mode, pin, router, selected])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-submits once the fourth PIN digit is entered.
     if (pin.length === 4 && step === 'pin') verify()
-  }, [pin])
+  }, [pin, step, verify])
 
   useEffect(() => {
     if (step === 'pin') {

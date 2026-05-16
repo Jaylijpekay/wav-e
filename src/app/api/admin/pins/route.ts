@@ -1,23 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
+async function getAdminClient() {
+  const cookieStore = await cookies()
 
-function getServiceClient() {
-  return createClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
-
-async function getSessionUserId(): Promise<string | null> {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -25,17 +15,19 @@ async function getSessionUserId(): Promise<string | null> {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id ?? null
 }
 
-export async function GET(_req: NextRequest) {
-  const userId = await getSessionUserId()
-  if (userId !== ADMIN_UUID) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+export async function GET() {
+  const supabase = await getAdminClient()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
   }
 
-  const supabase = getServiceClient()
+  const { data: role } = await supabase.rpc('get_my_role')
+  if (role !== 'admin') {
+    return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
+  }
 
   const [{ data: trainerData, error: trainerError }, { data: mgmtData, error: mgmtError }] = await Promise.all([
     supabase.from('trainers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),

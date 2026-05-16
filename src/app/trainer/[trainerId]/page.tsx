@@ -132,6 +132,7 @@ const isActieOverdue = (actie: Actie, today = todayIsoDate()) => {
   return actie.status === 'open' && deadline !== null && deadline < today
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained for planned action deadline UI.
 const getActieDeadlineDaysRemaining = (actie: Actie, today = todayIsoDate()) => {
   if (actie.status !== 'open') return null
   const deadline = getIsoDatePart(actie.deadline)
@@ -143,6 +144,7 @@ const getActieDeadlineDaysRemaining = (actie: Actie, today = todayIsoDate()) => 
   return Math.round((deadlineTime - todayTime) / 86400000)
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained for planned action deadline UI.
 const getActieDeadlineLabel = (actie: Actie, today = todayIsoDate()) => {
   if (actie.status === 'afgerond') return null
   const deadline = getIsoDatePart(actie.deadline)
@@ -153,6 +155,7 @@ const getActieDeadlineLabel = (actie: Actie, today = todayIsoDate()) => {
   return formatted ? { text: `Deadline: ${formatted}`, tone: 'neutral' as const } : null
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained for planned action sorting UI.
 const getLidActieSortTier = (acties: Actie[], today = todayIsoDate()) => {
   const nextWeek = addDaysIsoDate(today, 7)
   const openActies = acties.filter(a => a.status === 'open')

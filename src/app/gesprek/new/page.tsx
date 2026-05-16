@@ -7,13 +7,13 @@
  * Deze pagina legt een nieuwe evaluatie of gesprek vast voor een actief lid. De ingevoerde scores worden opgeslagen als volgende evaluatiecyclus.
  *
  * Data:
- * Leest uit: leden, evaluaties. Schrijft naar: evaluaties.
+ * Leest uit: leden. Schrijft via API naar: evaluaties.
  *
  * Toegang:
  * trainer
  *
  * Gerelateerde API routes:
- * Geen.
+ * /api/gesprek
  */
 
 export const dynamic = 'force-dynamic'
@@ -99,31 +99,37 @@ export default function GesprekNew() {
     setSaving(true)
     setError(null)
 
-    const supabase = getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
     const selectedLid = leden.find(l => l.id === lidId)
     const trainerId = selectedLid?.trainer_id
     if (!trainerId) { setError('Geen trainer gekoppeld aan dit lid.'); setSaving(false); return }
 
-    const { data: evalData } = await supabase
-      .from('evaluaties').select('cyclus').eq('lid_id', lidId)
-      .order('cyclus', { ascending: false }).limit(1)
-    const cyclus = evalData && evalData.length > 0 ? evalData[0].cyclus + 1 : 1
-
-    const { error: insertError } = await supabase.from('evaluaties').insert({
-      lid_id: lidId, trainer_id: trainerId, cyclus, datum,
-      slaap: scores.slaap, energie: scores.energie, stress: scores.stress,
-      voeding: scores.voeding, beweging: scores.beweging, motivatie: scores.motivatie,
-      tevredenheid,
-      gewicht_kg: gewicht ? parseFloat(gewicht) : null,
-      vetpercentage: vetpercentage ? parseFloat(vetpercentage) : null,
-      spiermassa_kg: spiermassa ? parseFloat(spiermassa) : null,
-      doelen_behaald: doelen,
-      notities: notities || null,
-      aangemaakt_door: user?.id ?? null,
+    const res = await fetch('/api/gesprek', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lid_id: lidId,
+        datum,
+        slaap: scores.slaap,
+        energie: scores.energie,
+        stress: scores.stress,
+        motivatie: scores.motivatie,
+        tevredenheid,
+        notities: notities || null,
+      }),
     })
 
-    if (insertError) { setError(insertError.message); setSaving(false); return }
+    if (!res.ok) {
+      const data = await res.json()
+      setError(data.error ?? 'Gesprek opslaan mislukt')
+      setSaving(false)
+      return
+    }
+
+    /*
+      Deze velden worden bewust niet meegestuurd: voeding, beweging, gewicht,
+      vetpercentage, spiermassa en doelen. Ze bestaan niet in de huidige
+      evaluaties-tabel en mogen daarom niet vanuit de client worden geschreven.
+    */
     setSuccess(true)
     setTimeout(() => router.push('/'), 1200)
   }

@@ -32,6 +32,7 @@ type Actie = {
   is_management: boolean
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained for planned member dropdown work.
 type LidDropdown = {
   id: string
   lid_id: string

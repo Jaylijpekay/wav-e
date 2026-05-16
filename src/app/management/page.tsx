@@ -648,6 +648,7 @@ function ConsolePanel() {
     setLoading(false)
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial Supabase load hydrates this client panel after mount.
   useEffect(() => { loadTokens() }, [loadTokens])
 
   const createToken = async () => {
@@ -863,6 +864,7 @@ export default function ManagementPage() {
     setLeden(enrichedLeden)
     setTrainerStats(stats)
     setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey intentionally recreates load after deactivation.
   }, [refreshKey])
 
   useEffect(() => { load() }, [load])

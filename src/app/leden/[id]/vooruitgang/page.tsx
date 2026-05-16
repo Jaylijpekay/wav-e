@@ -16,7 +16,7 @@
  * Geen.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
@@ -95,8 +95,11 @@ function Ring({
 
   const r = 22, cx = 28, cy = 28
   const circ = +(2 * Math.PI * r).toFixed(1)
-  const toOffset = (v: number | null) =>
-    v !== null ? circ * (1 - (metric.inv ? (10 - v) / 10 : v / 10)) : circ
+  const toOffset = useCallback(
+    (v: number | null) =>
+      v !== null ? circ * (1 - (metric.inv ? (10 - v) / 10 : v / 10)) : circ,
+    [circ, metric.inv]
+  )
 
   useEffect(() => {
     const arc  = arcRef.current
@@ -121,7 +124,7 @@ function Ring({
     }
     requestAnimationFrame(animate)
     prevVal.current = val
-  }, [val])
+  }, [metric.inv, toOffset, val])
 
   const col = val !== null ? sigCol(metric.inv, val) : { fill: 'var(--report-surface-soft)', stroke: 'var(--report-border-muted)', text: 'var(--report-text-soft)' }
   const initialOffset = toOffset(val)

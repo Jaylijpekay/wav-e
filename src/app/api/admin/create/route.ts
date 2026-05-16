@@ -1,23 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
+type NewUserRole = 'management' | 'trainer'
 
-function getServiceClient() {
-  return createClient(
+async function getAdminClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
-
-async function getSessionUserId(): Promise<string | null> {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -25,14 +17,18 @@ async function getSessionUserId(): Promise<string | null> {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id ?? null
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await getSessionUserId()
-  if (userId !== ADMIN_UUID) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const supabase = await getAdminClient()
+  const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+  if (userError || !currentUser) {
+    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  }
+
+  const { data: currentRole } = await supabase.rpc('get_my_role')
+  if (currentRole !== 'admin') {
+    return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
   const { email, password, role, voornaam, achternaam } = await req.json()
@@ -47,9 +43,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Voornaam en achternaam zijn verplicht' }, { status: 400 })
   }
 
-  const supabase = getServiceClient()
+  const newRole = role as NewUserRole
 
-  // 1. Create auth user
   const { data: { user }, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -60,11 +55,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: createError?.message ?? 'Aanmaken mislukt' }, { status: 500 })
   }
 
-  // 2a. Trainer → trainers table
-  if (role === 'trainer') {
+  if (newRole === 'trainer') {
     const { data: trainerRow, error: trainerErr } = await supabase
       .from('trainers')
-      .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, rol: 'trainer', actief: true })
+      .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, actief: true })
       .select('id')
       .single()
 
@@ -75,17 +69,20 @@ export async function POST(req: NextRequest) {
 
     const { error: roleErr } = await supabase
       .from('user_roles')
-      .insert({ user_id: user.id, role: 'trainer', trainer_id: trainerRow.id })
+      .insert({ user_id: user.id, role: newRole, trainer_id: trainerRow.id })
 
     if (roleErr) {
-      await supabase.from('trainers').delete().eq('id', trainerRow.id)
+      await supabase
+        .from('trainers')
+        .update({ actief: false })
+        .eq('id', trainerRow.id)
+        .select('id')
       await supabase.auth.admin.deleteUser(user.id)
       return NextResponse.json({ error: roleErr.message }, { status: 500 })
     }
   }
 
-  // 2b. Management → management_gebruikers table
-  if (role === 'management') {
+  if (newRole === 'management') {
     const { data: mgmtRow, error: mgmtErr } = await supabase
       .from('management_gebruikers')
       .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, actief: true })
@@ -99,14 +96,18 @@ export async function POST(req: NextRequest) {
 
     const { error: roleErr } = await supabase
       .from('user_roles')
-      .insert({ user_id: user.id, role: 'management', trainer_id: null })
+      .insert({ user_id: user.id, role: newRole, trainer_id: null })
 
     if (roleErr) {
-      await supabase.from('management_gebruikers').delete().eq('id', mgmtRow.id)
+      await supabase
+        .from('management_gebruikers')
+        .update({ actief: false })
+        .eq('id', mgmtRow.id)
+        .select('id')
       await supabase.auth.admin.deleteUser(user.id)
       return NextResponse.json({ error: roleErr.message }, { status: 500 })
     }
   }
 
-  return NextResponse.json({ success: true, user_id: user.id })
+  return NextResponse.json({ success: true, user })
 }
