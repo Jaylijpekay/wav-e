@@ -203,7 +203,7 @@ export default function LedenDetail() {
   const [notitiesTekst, setNotitiesTekst] = useState('')
   const [notitiesPosting, setNotitiesPosting] = useState(false)
   const [notitiesError, setNotitiesError] = useState<string | null>(null)
-  const [toonAlle, setToonAlle] = useState(false)
+  const [notitiesMax, setNotitiesMax] = useState(10)
 
   useEffect(() => {
     const load = async () => {
@@ -283,7 +283,7 @@ export default function LedenDetail() {
   }
 
   const postNotitie = async () => {
-    if (!notitiesTekst.trim()) return
+    if (!notitiesTekst.trim() || notitiesTekst.length > 1000) return
     setNotitiesPosting(true)
     setNotitiesError(null)
 
@@ -1118,16 +1118,16 @@ export default function LedenDetail() {
                       <div className="ld-empty"><span>○</span><span>Nog geen notities.</span></div>
                     ) : (
                       <div className="ld-notes-thread">
-                        {(toonAlle ? notities : notities.slice(0, 10)).map(notitie => (
+                        {notities.slice(0, notitiesMax).map(notitie => (
                           <NotitieCard
                             key={notitie.id}
                             notitie={notitie}
                             onDelete={() => deleteNotitie(notitie.id)}
                           />
                         ))}
-                        {!toonAlle && notities.length > 10 && (
-                          <button className="ld-notes-more" onClick={() => setToonAlle(true)}>
-                            Toon alle {notities.length} notities
+                        {notities.length > notitiesMax && (
+                          <button className="ld-notes-more" onClick={() => setNotitiesMax(n => n + 10)}>
+                            Toon meer
                           </button>
                         )}
                       </div>

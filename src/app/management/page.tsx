@@ -748,6 +748,7 @@ export default function ManagementPage() {
   const [trainers, setTrainers]           = useState<Trainer[]>([])
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
+  const [unreadCounts, setUnreadCounts]   = useState<Record<string, number>>({})
   const [nextLidId, setNextLidId]         = useState('WE-001')
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
@@ -812,6 +813,19 @@ export default function ManagementPage() {
       supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').order('cyclus', { ascending: false }),
       supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
     ])
+
+    const { data: unreadData } = await supabase
+      .from('trainer_notities')
+      .select('trainer_id')
+      .eq('auteur_type', 'trainer')
+      .eq('gelezen_door_management', false)
+      .eq('verwijderd', false)
+
+    const counts: Record<string, number> = {}
+    for (const row of unreadData ?? []) {
+      counts[row.trainer_id] = (counts[row.trainer_id] ?? 0) + 1
+    }
+    setUnreadCounts(counts)
 
     const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
       const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
@@ -981,13 +995,20 @@ export default function ManagementPage() {
                 return (
                   <tr key={t.id} style={{ borderBottom: i < trainers.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: t.actief ? 1 : 0.5 }}>
                     <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
-                      <span
-                        onClick={() => router.push(`/trainer/${t.id}`)}
-                        style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
-                        onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
-                      >
-                        {t.voornaam} {t.achternaam}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44 }}>
+                        <span
+                          onClick={() => router.push(`/trainer/${t.id}`)}
+                          style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
+                          onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
+                        >
+                          {t.voornaam} {t.achternaam}
+                        </span>
+                        {(unreadCounts[t.id] ?? 0) > 0 && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, background: 'rgba(99,102,241,0.15)', color: 'var(--color-accent-text)', fontSize: 10, fontWeight: 700, padding: '0 5px', lineHeight: 1 }}>
+                            {unreadCounts[t.id]}
+                          </span>
+                        )}
                       </span>
                       {!t.actief && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>inactief</span>}
                     </td>

@@ -8,10 +8,13 @@ type Role = AuteurType
 type TrainerNotitieRow = {
   id: string
   trainer_id: string
+  lid_id: string | null
   auteur_id: string
   auteur_type: AuteurType
   tekst: string
   aangemaakt_op: string
+  gelezen_door_management: boolean
+  gelezen_op: string | null
 }
 
 type TrainerNotitieResponse = TrainerNotitieRow & {
@@ -175,9 +178,26 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       return jsonError('Geen toegang', 403)
     }
 
+    if (role === 'management' || role === 'admin') {
+      const { error: readError } = await supabase
+        .from('trainer_notities')
+        .update({
+          gelezen_door_management: true,
+          gelezen_op: new Date().toISOString(),
+        })
+        .eq('trainer_id', trainer_id)
+        .eq('auteur_type', 'trainer')
+        .eq('gelezen_door_management', false)
+        .eq('verwijderd', false)
+
+      if (readError) {
+        return jsonError(readError.message, 500)
+      }
+    }
+
     const { data, error: notitiesError } = await supabase
       .from('trainer_notities')
-      .select('id, trainer_id, auteur_id, auteur_type, tekst, aangemaakt_op')
+      .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, gelezen_op')
       .eq('trainer_id', trainer_id)
       .eq('verwijderd', false)
       .order('aangemaakt_op', { ascending: true })
@@ -217,7 +237,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return jsonError('Geen toegang', 403)
     }
 
-    let body: { tekst?: unknown }
+    let body: { tekst?: unknown; lid_id?: unknown }
 
     try {
       body = await req.json()
@@ -235,15 +255,21 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return jsonError('Tekst mag maximaal 1000 tekens zijn', 400)
     }
 
+    const lidId =
+      typeof body.lid_id === 'string' && body.lid_id.trim()
+        ? body.lid_id.trim()
+        : null
+
     const { data, error: insertError } = await supabase
       .from('trainer_notities')
       .insert({
         trainer_id,
+        lid_id: lidId,
         auteur_id: user.id,
         auteur_type: role,
         tekst,
       })
-      .select('id, trainer_id, auteur_id, auteur_type, tekst, aangemaakt_op')
+      .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, gelezen_op')
 
     if (insertError) {
       return jsonError(insertError.message, 500)

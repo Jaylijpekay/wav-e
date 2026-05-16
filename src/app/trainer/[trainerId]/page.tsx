@@ -72,11 +72,14 @@ type UrgenteMelding = {
 type TrainerNotitie = {
   id: string
   trainer_id: string
+  lid_id: string | null
   auteur_id: string
   auteur_type: 'trainer' | 'management' | 'admin'
   auteur_naam: string
   tekst: string
   aangemaakt_op: string
+  gelezen_door_management: boolean
+  gelezen_op: string | null
 }
 
 interface MomentumProps {
@@ -395,6 +398,7 @@ export default function TrainerDashboard() {
   const [berichten, setBerichten] = useState<TrainerNotitie[]>([])
   const [berichtenLoading, setBerichtenLoading] = useState(true)
   const [berichtTekst, setBerichtTekst] = useState('')
+  const [berichtenMax, setBerichtenMax] = useState(5)
   const [berichtPosting, setBerichtPosting] = useState(false)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
@@ -569,7 +573,7 @@ export default function TrainerDashboard() {
   }
 
   const postBericht = async () => {
-    if (!berichtTekst.trim()) return
+    if (!berichtTekst.trim() || berichtTekst.length > 1000) return
     setBerichtPosting(true)
 
     try {
@@ -1143,6 +1147,11 @@ export default function TrainerDashboard() {
 
         .td-bericht-older {
           padding: 6px 0;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-family: inherit;
+          text-align: left;
         }
 
         .td-bericht-delete {
@@ -1163,6 +1172,7 @@ export default function TrainerDashboard() {
           display: flex;
           gap: 8px;
           align-items: flex-end;
+          flex-wrap: wrap;
         }
 
         .td-bericht-input {
@@ -1176,6 +1186,14 @@ export default function TrainerDashboard() {
           font-size: 1rem;
           font-family: inherit;
           min-height: 44px;
+        }
+
+        .td-bericht-count {
+          width: 100%;
+          text-align: right;
+          font-size: 0.62rem;
+          color: var(--text-faint);
+          letter-spacing: 0.06em;
         }
 
         /* ── Tablet breakpoint ── */
@@ -1462,7 +1480,7 @@ export default function TrainerDashboard() {
                 <div className="td-empty" style={{ padding: '1.5rem 0' }}>Geen berichten.</div>
               ) : (
                 <div className="td-bericht-list">
-                  {berichten.slice(-5).map(bericht => {
+                  {berichten.slice(0, berichtenMax).map(bericht => {
                     const isSelf = bericht.auteur_type === 'trainer'
                     const date = new Date(bericht.aangemaakt_op)
                     const dateLabel = `${date.getDate()} ${DUTCH_MONTHS[date.getMonth()]}`
@@ -1488,10 +1506,10 @@ export default function TrainerDashboard() {
                       </div>
                     )
                   })}
-                  {berichten.length > 5 && (
-                    <div className="td-bericht-older">
-                      + {berichten.length - 5} oudere berichten
-                    </div>
+                  {berichten.length > berichtenMax && (
+                    <button className="td-bericht-older" onClick={() => setBerichtenMax(n => n + 10)}>
+                      Toon meer
+                    </button>
                   )}
                 </div>
               )}
@@ -1505,6 +1523,11 @@ export default function TrainerDashboard() {
                   rows={2}
                   className="td-bericht-input"
                 />
+                {berichtTekst.length >= 800 && (
+                  <div className="td-bericht-count" style={{ color: berichtTekst.length >= 1000 ? 'var(--red-text)' : undefined }}>
+                    {berichtTekst.length}/1000
+                  </div>
+                )}
                 <button
                   onClick={postBericht}
                   disabled={berichtPosting || !berichtTekst.trim()}

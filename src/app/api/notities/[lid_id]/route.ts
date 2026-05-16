@@ -56,21 +56,55 @@ async function getAuthContext() {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return { supabase, user: null, role: null, error: null }
+    return { supabase, user: null, role: null, trainerId: null, error: null }
   }
 
-  const { data: role, error: roleError } = await supabase.rpc('get_my_role')
+  const [
+    { data: role, error: roleError },
+    { data: trainerId, error: trainerError },
+  ] = await Promise.all([
+    supabase.rpc('get_my_role'),
+    supabase.rpc('get_my_trainer_id'),
+  ])
 
   if (roleError) {
-    return { supabase, user, role: null, error: roleError }
+    return { supabase, user, role: null, trainerId: null, error: roleError }
+  }
+
+  if (trainerError) {
+    return { supabase, user, role: null, trainerId: null, error: trainerError }
   }
 
   return {
     supabase,
     user,
     role: ALLOWED_ROLES.includes(role as Role) ? (role as Role) : null,
+    trainerId: typeof trainerId === 'string' ? trainerId : null,
     error: null,
   }
+}
+
+async function canAccessLid(
+  supabase: Awaited<ReturnType<typeof getSupabase>>,
+  role: Role | null,
+  trainerId: string | null,
+  lidId: string
+) {
+  if (role === 'admin' || role === 'management') return true
+  if (role !== 'trainer' || !trainerId) return false
+
+  const { data: lid, error } = await supabase
+    .from('leden')
+    .select('id')
+    .eq('id', lidId)
+    .eq('trainer_id', trainerId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return Boolean(lid)
 }
 
 async function resolveAuteurNamen(
@@ -148,7 +182,7 @@ async function resolveAuteurNamen(
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { lid_id } = await params
-    const { supabase, user, role, error } = await getAuthContext()
+    const { supabase, user, role, trainerId, error } = await getAuthContext()
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -158,7 +192,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return jsonError(error.message, 500)
     }
 
-    if (!role) {
+    if (!role || !(await canAccessLid(supabase, role, trainerId, lid_id))) {
       return jsonError('Geen toegang', 403)
     }
 
@@ -199,7 +233,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { lid_id } = await params
-    const { supabase, user, role, error } = await getAuthContext()
+    const { supabase, user, role, trainerId, error } = await getAuthContext()
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -209,7 +243,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return jsonError(error.message, 500)
     }
 
-    if (!role) {
+    if (!role || !(await canAccessLid(supabase, role, trainerId, lid_id))) {
       return jsonError('Geen toegang', 403)
     }
 
@@ -249,6 +283,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         .from('evaluaties')
         .select('id')
         .eq('id', body.evaluatie_id)
+        .eq('lid_id', lid_id)
         .maybeSingle()
 
       if (evaluatieError) {
