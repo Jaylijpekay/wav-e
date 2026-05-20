@@ -18,6 +18,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { QRCodeSVG } from 'qrcode.react'
 import { getSupabase } from '@/lib/supabase'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 import Navigation from '@/app/components/Navigation'
@@ -631,12 +632,14 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 // ── Console Panel ──────────────────────────────────────────────────────
 
 function ConsolePanel() {
-  const [tokens,   setTokens]   = useState<ConsoleToken[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [formOpen, setFormOpen] = useState(false)
-  const [newNaam,  setNewNaam]  = useState('')
-  const [saving,   setSaving]   = useState(false)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [tokens,     setTokens]     = useState<ConsoleToken[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [formOpen,   setFormOpen]   = useState(false)
+  const [newNaam,    setNewNaam]    = useState('')
+  const [saving,     setSaving]     = useState(false)
+  const [copiedId,   setCopiedId]   = useState<string | null>(null)
+  const [qrToken,    setQrToken]    = useState<ConsoleToken | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const loadTokens = useCallback(async () => {
     const supabase = getSupabase()
@@ -656,19 +659,33 @@ function ConsolePanel() {
     setSaving(true)
     const supabase = getSupabase()
     const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('console_tokens').insert({
-      naam:            newNaam.trim(),
-      trainer_id:      null,
-      aangemaakt_door: user!.id,
-    })
+    const { data } = await supabase
+      .from('console_tokens')
+      .insert({
+        naam:            newNaam.trim(),
+        trainer_id:      null,
+        aangemaakt_door: user!.id,
+      })
+      .select('id, token, naam, actief, aangemaakt_op, laatst_gebruikt')
+      .single()
     setNewNaam('')
     setFormOpen(false)
     setSaving(false)
-    loadTokens()
+    await loadTokens()
+    if (data) setQrToken(data)
   }
 
   const revokeToken     = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: false }).eq('id', id); loadTokens() }
   const reactivateToken = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: true  }).eq('id', id); loadTokens() }
+
+  const deleteToken = async (t: ConsoleToken) => {
+    if (t.actief) return
+    if (!window.confirm(`Console "${t.naam}" definitief verwijderen?`)) return
+    setDeletingId(t.id)
+    await getSupabase().from('console_tokens').delete().eq('id', t.id).eq('actief', false)
+    setDeletingId(null)
+    loadTokens()
+  }
 
   const copyUrl = (t: ConsoleToken) => {
     navigator.clipboard.writeText(consoleUrl(t.token))
@@ -678,6 +695,43 @@ function ConsolePanel() {
 
   return (
     <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+      {qrToken && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: 20 }}
+          onClick={e => { if (e.target === e.currentTarget) setQrToken(null) }}
+        >
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Console verifieren</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{qrToken.naam}</div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', background: 'var(--color-white)', borderRadius: 10, padding: 16 }}>
+              <QRCodeSVG value={consoleUrl(qrToken.token)} size={220} />
+            </div>
+
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Scan deze QR-code met de camera van de console of iPad om de console direct te openen en te verifieren.
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => copyUrl(qrToken)}
+                style={{ ...touchButtonStyle, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: copiedId === qrToken.id ? 'var(--green-signal-text)' : 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                {copiedId === qrToken.id ? 'Gekopieerd' : 'Kopieer URL'}
+              </button>
+              <button
+                onClick={() => setQrToken(null)}
+                style={{ ...touchButtonStyle, background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Sluiten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: formOpen || tokens.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Studio consoles</div>
@@ -732,9 +786,28 @@ function ConsolePanel() {
           >
             {copiedId === t.id ? '✓ Gekopieerd' : 'Kopieer URL'}
           </button>
+          {t.actief && (
+            <button
+              onClick={() => setQrToken(t)}
+              style={{ ...touchButtonStyle, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              QR-code
+            </button>
+          )}
           {t.actief
             ? <button onClick={() => revokeToken(t.id)} style={{ ...touchButtonStyle, background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: 'var(--red-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Intrekken</button>
-            : <button onClick={() => reactivateToken(t.id)} style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Heractiveren</button>
+            : (
+              <>
+                <button onClick={() => reactivateToken(t.id)} style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Heractiveren</button>
+                <button
+                  onClick={() => deleteToken(t)}
+                  disabled={deletingId === t.id}
+                  style={{ ...touchButtonStyle, background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 12px', color: 'var(--red-text)', fontSize: 12, fontWeight: 600, cursor: deletingId === t.id ? 'default' : 'pointer', opacity: deletingId === t.id ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                >
+                  {deletingId === t.id ? 'Verwijderen...' : 'Verwijderen'}
+                </button>
+              </>
+            )
           }
         </div>
       ))}
