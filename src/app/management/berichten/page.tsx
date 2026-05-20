@@ -20,7 +20,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSupabase } from '@/lib/supabase'
 import Navigation from '@/app/components/Navigation'
 
 type Bericht = {
@@ -172,10 +171,9 @@ export default function BerichtenPage() {
 
   useEffect(() => {
     const init = async () => {
-      const supabase = getSupabase()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
-      const { data: role } = await supabase.rpc('get_my_role')
+      const res = await fetch('/api/auth-context')
+      if (!res.ok) { router.replace('/login'); return }
+      const { role } = await res.json()
       if (role !== 'management' && role !== 'admin') {
         router.replace('/')
         return
