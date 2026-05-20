@@ -150,6 +150,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ── Add Lid Modal ──────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained while the PIN editor moves from inline rows to modal buttons.
 function PinRow({ person, onSaved }: { person: TrainerPin; onSaved: () => void }) {
   const [open, setOpen] = useState(false)
   const [pin, setPin] = useState('')
@@ -246,6 +247,84 @@ function PinRow({ person, onSaved }: { person: TrainerPin; onSaved: () => void }
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function PinDialog({ person, onClose, onSaved }: { person: TrainerPin; onClose: () => void; onSaved: () => void }) {
+  const [pin, setPin] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+
+  const save = async () => {
+    setError(null)
+    if (!/^\d{4}$/.test(pin)) { setError('PIN moet exact 4 cijfers zijn'); return }
+    if (pin !== confirm) { setError('PINs komen niet overeen'); return }
+
+    setSaving(true)
+    const endpoint = person.type === 'management' ? '/api/admin/pin-management' : '/api/admin/pin'
+    const body = person.type === 'management'
+      ? { management_id: person.trainer_id, pin }
+      : { trainer_id: person.trainer_id, pin }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    setSaving(false)
+
+    if (!res.ok) {
+      setError(data.error ?? 'PIN opslaan mislukt')
+      return
+    }
+
+    setOk(true)
+    setTimeout(() => { onSaved(); onClose() }, 700)
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: 20 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{person.has_pin ? 'Reset PIN' : 'PIN instellen'}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{person.naam} · {person.type === 'management' ? 'management' : 'trainer'}</div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Nieuwe PIN (4 cijfers)">
+            <input type="text" inputMode="numeric" maxLength={4} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }} />
+          </Field>
+          <Field label="Bevestig PIN">
+            <input type="text" inputMode="numeric" maxLength={4} value={confirm} onChange={e => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }} />
+          </Field>
+        </div>
+
+        {error && <div style={{ fontSize: 12, color: 'var(--red-text)', padding: '6px 10px', background: 'rgba(220,38,38,0.07)', borderRadius: 6 }}>{error}</div>}
+        {ok && <div style={{ fontSize: 12, color: 'var(--green-signal-text)', padding: '6px 10px', background: 'rgba(22,163,74,0.07)', borderRadius: 6 }}>PIN opgeslagen</div>}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 18px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Annuleren
+          </button>
+          <button
+            onClick={save}
+            disabled={saving || pin.length < 4 || confirm.length < 4}
+            style={{ ...touchButtonStyle, background: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving || pin.length < 4 || confirm.length < 4 ? 0.5 : 1 }}
+          >
+            {saving ? 'Opslaan...' : 'PIN opslaan'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -930,6 +1009,8 @@ export default function ManagementPage() {
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
   const [consolePins, setConsolePins]     = useState<TrainerPin[]>([])
+  const [ownPinPerson, setOwnPinPerson]   = useState<TrainerPin | null>(null)
+  const [pinPerson, setPinPerson]         = useState<TrainerPin | null>(null)
   const [unreadCounts, setUnreadCounts]   = useState<Record<string, number>>({})
   const [totalUnread, setTotalUnread]     = useState(0)
   const [nextLidId, setNextLidId]         = useState('WE-001')
@@ -1016,6 +1097,7 @@ export default function ManagementPage() {
         if (pinsRes.ok) {
           const pinsData = await pinsRes.json()
           setConsolePins(pinsData.trainers ?? [])
+          setOwnPinPerson(pinsData.current_person ?? null)
         }
       } catch {
         // Route niet beschikbaar of geen JSON; laat Console PINs leeg.
@@ -1083,6 +1165,10 @@ export default function ManagementPage() {
     }
     return true
   })
+  const pinByTrainerId = Object.fromEntries(
+    consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
+  ) as Record<string, TrainerPin>
+  const managementPins = consolePins.filter(p => p.type === 'management')
 
   if (loading) return (
     <>
@@ -1096,6 +1182,14 @@ export default function ManagementPage() {
   return (
     <>
       <Navigation />
+
+      {pinPerson && (
+        <PinDialog
+          person={pinPerson}
+          onClose={() => setPinPerson(null)}
+          onSaved={() => setRefreshKey(k => k + 1)}
+        />
+      )}
 
       {actieTrainer && (
         <ActieModal
@@ -1141,6 +1235,14 @@ export default function ManagementPage() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {ownPinPerson && (
+              <button
+                onClick={() => setPinPerson(ownPinPerson)}
+                style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', padding: '8px 16px', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
+              >
+                {ownPinPerson.has_pin ? 'Eigen PIN resetten' : 'Eigen PIN instellen'}
+              </button>
+            )}
             <a
               href="/management/berichten"
               style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
@@ -1196,7 +1298,7 @@ export default function ManagementPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', '', 'Notitie', ''].map(h => (
+                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', 'PIN', '', 'Notitie', ''].map(h => (
                   <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -1229,6 +1331,24 @@ export default function ManagementPage() {
                     <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.rood > 0 ? 'var(--red-text)' : 'var(--text-muted)', textAlign: 'center' }}>{s.rood}</td>
                     <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.amber > 0 ? 'var(--amber-text)' : 'var(--text-muted)', textAlign: 'center' }}>{s.amber}</td>
                     <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: s.open_acties > 0 ? 'var(--color-accent-text)' : 'var(--text-muted)', textAlign: 'center' }}>{s.open_acties}</td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      {(() => {
+                        const pinPersonForTrainer = pinByTrainerId[t.id] ?? {
+                          trainer_id: t.id,
+                          naam: `${t.voornaam} ${t.achternaam}`,
+                          has_pin: false,
+                          type: 'trainer' as const,
+                        }
+                        return (
+                          <button
+                            onClick={() => setPinPerson(pinPersonForTrainer)}
+                            style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            {pinPersonForTrainer.has_pin ? 'Reset PIN' : 'PIN instellen'}
+                          </button>
+                        )
+                      })()}
+                    </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <button
                         onClick={() => openActieFromTrainer(t)}
@@ -1277,12 +1397,46 @@ export default function ManagementPage() {
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Console PINs</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>4-cijferige PIN per trainer of management gebruiker</div>
           </div>
-          {consolePins.length === 0 ? (
+          {managementPins.length === 0 ? (
             <div style={{ padding: '28px 24px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>Geen actieve consolegebruikers gevonden</div>
           ) : (
-            consolePins.map(person => (
-              <PinRow key={`${person.type}-${person.trainer_id}`} person={person} onSaved={() => setRefreshKey(k => k + 1)} />
-            ))
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
+                  {['Account', 'Type', 'Status', ''].map(h => (
+                    <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {managementPins.map((person, i) => (
+                  <tr key={`${person.type}-${person.trainer_id}`} style={{ borderBottom: i < managementPins.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{person.naam}</td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--amber-text)', background: 'rgba(217,119,6,0.10)', padding: '2px 7px', borderRadius: 4 }}>
+                        management
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 20px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: person.has_pin ? 'var(--green-signal-text)' : 'var(--text-faint)', display: 'inline-block' }} />
+                        <span style={{ fontSize: 11, color: person.has_pin ? 'var(--green-signal-text)' : 'var(--text-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
+                          {person.has_pin ? 'PIN ingesteld' : 'Geen PIN'}
+                        </span>
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => setPinPerson(person)}
+                        style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        {person.has_pin ? 'Reset PIN' : 'PIN instellen'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
 

@@ -31,7 +31,7 @@ export async function GET() {
 
   const [{ data: trainerData, error: trainerError }, { data: mgmtData, error: mgmtError }] = await Promise.all([
     supabase.from('trainers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
-    supabase.from('management_gebruikers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
+    supabase.from('management_gebruikers').select('id, voornaam, achternaam, email, pin_hash').eq('actief', true).order('achternaam'),
   ])
 
   if (trainerError) return NextResponse.json({ error: trainerError.message }, { status: 500 })
@@ -52,5 +52,17 @@ export async function GET() {
     })),
   ]
 
-  return NextResponse.json({ trainers })
+  const currentPerson = (mgmtData ?? []).find(m => m.email?.toLowerCase() === user.email?.toLowerCase())
+
+  return NextResponse.json({
+    trainers,
+    current_person: currentPerson
+      ? {
+        trainer_id: currentPerson.id,
+        naam:       `${currentPerson.voornaam} ${currentPerson.achternaam}`,
+        has_pin:    currentPerson.pin_hash !== null,
+        type:       'management' as const,
+      }
+      : null,
+  })
 }
