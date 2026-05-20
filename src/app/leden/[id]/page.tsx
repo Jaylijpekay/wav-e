@@ -192,7 +192,7 @@ export default function LedenDetail() {
 
   const [contactOpen, setContactOpen] = useState(false)
   const [contactDatum, setContactDatum] = useState(new Date().toISOString().split('T')[0])
-  const [contactType, setContactType] = useState('check-in')
+  const [contactType, setContactType] = useState('gesprek')
   const [contactNotities, setContactNotities] = useState('')
   const [contactDoor, setContactDoor] = useState('')
   const [trainerNaam, setTrainerNaam] = useState<string | null>(null)
@@ -302,23 +302,29 @@ export default function LedenDetail() {
   const logContact = async () => {
     if (!lid) return
     setSavingContact(true)
-    const supabase = getSupabase()
     const resolvedDoor = role === 'trainer' ? trainerNaam : (contactDoor.trim() || null)
-    const { error } = await supabase.from('contact_momenten').insert({
-      lid_id:       lid.id,
-      trainer_id:   lid.trainer_id,
-      datum:        contactDatum,
-      type:         contactType,
-      notities:     contactNotities || null,
-      contact_door: resolvedDoor,
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lid_id:       lid.id,
+        trainer_id:   lid.trainer_id,
+        datum:        contactDatum,
+        type:         contactType,
+        notities:     contactNotities || null,
+        contact_door: resolvedDoor,
+      }),
     })
-    if (error) {
-      console.error('logContact error:', error.message)
+    if (!res.ok) {
+      console.error('logContact failed', await res.json().catch(() => null))
       setSavingContact(false)
       return
     }
-    const { data: fresh } = await supabase.from('contact_momenten').select('id, datum, type, notities, contact_door').eq('lid_id', lid.id).order('datum', { ascending: false })
-    setContacten(fresh ?? [])
+    const lidRes = await fetch(`/api/leden/${lid.id}`)
+    if (lidRes.ok) {
+      const { contacten: fresh } = await lidRes.json()
+      setContacten(fresh ?? [])
+    }
     setContactOpen(false)
     setContactNotities('')
     setContactDoor('')
@@ -1270,11 +1276,11 @@ export default function LedenDetail() {
                     <div className="ld-form-row">
                       <label className="ld-form-label">Type</label>
                       <select value={contactType} onChange={e => setContactType(e.target.value)} className="ld-input">
-                        <option value="check-in">Check-in</option>
+                        <option value="gesprek">Gesprek</option>
+                        <option value="training">Training</option>
                         <option value="whatsapp">WhatsApp</option>
                         <option value="telefoon">Telefoon</option>
-                        <option value="sessie">Sessie</option>
-                        <option value="anders">Anders</option>
+                        <option value="overig">Overig</option>
                       </select>
                     </div>
                     <div className="ld-form-row">
