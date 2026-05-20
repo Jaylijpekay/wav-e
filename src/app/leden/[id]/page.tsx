@@ -1343,31 +1343,40 @@ export default function LedenDetail() {
                   }
                 </div>
                 <div className="ld-health-grid">
-                  {healthSignals.map(sig => {
-                    const col = HEALTH[sig.status]
-                    return (
-                      <div
-                        key={sig.key}
-                        className="ld-health-card"
-                        style={{ background: col.bg, borderColor: col.border }}
-                      >
-                        <div className="ld-health-card-top">
-                          <span className="ld-health-dot" style={{ background: col.dot }} />
-                          <span
-                            className="ld-health-label"
-                            style={{ color: sig.status === 'empty' ? 'var(--border-subtle)' : 'var(--text-muted)' }}
-                          >
-                            {sig.label}
-                          </span>
+                  {healthSignals
+                    .filter(sig => sig.key !== 'tevredenheid' || role === 'management' || role === 'admin')
+                    .map(sig => {
+                      const col = HEALTH[sig.status]
+                      const isInternal = sig.key === 'tevredenheid'
+                      return (
+                        <div
+                          key={sig.key}
+                          className="ld-health-card"
+                          style={{ background: col.bg, borderColor: isInternal ? 'rgba(99,102,241,0.25)' : col.border }}
+                        >
+                          <div className="ld-health-card-top">
+                            <span className="ld-health-dot" style={{ background: col.dot }} />
+                            <span
+                              className="ld-health-label"
+                              style={{ color: sig.status === 'empty' ? 'var(--border-subtle)' : 'var(--text-muted)' }}
+                            >
+                              {sig.label}
+                            </span>
+                          </div>
+                          {isInternal && (
+                            <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-accent-text)', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 2, padding: '1px 5px', display: 'inline-block', marginBottom: 2 }}>
+                              intern
+                            </span>
+                          )}
+                          <div className="ld-health-value-row">
+                            <span className="ld-health-value" style={{ color: col.text }}>{sig.value ?? '—'}</span>
+                            <span className="ld-health-unit"  style={{ color: col.dim }}>{sig.value !== null ? sig.unit : ''}</span>
+                          </div>
+                          <div className="ld-health-reden" style={{ color: col.dim }}>{sig.reden}</div>
                         </div>
-                        <div className="ld-health-value-row">
-                          <span className="ld-health-value" style={{ color: col.text }}>{sig.value ?? '—'}</span>
-                          <span className="ld-health-unit"  style={{ color: col.dim }}>{sig.value !== null ? sig.unit : ''}</span>
-                        </div>
-                        <div className="ld-health-reden" style={{ color: col.dim }}>{sig.reden}</div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })
+                  }
                 </div>
                 {!latestEval && (
                   <div className="ld-health-empty-note">
