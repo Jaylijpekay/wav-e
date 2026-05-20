@@ -29,19 +29,12 @@ export async function getServiceSupabase() {
   )
 }
 
-async function validateConsoleToken(supabase: Awaited<ReturnType<typeof getServiceSupabase>>, token: string | undefined) {
-  if (!token) return false
-  const { data, error } = await supabase.rpc('validate_console_token', { p_token: token })
-  return !error && !!data
-}
-
 export async function getServerAuthContext(req?: NextRequest): Promise<ServerAuthContext | null> {
   const supabase = await getServiceSupabase()
 
-  const consoleToken = req?.cookies.get('console_token')?.value
   const consoleSession = await verifyConsoleSession(req?.cookies.get('console_session')?.value)
 
-  if (consoleSession && await validateConsoleToken(supabase, consoleToken)) {
+  if (consoleSession) {
     return {
       supabase,
       authMode: 'console',

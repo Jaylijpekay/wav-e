@@ -30,11 +30,12 @@ export default function Navigation() {
     setLoggingOut(true)
     if (authMode === 'console') {
       await fetch('/api/console/logout', { method: 'POST' })
+      router.push('/console')
     } else {
       const supabase = getSupabase()
       await supabase.auth.signOut()
+      router.push('/login')
     }
-    router.push('/login')
   }
 
   const trainerLinks = trainerIdFromPath
