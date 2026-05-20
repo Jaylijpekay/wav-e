@@ -109,6 +109,7 @@ const buildHealthSignals = (ev: Evaluatie | null): HealthSignal[] => {
     make('slaap',        'Slaap',        ev?.slaap        ?? null, '/10', false),
     make('energie',      'Energie',      ev?.energie      ?? null, '/10', false),
     make('stress',       'Stress',       ev?.stress       ?? null, '/10', true),
+    // voeding and beweging: populated via evaluatie form — valid signals
     make('voeding',      'Voeding',      ev?.voeding      ?? null, '/10', false),
     make('beweging',     'Beweging',     ev?.beweging     ?? null, '/10', false),
     make('tevredenheid', 'Tevredenheid', ev?.tevredenheid ?? null, '/10', false),
