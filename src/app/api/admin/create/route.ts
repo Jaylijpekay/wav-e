@@ -81,7 +81,11 @@ export async function POST(req: NextRequest) {
   })
 
   if (createError || !user) {
-    return NextResponse.json({ error: createError?.message ?? 'Aanmaken mislukt' }, { status: 500 })
+    console.error('createUser failed:', JSON.stringify(createError))
+    return NextResponse.json({
+      error: createError?.message ?? 'Aanmaken mislukt',
+      code: createError?.code,
+    }, { status: 500 })
   }
 
   if (newRole === 'trainer') {
