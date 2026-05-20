@@ -181,7 +181,7 @@ export default function MijnLedenPage() {
           -webkit-backdrop-filter: blur(12px);
         }
         .ml-header-inner {
-          max-width: 960px; width: 100%; margin: 0 auto;
+          max-width: var(--app-shell-max); width: 100%; margin: 0 auto;
           display: flex; align-items: center; justify-content: space-between;
         }
         .ml-back {
@@ -198,8 +198,8 @@ export default function MijnLedenPage() {
 
         /* Body */
         .ml-body {
-          max-width: 1100px; margin: 0 auto;
-          padding: 32px 24px 6rem;
+          max-width: var(--app-shell-max); margin: 0 auto;
+          padding: 32px var(--app-shell-padding) 6rem;
           position: relative; z-index: 1;
         }
 

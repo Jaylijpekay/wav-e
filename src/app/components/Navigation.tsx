@@ -77,7 +77,7 @@ export default function Navigation() {
         }
 
         .nav-inner {
-          max-width: 1100px;
+          max-width: var(--app-shell-max);
           width: 100%;
           margin: 0 auto;
           display: flex;

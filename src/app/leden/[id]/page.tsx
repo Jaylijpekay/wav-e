@@ -413,7 +413,7 @@ export default function LedenDetail() {
         }
 
         .ld-header-inner {
-          max-width: 1140px;
+          max-width: var(--app-shell-max);
           width: 100%;
           margin: 0 auto;
           display: flex;
@@ -492,9 +492,9 @@ export default function LedenDetail() {
 
         /* ─── Body ──────────────────────────────────────────────────── */
         .ld-body {
-          max-width: 1140px;
+          max-width: var(--app-shell-max);
           margin: 0 auto;
-          padding: 2rem 1.5rem 6rem;
+          padding: 2rem var(--app-shell-padding) 6rem;
           position: relative;
           z-index: 1;
         }

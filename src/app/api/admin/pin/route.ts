@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: role } = await supabase.rpc('get_my_role')
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'management') {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 

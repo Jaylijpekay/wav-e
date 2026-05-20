@@ -276,7 +276,7 @@ export default function EvaluatieDetail() {
           -webkit-backdrop-filter: blur(12px);
         }
         .ev-header-inner {
-          max-width: 860px;
+          max-width: var(--app-shell-form);
           width: 100%;
           margin: 0 auto;
           display: flex;
@@ -319,9 +319,9 @@ export default function EvaluatieDetail() {
 
         /* ── Body ── */
         .ev-body {
-          max-width: 860px;
+          max-width: var(--app-shell-form);
           margin: 0 auto;
-          padding: 2rem 1.5rem 6rem;
+          padding: 2rem var(--app-shell-padding) 6rem;
           position: relative;
           z-index: 1;
         }

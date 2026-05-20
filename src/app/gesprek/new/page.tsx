@@ -185,7 +185,7 @@ export default function GesprekNew() {
         }
 
         .gn-header-inner {
-          max-width: 860px;
+          max-width: var(--app-shell-form);
           width: 100%;
           margin: 0 auto;
           display: flex;
@@ -213,9 +213,9 @@ export default function GesprekNew() {
 
         /* ── Form ── */
         .gn-form {
-          max-width: 860px;
+          max-width: var(--app-shell-form);
           margin: 0 auto;
-          padding: 2.5rem 1.5rem 6rem;
+          padding: 2.5rem var(--app-shell-padding) 6rem;
           position: relative;
           z-index: 1;
         }

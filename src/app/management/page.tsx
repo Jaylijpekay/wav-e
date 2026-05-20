@@ -13,7 +13,7 @@
  * management
  *
  * Gerelateerde API routes:
- * /api/admin/create
+ * /api/admin/create, /api/admin/pins, /api/admin/pin, /api/admin/pin-management
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -32,6 +32,13 @@ type Trainer = {
   naam: string
   email: string
   actief: boolean
+}
+
+type TrainerPin = {
+  trainer_id: string
+  naam: string
+  has_pin: boolean
+  type: 'trainer' | 'management'
 }
 
 type TrainerStats = {
@@ -142,6 +149,106 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ── Add Lid Modal ──────────────────────────────────────────────────────
+
+function PinRow({ person, onSaved }: { person: TrainerPin; onSaved: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [pin, setPin] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+
+  const reset = () => {
+    setPin('')
+    setConfirm('')
+    setError(null)
+    setOk(false)
+    setOpen(false)
+  }
+
+  const save = async () => {
+    setError(null)
+    if (!/^\d{4}$/.test(pin)) { setError('PIN moet exact 4 cijfers zijn'); return }
+    if (pin !== confirm) { setError('PINs komen niet overeen'); return }
+
+    setSaving(true)
+    const endpoint = person.type === 'management' ? '/api/admin/pin-management' : '/api/admin/pin'
+    const body = person.type === 'management'
+      ? { management_id: person.trainer_id, pin }
+      : { trainer_id: person.trainer_id, pin }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    setSaving(false)
+
+    if (!res.ok) {
+      setError(data.error ?? 'PIN opslaan mislukt')
+      return
+    }
+
+    setOk(true)
+    setTimeout(() => { reset(); onSaved() }, 800)
+  }
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.naam}</div>
+            {person.type === 'management' && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--amber-text)', background: 'rgba(217,119,6,0.10)', padding: '2px 7px', borderRadius: 4 }}>
+                management
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: person.has_pin ? 'var(--green-signal-text)' : 'var(--text-faint)', display: 'inline-block' }} />
+          <span style={{ fontSize: 11, color: person.has_pin ? 'var(--green-signal-text)' : 'var(--text-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
+            {person.has_pin ? 'PIN ingesteld' : 'Geen PIN'}
+          </span>
+        </div>
+
+        <button
+          onClick={() => { setOpen(o => !o); setError(null); setOk(false) }}
+          style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          {open ? 'Annuleren' : person.has_pin ? 'Reset PIN' : 'Stel in'}
+        </button>
+      </div>
+
+      {open && (
+        <div style={{ padding: '16px 24px 20px', background: 'var(--bg-raised)', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="Nieuwe PIN (4 cijfers)">
+              <input type="text" inputMode="numeric" maxLength={4} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }} />
+            </Field>
+            <Field label="Bevestig PIN">
+              <input type="text" inputMode="numeric" maxLength={4} value={confirm} onChange={e => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }} />
+            </Field>
+          </div>
+
+          {error && <div style={{ fontSize: 12, color: 'var(--red-text)', padding: '6px 10px', background: 'rgba(220,38,38,0.07)', borderRadius: 6 }}>{error}</div>}
+          {ok && <div style={{ fontSize: 12, color: 'var(--green-signal-text)', padding: '6px 10px', background: 'rgba(22,163,74,0.07)', borderRadius: 6 }}>PIN opgeslagen</div>}
+
+          <button
+            onClick={save}
+            disabled={saving || pin.length < 4 || confirm.length < 4}
+            style={{ ...touchButtonStyle, background: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving || pin.length < 4 || confirm.length < 4 ? 0.5 : 1, alignSelf: 'flex-start' }}
+          >
+            {saving ? 'Opslaan…' : 'PIN opslaan'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function AddLidModal({
   trainers,
@@ -822,6 +929,7 @@ export default function ManagementPage() {
   const [trainers, setTrainers]           = useState<Trainer[]>([])
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
+  const [consolePins, setConsolePins]     = useState<TrainerPin[]>([])
   const [unreadCounts, setUnreadCounts]   = useState<Record<string, number>>({})
   const [totalUnread, setTotalUnread]     = useState(0)
   const [nextLidId, setNextLidId]         = useState('WE-001')
@@ -900,6 +1008,12 @@ export default function ManagementPage() {
         counts[b.trainer_id] = (counts[b.trainer_id] ?? 0) + 1
       }
       setUnreadCounts(counts)
+    }
+
+    const pinsRes = await fetch('/api/admin/pins')
+    if (pinsRes.ok) {
+      const pinsData = await pinsRes.json()
+      setConsolePins(pinsData.trainers ?? [])
     }
 
     const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
@@ -1009,7 +1123,7 @@ export default function ManagementPage() {
         />
       )}
 
-      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px 24px', maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
 
         {/* Title */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1148,6 +1262,21 @@ export default function ManagementPage() {
         {/* Console panel */}
         <ConsolePanel />
 
+        {/* Console PINs */}
+        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Console PINs</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>4-cijferige PIN per trainer of management gebruiker</div>
+          </div>
+          {consolePins.length === 0 ? (
+            <div style={{ padding: '28px 24px', color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>Geen actieve consolegebruikers gevonden</div>
+          ) : (
+            consolePins.map(person => (
+              <PinRow key={`${person.type}-${person.trainer_id}`} person={person} onSaved={() => setRefreshKey(k => k + 1)} />
+            ))
+          )}
+        </section>
+
         {/* Member table */}
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', gap: 12 }}>
@@ -1183,12 +1312,12 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px 160px', padding: '12px 24px', minHeight: 44, borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
+                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 120px 100px 160px', padding: '0 24px', height: 68, overflow: 'hidden', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <span
-                      style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                      style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
                       onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
                     >{l.voornaam} {l.achternaam}</span>

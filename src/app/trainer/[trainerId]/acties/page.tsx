@@ -239,7 +239,7 @@ export default function TrainerActiesPage() {
         }
 
         .td-header-inner {
-          max-width: 1100px;
+          max-width: var(--app-shell-max);
           width: 100%;
           margin: 0 auto;
           display: flex;
@@ -341,9 +341,9 @@ export default function TrainerActiesPage() {
         .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: var(--text-faint); text-align: center; }
 
         .td-body {
-          max-width: 1100px;
+          max-width: var(--app-shell-max);
           margin: 0 auto;
-          padding: 32px 24px 6rem;
+          padding: 32px var(--app-shell-padding) 6rem;
           position: relative;
           z-index: 1;
         }

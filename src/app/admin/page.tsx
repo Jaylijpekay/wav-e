@@ -4,7 +4,7 @@
  * Admin
  *
  * Wat doet deze pagina:
- * Deze pagina beheert gebruikers, PIN-codes en studio-consoles. Admins kunnen accounts aanmaken, verwijderen en consoletoegang beheren.
+ * Deze pagina beheert gebruikers en studio-consoles. Admins kunnen accounts aanmaken, verwijderen en consoletoegang beheren.
  *
  * Data:
  * Leest en schrijft via API: user_roles, trainers, management_gebruikers, console_tokens en Supabase Auth gebruikers.
@@ -13,7 +13,7 @@
  * admin
  *
  * Gerelateerde API routes:
- * /api/admin/list, /api/admin/pins, /api/admin/pin, /api/admin/pin-management, /api/admin/create, /api/admin/delete, /api/admin/console-tokens
+ * /api/admin/list, /api/admin/create, /api/admin/delete, /api/admin/console-tokens
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -30,13 +30,6 @@ type UserRow = {
   role: 'admin' | 'management' | 'trainer' | null
   trainer_id: string | null
   trainer_naam: string | null
-}
-
-type TrainerPin = {
-  trainer_id: string
-  naam: string
-  has_pin: boolean
-  type: 'trainer' | 'management'
 }
 
 type ConsoleToken = {
@@ -100,119 +93,6 @@ function RoleBadge({ role }: { role: string | null }) {
     }}>
       {s.label}
     </span>
-  )
-}
-
-// ============================================================
-// PIN ROW
-// ============================================================
-
-function PinRow({ trainer, onSaved }: { trainer: TrainerPin; onSaved: () => void }) {
-  const [open,    setOpen]    = useState(false)
-  const [pin,     setPin]     = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
-  const [ok,      setOk]      = useState(false)
-
-  const reset = () => { setPin(''); setConfirm(''); setError(null); setOk(false); setOpen(false) }
-
-  const save = async () => {
-    setError(null)
-    if (!/^\d{4}$/.test(pin)) { setError('PIN moet exact 4 cijfers zijn'); return }
-    if (pin !== confirm)       { setError('PINs komen niet overeen'); return }
-    setSaving(true)
-
-    const endpoint = trainer.type === 'management' ? '/api/admin/pin-management' : '/api/admin/pin'
-    const body = trainer.type === 'management'
-      ? { management_id: trainer.trainer_id, pin }
-      : { trainer_id: trainer.trainer_id, pin }
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const data = await res.json()
-    setSaving(false)
-    if (!res.ok) { setError(data.error); return }
-    setOk(true)
-    setTimeout(() => { reset(); onSaved() }, 800)
-  }
-
-  return (
-    <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{trainer.naam}</div>
-            {trainer.type === 'management' && (
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--amber-text)', background: 'rgba(217,119,6,0.10)', padding: '2px 7px', borderRadius: 4 }}>
-                management
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: trainer.has_pin ? 'var(--green-signal-text)' : 'var(--text-faint)', display: 'inline-block' }} />
-          <span style={{ fontSize: 11, color: trainer.has_pin ? 'var(--green-signal-text)' : 'var(--text-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
-            {trainer.has_pin ? 'PIN ingesteld' : 'Geen PIN'}
-          </span>
-        </div>
-
-        <button
-          onClick={() => { setOpen(o => !o); setError(null); setOk(false) }}
-          style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-        >
-          {open ? 'Annuleren' : trainer.has_pin ? 'Reset PIN' : 'Stel in'}
-        </button>
-      </div>
-
-      {open && (
-        <div style={{ padding: '16px 24px 20px', background: 'var(--bg-raised)', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Nieuwe PIN (4 cijfers)">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                value={pin}
-                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="1234"
-                style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }}
-              />
-            </Field>
-            <Field label="Bevestig PIN">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                value={confirm}
-                onChange={e => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="1234"
-                style={{ ...inputStyle, letterSpacing: '0.3em', fontSize: 20, textAlign: 'center' }}
-              />
-            </Field>
-          </div>
-
-          {error && (
-            <div style={{ fontSize: 12, color: 'var(--red-text)', padding: '6px 10px', background: 'rgba(220,38,38,0.07)', borderRadius: 6 }}>{error}</div>
-          )}
-          {ok && (
-            <div style={{ fontSize: 12, color: 'var(--green-signal-text)', padding: '6px 10px', background: 'rgba(22,163,74,0.07)', borderRadius: 6 }}>✓ PIN opgeslagen</div>
-          )}
-
-          <button
-            onClick={save}
-            disabled={saving || pin.length < 4 || confirm.length < 4}
-            style={{ background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving || pin.length < 4 || confirm.length < 4 ? 0.5 : 1, alignSelf: 'flex-start' }}
-          >
-            {saving ? 'Opslaan…' : 'PIN opslaan'}
-          </button>
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -375,7 +255,6 @@ function ConsolePanel() {
 
 export default function AdminPage() {
   const [users,    setUsers]    = useState<UserRow[]>([])
-  const [trainers, setTrainers] = useState<TrainerPin[]>([])
   const [loading,  setLoading]  = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -391,14 +270,9 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [usersRes, pinsRes] = await Promise.all([
-      fetch('/api/admin/list'),
-      fetch('/api/admin/pins'),
-    ])
+    const usersRes = await fetch('/api/admin/list')
     const usersData = await usersRes.json()
-    const pinsData  = pinsRes.ok ? await pinsRes.json() : { trainers: [] }
     setUsers(usersData.users ?? [])
-    setTrainers(pinsData.trainers ?? [])
     setLoading(false)
   }, [])
 
@@ -457,7 +331,7 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div style={{ padding: '32px', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <div style={{ padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
         {formOk && !showForm && (
           <div style={{ fontSize: 13, color: 'var(--green-signal-text)', padding: '10px 16px', background: 'rgba(22,163,74,0.07)', borderRadius: 8, border: '1px solid rgba(22,163,74,0.2)' }}>✓ {formOk}</div>
@@ -522,19 +396,6 @@ export default function AdminPage() {
 
         {/* Console tokens */}
         <ConsolePanel />
-
-        {/* Console PINs */}
-        {!loading && trainers.length > 0 && (
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Console PINs</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>4-cijferige PIN per persoon · toegang tot studio console</div>
-            </div>
-            {trainers.map(t => (
-              <PinRow key={t.trainer_id} trainer={t} onSaved={load} />
-            ))}
-          </div>
-        )}
 
       </div>
     </div>
