@@ -117,6 +117,13 @@ export default function ConsolePage() {
   }, [pin, step, verify])
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      fetch('/api/console/refresh', { method: 'POST' }).catch(() => null)
+    }, 10 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
     if (step === 'pin') {
       pinPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }

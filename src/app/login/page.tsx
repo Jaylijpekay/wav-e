@@ -27,6 +27,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const getSafeRedirectPath = (defaultPath: string) => {
+    const params = new URLSearchParams(window.location.search)
+    const next = params.get('next')
+    return next && next.startsWith('/') && !next.startsWith('//')
+      ? next
+      : defaultPath
+  }
+
   const handleLogin = async () => {
     setError(null)
     setLoading(true)
@@ -46,7 +54,7 @@ export default function LoginPage() {
     const { data: role } = await supabase.rpc('get_my_role')
 
     if (role === 'admin') {
-      router.push('/admin')
+      router.replace(getSafeRedirectPath('/admin'))
       return
     }
 
@@ -59,11 +67,11 @@ export default function LoginPage() {
     }
 
     if (role === 'management') {
-      router.push('/management')
+      router.replace(getSafeRedirectPath('/management'))
     } else if (role === 'trainer' && trainerId) {
-      router.push(`/trainer/${trainerId}`)
+      router.replace(getSafeRedirectPath(`/trainer/${trainerId}`))
     } else {
-      router.push('/')
+      router.replace(getSafeRedirectPath('/'))
     }
   }
 
