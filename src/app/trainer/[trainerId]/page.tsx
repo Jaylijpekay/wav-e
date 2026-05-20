@@ -403,6 +403,7 @@ export default function TrainerDashboard() {
   const [berichtTekst, setBerichtTekst] = useState('')
   const [berichtenMax, setBerichtenMax] = useState(5)
   const [berichtPosting, setBerichtPosting] = useState(false)
+  const [berichtError, setBerichtError] = useState<string | null>(null)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplichtRef = useRef<HTMLDivElement>(null)
@@ -509,11 +510,13 @@ export default function TrainerDashboard() {
   const deleteBericht = async (notitieId: string) => {
     const previous = berichten
     setBerichten(prev => prev.filter(b => b.id !== notitieId))
+    setBerichtError(null)
     try {
       const res = await fetch(`/api/trainer-notities/${trainerId}/${notitieId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Verwijderen mislukt')
     } catch {
       setBerichten(previous)
+      setBerichtError('Bericht verwijderen mislukt — probeer opnieuw')
     }
   }
 
@@ -1391,6 +1394,12 @@ export default function TrainerDashboard() {
                 <span className="td-section-title">Berichten</span>
                 {berichten.length > 0 && <span className="td-section-count">{berichten.length}</span>}
               </div>
+
+              {berichtError && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--red-text)', padding: '4px 0 8px' }}>
+                  {berichtError}
+                </div>
+              )}
 
               {berichtenLoading ? (
                 <div className="td-empty" style={{ padding: '1.5rem 0' }}>Laden…</div>
