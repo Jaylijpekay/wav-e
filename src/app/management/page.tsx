@@ -828,47 +828,44 @@ function ConsolePanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const loadTokens = useCallback(async () => {
-    const supabase = getSupabase()
-    const { data } = await supabase
-      .from('console_tokens')
-      .select('id, token, naam, actief, aangemaakt_op, laatst_gebruikt')
-      .order('aangemaakt_op', { ascending: false })
-    setTokens(data ?? [])
+    const res = await fetch('/api/management/console-tokens')
+    const { tokens } = res.ok ? await res.json() : { tokens: [] }
+    setTokens(tokens ?? [])
     setLoading(false)
   }, [])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial Supabase load hydrates this client panel after mount.
   useEffect(() => { loadTokens() }, [loadTokens])
 
   const createToken = async () => {
     if (!newNaam.trim()) return
     setSaving(true)
-    const supabase = getSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data } = await supabase
-      .from('console_tokens')
-      .insert({
-        naam:            newNaam.trim(),
-        trainer_id:      null,
-        aangemaakt_door: user!.id,
-      })
-      .select('id, token, naam, actief, aangemaakt_op, laatst_gebruikt')
-      .single()
+    const res = await fetch('/api/management/console-tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ naam: newNaam.trim() }),
+    })
+    const data = res.ok ? await res.json() : null
     setNewNaam('')
     setFormOpen(false)
     setSaving(false)
     await loadTokens()
-    if (data) setQrToken(data)
+    if (data?.token) setQrToken(data.token)
   }
 
-  const revokeToken     = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: false }).eq('id', id); loadTokens() }
-  const reactivateToken = async (id: string) => { await getSupabase().from('console_tokens').update({ actief: true  }).eq('id', id); loadTokens() }
+  const revokeToken = async (id: string) => {
+    await fetch(`/api/management/console-tokens/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actief: false }) })
+    loadTokens()
+  }
+  const reactivateToken = async (id: string) => {
+    await fetch(`/api/management/console-tokens/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actief: true }) })
+    loadTokens()
+  }
 
   const deleteToken = async (t: ConsoleToken) => {
     if (t.actief) return
     if (!window.confirm(`Console "${t.naam}" definitief verwijderen?`)) return
     setDeletingId(t.id)
-    await getSupabase().from('console_tokens').delete().eq('id', t.id).eq('actief', false)
+    await fetch(`/api/management/console-tokens/${t.id}`, { method: 'DELETE' })
     setDeletingId(null)
     loadTokens()
   }
@@ -1063,21 +1060,13 @@ export default function ManagementPage() {
 
   const load = useCallback(async () => {
     try {
-      const supabase = getSupabase()
-
-      const [
-        { data: trainerData },
-        { data: ledenRaw },
-        { data: contacten },
-        { data: evaluaties },
-        { data: actiesData },
-      ] = await Promise.all([
-        supabase.from('trainers').select('id, voornaam, achternaam, naam, email, actief').order('achternaam'),
-        supabase.from('leden').select('id, lid_id, voornaam, achternaam, actief, status, trainer_id').order('achternaam'),
-        supabase.from('contact_momenten').select('lid_id, datum').order('datum', { ascending: false }),
-        supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').order('cyclus', { ascending: false }),
-        supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
-      ])
+      const dataRes = await fetch('/api/management/data')
+      const studioData = dataRes.ok ? await dataRes.json() : {}
+      const trainerData = studioData.trainers  ?? []
+      const ledenRaw    = studioData.leden     ?? []
+      const contacten   = studioData.contacten ?? []
+      const evaluaties  = studioData.evaluaties ?? []
+      const actiesData  = studioData.acties    ?? []
 
       const unreadRes = await fetch('/api/trainer-notities')
       if (unreadRes.ok) {
