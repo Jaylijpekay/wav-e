@@ -106,13 +106,18 @@ export async function POST(req: NextRequest) {
       .select('id')
 
     if (roleErr || !roleData?.length) {
+      console.error('user_roles insert (trainer) failed:', JSON.stringify(roleErr))
       await supabase
         .from('trainers')
         .update({ actief: false })
         .eq('id', trainerRow.id)
         .select('id')
       await supabase.auth.admin.deleteUser(user.id)
-      return NextResponse.json({ error: 'Aanmaken mislukt: rol kon niet worden opgeslagen' }, { status: 500 })
+      return NextResponse.json({
+        error: roleErr?.message ?? 'Aanmaken mislukt: rol kon niet worden opgeslagen',
+        code: roleErr?.code,
+        details: roleErr?.details,
+      }, { status: 500 })
     }
   }
 
@@ -134,13 +139,18 @@ export async function POST(req: NextRequest) {
       .select('id')
 
     if (roleErr || !roleData?.length) {
+      console.error('user_roles insert (management) failed:', JSON.stringify(roleErr))
       await supabase
         .from('management_gebruikers')
         .update({ actief: false })
         .eq('id', mgmtRow.id)
         .select('id')
       await supabase.auth.admin.deleteUser(user.id)
-      return NextResponse.json({ error: 'Aanmaken mislukt: rol kon niet worden opgeslagen' }, { status: 500 })
+      return NextResponse.json({
+        error: roleErr?.message ?? 'Aanmaken mislukt: rol kon niet worden opgeslagen',
+        code: roleErr?.code,
+        details: roleErr?.details,
+      }, { status: 500 })
     }
   }
 
