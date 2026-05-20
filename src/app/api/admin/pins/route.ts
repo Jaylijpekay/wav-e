@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerAuthContext } from '@/lib/serverAuth'
 
+type TrainerRow = { id: string; voornaam: string; achternaam: string; pin_hash: string | null }
+type MgmtRow   = { id: string; voornaam: string; achternaam: string; email: string | null; pin_hash: string | null }
+
 export async function GET(req: NextRequest) {
   const auth = await getServerAuthContext(req)
   if (!auth) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
@@ -19,13 +22,13 @@ export async function GET(req: NextRequest) {
   if (mgmtError)    return NextResponse.json({ error: mgmtError.message   }, { status: 500 })
 
   const trainers = [
-    ...(trainerData ?? []).map(t => ({
+    ...(trainerData as TrainerRow[] ?? []).map(t => ({
       trainer_id: t.id,
       naam:       `${t.voornaam} ${t.achternaam}`,
       has_pin:    t.pin_hash !== null,
       type:       'trainer' as const,
     })),
-    ...(mgmtData ?? []).map(m => ({
+    ...(mgmtData as MgmtRow[] ?? []).map(m => ({
       trainer_id: m.id,
       naam:       `${m.voornaam} ${m.achternaam}`,
       has_pin:    m.pin_hash !== null,
@@ -36,11 +39,11 @@ export async function GET(req: NextRequest) {
   // Console sessions: match by person UUID; Supabase sessions: match by email
   let currentPerson = null
   if (auth.authMode === 'console') {
-    currentPerson = (mgmtData ?? []).find(m => m.id === auth.personId) ?? null
+    currentPerson = (mgmtData as MgmtRow[] ?? []).find(m => m.id === auth.personId) ?? null
   } else {
     const { data: { user } } = await supabase.auth.getUser()
     currentPerson = user
-      ? (mgmtData ?? []).find(m => m.email?.toLowerCase() === user.email?.toLowerCase()) ?? null
+      ? (mgmtData as MgmtRow[] ?? []).find(m => m.email?.toLowerCase() === user.email?.toLowerCase()) ?? null
       : null
   }
 
