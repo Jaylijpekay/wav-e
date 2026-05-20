@@ -1,6 +1,5 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerAuthContext } from '@/lib/serverAuth'
 
 type TrainerRow = {
   id: string
@@ -42,29 +41,13 @@ function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status })
 }
 
-async function getSupabaseServer() {
-  const cookieStore = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {},
-      },
-    }
-  )
-}
-
-export async function GET() {
-  const supabase = await getSupabaseServer()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) return jsonError('Niet ingelogd', 401)
-
-  const { data: role } = await supabase.rpc('get_my_role')
-  if (role !== 'management' && role !== 'admin') {
+export async function GET(req: NextRequest) {
+  const auth = await getServerAuthContext(req)
+  if (!auth) return jsonError('Niet ingelogd', 401)
+  if (auth.role !== 'management' && auth.role !== 'admin') {
     return jsonError('Geen toegang', 403)
   }
+  const supabase = auth.supabase
 
   const { data: berichtenRaw, error: berichtenError } = await supabase
     .from('trainer_notities')

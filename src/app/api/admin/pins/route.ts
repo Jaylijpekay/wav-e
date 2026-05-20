@@ -1,33 +1,14 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerAuthContext } from '@/lib/serverAuth'
 
-async function getAdminClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {},
-      },
-    }
-  )
-}
-
-export async function GET() {
-  const supabase = await getAdminClient()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-  }
-
-  const { data: role } = await supabase.rpc('get_my_role')
-  if (role !== 'admin' && role !== 'management') {
+export async function GET(req: NextRequest) {
+  const auth = await getServerAuthContext(req)
+  if (!auth) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  if (auth.role !== 'management' && auth.role !== 'admin') {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
+
+  const supabase = auth.supabase
 
   const [{ data: trainerData, error: trainerError }, { data: mgmtData, error: mgmtError }] = await Promise.all([
     supabase.from('trainers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
@@ -52,7 +33,16 @@ export async function GET() {
     })),
   ]
 
-  const currentPerson = (mgmtData ?? []).find(m => m.email?.toLowerCase() === user.email?.toLowerCase())
+  // Console sessions: match by person UUID; Supabase sessions: match by email
+  let currentPerson = null
+  if (auth.authMode === 'console') {
+    currentPerson = (mgmtData ?? []).find(m => m.id === auth.personId) ?? null
+  } else {
+    const { data: { user } } = await supabase.auth.getUser()
+    currentPerson = user
+      ? (mgmtData ?? []).find(m => m.email?.toLowerCase() === user.email?.toLowerCase()) ?? null
+      : null
+  }
 
   return NextResponse.json({
     trainers,

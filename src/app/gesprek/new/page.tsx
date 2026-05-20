@@ -128,7 +128,7 @@ export default function GesprekNew() {
       evaluaties-tabel en mogen daarom niet vanuit de client worden geschreven.
     */
     setSuccess(true)
-    setTimeout(() => router.push('/'), 1200)
+    setTimeout(() => router.back(), 1200)
   }
 
   if (loading) return (
