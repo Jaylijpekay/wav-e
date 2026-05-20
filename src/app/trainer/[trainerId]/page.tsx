@@ -241,9 +241,9 @@ function AddLidModal({
 
   useEffect(() => {
     const fetchNextId = async () => {
-      const supabase = getSupabase()
-      const { data } = await supabase.rpc('get_next_lid_id')
-      const next = data ?? 'WE-001'
+      const res = await fetch(`/api/trainer/${trainerId}/next-lid-id`)
+      const data = res.ok ? await res.json() : { nextLidId: 'WE-001' }
+      const next = data.nextLidId ?? 'WE-001'
       setNextLidId(next)
       setLidId(next)
       setLoadingId(false)
@@ -258,23 +258,23 @@ function AddLidModal({
     if (!achternaam.trim()) { setError('Achternaam is verplicht'); return }
 
     setSaving(true)
-    const supabase = getSupabase()
-    const { error: err } = await supabase.from('leden').insert({
-      lid_id:     lidId.trim().toUpperCase(),
-      voornaam:   voornaam.trim(),
-      achternaam: achternaam.trim(),
-      email:      email.trim() || null,
-      telefoon:   telefoon.trim() || null,
-      trainer_id: trainerId,
-      startdatum,
-      source:     'manual',
-      actief:     true,
-      status:     'Actief',
+    const res = await fetch(`/api/trainer/${trainerId}/leden`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lid_id: lidId,
+        voornaam,
+        achternaam,
+        email,
+        telefoon,
+        startdatum,
+      }),
     })
+    const data = await res.json()
     setSaving(false)
 
-    if (err) {
-      setError(err.message.includes('unique') ? `Lid-ID "${lidId}" bestaat al` : err.message)
+    if (!res.ok) {
+      setError(data.error ?? 'Lid aanmaken mislukt')
       return
     }
     onSaved()
@@ -409,117 +409,27 @@ export default function TrainerDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase()
-      const { data: trainerData } = await supabase
-        .from('trainers').select('id, naam').eq('id', trainerId).single()
-      setTrainer(trainerData)
-
-      const { data: ledenData } = await supabase
-        .from('leden').select('id, lid_id, voornaam, achternaam')
-        .eq('trainer_id', trainerId).eq('actief', true).order('voornaam')
-
-      if (!ledenData || ledenData.length === 0) {
+      try {
+        const res = await fetch(`/api/trainer/${trainerId}/dashboard`)
+        if (!res.ok) throw new Error('Dashboard ophalen mislukt')
+        const data = await res.json()
+        setTrainer(data.trainer)
+        setLedenDropdown(data.ledenDropdown ?? [])
+        setLeden(data.leden ?? [])
+        setActies(data.acties ?? [])
+        setMomentum(data.momentum ?? { gesprekken: 0, actiesAfgerond: 0 })
+        setMeldingen(data.meldingen ?? [])
+      } catch {
+        setTrainer(null)
+        setLedenDropdown([])
+        setLeden([])
+        setActies([])
         setMomentum({ gesprekken: 0, actiesAfgerond: 0 })
         setMeldingen([])
+      } finally {
         setMeldingenLoading(false)
         setLoading(false)
-        return
       }
-      setLedenDropdown(ledenData)
-
-      const lidIds = ledenData.map(l => l.id)
-      const now = new Date()
-      const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-      const today = todayIsoDate()
-
-      const [
-        { data: contacten },
-        { data: evaluaties },
-        { data: actiesData },
-        { data: trainerActies },
-        { data: evalsMaand },
-        { data: actiesAfgerondData },
-      ] = await Promise.all([
-        supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
-        supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
-        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
-        supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').eq('trainer_id', trainerId as string).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
-        // Momentum: gesprekken (evaluaties) deze maand
-        supabase.from('evaluaties').select('id').in('lid_id', lidIds).gte('datum', firstOfMonth).lte('datum', today),
-        // Momentum: acties afgerond deze maand
-        supabase.from('acties').select('id').in('lid_id', lidIds).eq('status', 'afgerond').gte('afgerond_op', firstOfMonth),
-      ])
-
-      setMomentum({
-        gesprekken: evalsMaand?.length ?? 0,
-        actiesAfgerond: actiesAfgerondData?.length ?? 0,
-      })
-
-      const openActiesPerLid: Record<string, number> = {}
-      for (const a of actiesData ?? []) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
-
-      const enrichedLeden: Lid[] = ledenData.map(l => {
-        const lastContact = contacten?.find(c => c.lid_id === l.id)
-        const lastEval = evaluaties?.find(e => e.lid_id === l.id)
-        const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
-        return {
-          id: l.id, lid_id: l.lid_id, voornaam: l.voornaam, achternaam: l.achternaam,
-          laatste_contact: lastContactDatum,
-          laatste_evaluatie: lastEval?.datum ?? null,
-          slaap: lastEval?.slaap ?? null,
-          energie: lastEval?.energie ?? null,
-          stress: lastEval?.stress ?? null,
-          open_acties: openActiesPerLid[l.id] ?? 0,
-        }
-      })
-
-      setLeden(enrichedLeden)
-
-      const memberActies: Actie[] = (actiesData ?? []).map(a => {
-        const lid = ledenData.find(l => l.id === a.lid_id)
-        return {
-          id: a.id, lid_uuid: a.lid_id, lid_id: lid?.lid_id ?? '—',
-          voornaam: lid?.voornaam ?? '—', achternaam: lid?.achternaam ?? '',
-          omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
-          deadline: a.deadline ?? null, status: a.status,
-          is_management: false,
-        }
-      })
-
-      const mgmtActies: Actie[] = (trainerActies ?? []).map(a => ({
-        id: a.id, lid_uuid: null, lid_id: '',
-        voornaam: 'Management', achternaam: '',
-        omschrijving: a.omschrijving, aangemaakt: a.aangemaakt,
-        deadline: a.deadline ?? null, status: a.status,
-        is_management: true,
-      }))
-
-      setActies([...mgmtActies, ...memberActies])
-
-      const { data: meldingenData } = await supabase
-        .from('notities')
-        .select('id, lid_id, tekst, auteur_id, auteur_type, aangemaakt_op')
-        .in('lid_id', lidIds)
-        .eq('toon_aan_trainer', true)
-        .eq('gezien', false)
-        .eq('verwijderd', false)
-        .order('aangemaakt_op', { ascending: false })
-
-      const enrichedMeldingen: UrgenteMelding[] = (meldingenData ?? []).map(melding => {
-        const lid = ledenData.find(l => l.id === melding.lid_id)
-        return {
-          id: melding.id,
-          lid_id: melding.lid_id,
-          lid_naam: lid ? `${lid.voornaam} ${lid.achternaam}` : '—',
-          tekst: melding.tekst,
-          auteur_naam: 'Management',
-          aangemaakt_op: melding.aangemaakt_op,
-        }
-      })
-
-      setMeldingen(enrichedMeldingen)
-      setMeldingenLoading(false)
-      setLoading(false)
     }
     if (trainerId) load()
   }, [trainerId, refreshKey])

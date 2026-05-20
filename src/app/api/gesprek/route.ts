@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getServerAuthContext } from '@/lib/serverAuth'
 
 type Role = 'trainer' | 'management' | 'admin'
 
@@ -41,22 +42,11 @@ async function getSupabase() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await getSupabase()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) {
+  const auth = await getServerAuthContext(req)
+  if (!auth) {
     return jsonError('Niet ingelogd', 401)
   }
-
-  const [
-    { data: role, error: roleError },
-    { data: ownTrainerId, error: trainerError },
-  ] = await Promise.all([
-    supabase.rpc('get_my_role'),
-    supabase.rpc('get_my_trainer_id'),
-  ])
-
-  if (roleError) return jsonError(roleError.message, 500)
-  if (trainerError) return jsonError(trainerError.message, 500)
+  const { supabase, role, trainerId: ownTrainerId } = auth
   if (!ALLOWED_ROLES.includes(role as Role)) {
     return jsonError('Geen toegang', 403)
   }

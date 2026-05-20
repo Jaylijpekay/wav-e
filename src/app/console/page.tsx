@@ -46,10 +46,9 @@ export default function ConsolePage() {
   useEffect(() => {
     const validate = async () => {
       const params = new URLSearchParams(window.location.search)
-      const token = params.get('token') ?? document.cookie.match(/console_token=([^;]+)/)?.[1]
-      if (!token) { setStep('invalid'); return }
+      const token = params.get('token')
 
-      const res = await fetch(`/api/console/validate?token=${token}`)
+      const res = await fetch(token ? `/api/console/validate?token=${token}` : '/api/console/validate')
       if (!res.ok) { setStep('invalid'); return }
 
       const peopleRes = await fetch('/api/console/people')

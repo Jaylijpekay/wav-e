@@ -19,7 +19,6 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
-import { getSupabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 type Lid = {
@@ -83,11 +82,9 @@ export default function GesprekNew() {
       const prefill = params.get('lid_id')
       if (prefill) setLidId(prefill)
 
-      const supabase = getSupabase()
-      const [{ data: ledenData }] = await Promise.all([
-        supabase.from('leden').select('id, lid_id, voornaam, achternaam, trainer_id').eq('actief', true).order('achternaam'),
-      ])
-      setLeden(ledenData ?? [])
+      const res = await fetch('/api/gesprek/leden')
+      const data = res.ok ? await res.json() : { leden: [] }
+      setLeden(data.leden ?? [])
       setLoading(false)
     }
     load()

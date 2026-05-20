@@ -91,48 +91,18 @@ export default function MijnLedenPage() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase()
-
-      const { data: trainerData } = await supabase
-        .from('trainers').select('id, naam').eq('id', trainerId).single()
-      setTrainer(trainerData)
-
-      const { data: ledenData } = await supabase
-        .from('leden')
-        .select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, geslacht, startdatum, status, actief')
-        .eq('trainer_id', trainerId)
-        .order('voornaam')
-
-      if (!ledenData || ledenData.length === 0) { setLoading(false); return }
-
-      const lidIds = ledenData.map(l => l.id)
-
-      const [{ data: contacten }, { data: evaluaties }, { data: actiesData }] = await Promise.all([
-        supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
-        supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
-        supabase.from('acties').select('id, lid_id').in('lid_id', lidIds).eq('status', 'open'),
-      ])
-
-      const openActiesPerLid: Record<string, number> = {}
-      for (const a of actiesData ?? []) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
-
-      const enriched: Lid[] = ledenData.map(l => {
-        const lastContact = contacten?.find(c => c.lid_id === l.id)
-        const lastEval    = evaluaties?.find(e => e.lid_id === l.id)
-        const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
-        return {
-          ...l,
-          laatste_contact:    lastContactDatum,
-          laatste_evaluatie:  lastEval?.datum      ?? null,
-          slaap:              lastEval?.slaap      ?? null,
-          energie:            lastEval?.energie    ?? null,
-          stress:             lastEval?.stress     ?? null,
-          open_acties:        openActiesPerLid[l.id] ?? 0,
-        }
-      })
-
-      setLeden(enriched)
-      setLoading(false)
+      try {
+        const res = await fetch(`/api/trainer/${trainerId}/leden`)
+        if (!res.ok) throw new Error('Leden ophalen mislukt')
+        const data = await res.json()
+        setTrainer(data.trainer)
+        setLeden(data.leden ?? [])
+      } catch {
+        setTrainer(null)
+        setLeden([])
+      } finally {
+        setLoading(false)
+      }
     }
     if (trainerId) load()
   }, [trainerId])

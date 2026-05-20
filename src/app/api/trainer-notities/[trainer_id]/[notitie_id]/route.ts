@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getServerAuthContext } from '@/lib/serverAuth'
 
 type Role = 'trainer' | 'management' | 'admin'
 
@@ -34,38 +35,18 @@ async function getSupabase() {
   )
 }
 
-async function getAuthContext() {
-  const supabase = await getSupabase()
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
+async function getAuthContext(req: NextRequest) {
+  const auth = await getServerAuthContext(req)
+  if (!auth) {
+    const supabase = await getSupabase()
     return { supabase, user: null, role: null, trainerId: null, error: null }
   }
 
-  const [
-    { data: role, error: roleError },
-    { data: trainerId, error: trainerError },
-  ] = await Promise.all([
-    supabase.rpc('get_my_role'),
-    supabase.rpc('get_my_trainer_id'),
-  ])
-
-  if (roleError) {
-    return { supabase, user, role: null, trainerId: null, error: roleError }
-  }
-
-  if (trainerError) {
-    return { supabase, user, role: null, trainerId: null, error: trainerError }
-  }
-
   return {
-    supabase,
-    user,
-    role: ALLOWED_ROLES.includes(role as Role) ? (role as Role) : null,
-    trainerId: typeof trainerId === 'string' ? trainerId : null,
+    supabase: auth.supabase,
+    user: { id: auth.personId },
+    role: ALLOWED_ROLES.includes(auth.role as Role) ? (auth.role as Role) : null,
+    trainerId: auth.trainerId,
     error: null,
   }
 }
@@ -75,17 +56,13 @@ function isAllowed(role: Role | null, ownTrainerId: string | null, trainerId: st
   return role === 'trainer' && ownTrainerId === trainerId
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const { trainer_id, notitie_id } = await params
-    const { supabase, user, role, trainerId, error } = await getAuthContext()
+    const { supabase, user, role, trainerId, error } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
-    }
-
-    if (error) {
-      return jsonError(error.message, 500)
     }
 
     if (!isAllowed(role, trainerId, trainer_id)) {

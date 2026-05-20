@@ -147,8 +147,9 @@ function ConsolePanel() {
     })
     setSaving(false)
     if (!res.ok) return
+    const created = await res.json()
     const loadedTokens = await loadTokens()
-    const createdToken = loadedTokens.find(t => t.naam === naam && t.actief) ?? loadedTokens[0]
+    const createdToken = created.token ?? loadedTokens.find(t => t.naam === naam && t.actief) ?? loadedTokens[0]
     setNewToken(createdToken?.token ?? null)
     setNewNaam('')
   }
@@ -162,7 +163,7 @@ function ConsolePanel() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const newConsoleUrl = newToken ? `https://wav-e.vercel.app/console?token=${newToken}` : ''
+  const newConsoleUrl = newToken ? consoleUrl(newToken) : ''
 
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>

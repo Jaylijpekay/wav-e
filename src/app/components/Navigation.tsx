@@ -5,30 +5,35 @@ import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 
 type NavRole = 'trainer' | 'management' | 'admin' | null
+type AuthMode = 'session' | 'console' | null
 
 export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
   const [role, setRole] = useState<NavRole>(null)
+  const [authMode, setAuthMode] = useState<AuthMode>(null)
   const [loggingOut, setLoggingOut] = useState(false)
   const trainerIdFromPath = pathname.match(/^\/trainer\/([^/]+)/)?.[1]
 
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: role } = await supabase.rpc('get_my_role')
-      setRole((role as NavRole) ?? null)
+      const res = await fetch('/api/auth-context')
+      if (!res.ok) return
+      const data = await res.json()
+      setRole((data.role as NavRole) ?? null)
+      setAuthMode((data.authMode as AuthMode) ?? null)
     }
     load()
   }, [])
 
   const handleLogout = async () => {
     setLoggingOut(true)
-    const supabase = getSupabase()
-    await supabase.auth.signOut()
+    if (authMode === 'console') {
+      await fetch('/api/console/logout', { method: 'POST' })
+    } else {
+      const supabase = getSupabase()
+      await supabase.auth.signOut()
+    }
     router.push('/login')
   }
 

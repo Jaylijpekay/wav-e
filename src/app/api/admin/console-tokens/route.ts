@@ -63,11 +63,11 @@ export async function POST(req: NextRequest) {
       actief: true,
       aangemaakt_door: user.id,
     })
-    .select('id')
+    .select('id, token, naam, actief, aangemaakt_op, laatst_gebruikt')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data?.length) return NextResponse.json({ error: 'Token aanmaken mislukt' }, { status: 500 })
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, token: data[0] })
 }
 
 // PATCH - reactivate token

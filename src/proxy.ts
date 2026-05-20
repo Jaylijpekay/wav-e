@@ -1,11 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { verifyConsoleSession } from '@/lib/consoleSession'
 
 // ============================================================
 // ROUTE DEFINITIONS
 // ============================================================
 
-const PUBLIC_ROUTES = ['/login', '/api/console']
+const PUBLIC_ROUTES = ['/login', '/api/console', '/api/auth-context']
 
 const MANAGEMENT_ONLY_ROUTES = ['/management']
 
@@ -17,35 +18,91 @@ const CONSOLE_ROUTE = '/console'
 
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 
+const validateConsoleToken = async (request: NextRequest) => {
+  const token = request.nextUrl.searchParams.get('token')
+    ?? request.cookies.get('console_token')?.value
+
+  if (!token) return null
+
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { cookies: { getAll: () => [], setAll: () => {} } }
+  )
+
+  const { data, error } = await supabaseAdmin
+    .rpc('validate_console_token', { p_token: token })
+
+  if (error || !data) return null
+  return token
+}
+
+const allowConsoleSessionRoute = async (request: NextRequest) => {
+  const { pathname } = request.nextUrl
+  const token = await validateConsoleToken(request)
+  if (!token) return null
+
+  const session = await verifyConsoleSession(request.cookies.get('console_session')?.value)
+  if (!session) return null
+
+  const trainerPath = `/trainer/${session.id}`
+  const trainerApiPath = `/api/trainer/${session.id}`
+  const isAllowedTrainerRoute =
+    session.type === 'trainer' &&
+    (
+      pathname === trainerPath ||
+      pathname.startsWith(`${trainerPath}/`) ||
+      pathname === trainerApiPath ||
+      pathname.startsWith(`${trainerApiPath}/`) ||
+      pathname.startsWith('/api/trainer-notities/') ||
+      pathname.startsWith('/api/notities/') ||
+      pathname.startsWith('/api/gesprek') ||
+      pathname.startsWith('/gesprek')
+    )
+
+  const isAllowedManagementRoute =
+    session.type === 'management' &&
+    (
+      pathname.startsWith('/management') ||
+      pathname.startsWith('/api/trainer-notities') ||
+      pathname.startsWith('/api/notities/')
+    )
+
+  if (!isAllowedTrainerRoute && !isAllowedManagementRoute) return null
+
+  const response = NextResponse.next()
+  response.headers.set('x-auth-mode', 'console-pin')
+  response.headers.set('x-console-person-type', session.type)
+  response.headers.set('x-console-person-id', session.id)
+
+  if (!request.cookies.get('console_token')) {
+    response.cookies.set('console_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+      path: '/',
+    })
+  }
+
+  return response
+}
+
 // ============================================================
 // PROXY
 // ============================================================
 
 export async function proxy(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl
+  const { pathname } = request.nextUrl
 
   // ----------------------------------------------------------
   // 1. CONSOLE TOKEN PATH
   // ----------------------------------------------------------
 
   if (pathname.startsWith(CONSOLE_ROUTE)) {
-    const token = searchParams.get('token')
-      ?? request.cookies.get('console_token')?.value
+    const token = await validateConsoleToken(request)
 
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    const supabaseAdmin = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { cookies: { getAll: () => [], setAll: () => {} } }
-    )
-
-    const { data, error } = await supabaseAdmin
-      .rpc('validate_console_token', { p_token: token })
-
-    if (error || !data) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
@@ -58,6 +115,7 @@ export async function proxy(request: NextRequest) {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 365,
+        path: '/',
       })
     }
 
@@ -71,6 +129,9 @@ export async function proxy(request: NextRequest) {
   if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
     return NextResponse.next()
   }
+
+  const consoleResponse = await allowConsoleSessionRoute(request)
+  if (consoleResponse) return consoleResponse
 
   // ----------------------------------------------------------
   // 3. SESSION-BASED AUTH

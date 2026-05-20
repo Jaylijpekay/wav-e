@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 function getServiceClient() {
   return createClient(
@@ -9,8 +9,14 @@ function getServiceClient() {
   )
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = getServiceClient()
+  const token = req.nextUrl.searchParams.get('token') ?? req.cookies.get('console_token')?.value
+
+  if (!token) return NextResponse.json({ error: 'Geen token' }, { status: 401 })
+
+  const { data: tokenValid } = await supabase.rpc('validate_console_token', { p_token: token })
+  if (!tokenValid) return NextResponse.json({ error: 'Ongeldig token' }, { status: 401 })
 
   const [{ data: trainers }, { data: management }] = await Promise.all([
     supabase

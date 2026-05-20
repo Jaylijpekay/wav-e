@@ -10,7 +10,7 @@ function getServiceClient() {
 }
 
 export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get('token')
+  const token = req.nextUrl.searchParams.get('token') ?? req.cookies.get('console_token')?.value
   if (!token) return NextResponse.json({ error: 'Geen token' }, { status: 400 })
 
   const supabase = getServiceClient()
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
   const res = NextResponse.json({ ok: true })
   res.cookies.set('console_token', token, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 60 * 60 * 24 * 365,
     path: '/',
     sameSite: 'lax',
