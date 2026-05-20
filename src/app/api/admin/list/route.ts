@@ -4,6 +4,18 @@ import { cookies } from 'next/headers'
 
 async function getAdminContext() {
   const cookieStore = await cookies()
+
+  const sessionClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -15,12 +27,12 @@ async function getAdminContext() {
     }
   )
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  const { data: { user }, error: userError } = await sessionClient.auth.getUser()
   if (userError || !user) {
     return { supabase, user: null, error: NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 }) }
   }
 
-  const { data: role } = await supabase.rpc('get_my_role')
+  const { data: role } = await sessionClient.rpc('get_my_role')
   if (role !== 'admin') {
     return { supabase, user: null, error: NextResponse.json({ error: 'Geen toegang' }, { status: 403 }) }
   }

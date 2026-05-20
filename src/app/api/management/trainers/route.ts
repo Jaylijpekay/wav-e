@@ -37,14 +37,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Voornaam en achternaam zijn verplicht' }, { status: 400 })
   }
 
+  const { data: existingUsers, error: listError } = await auth.supabase.auth.admin.listUsers()
+  if (listError) {
+    return NextResponse.json({ error: `Gebruikerscontrole mislukt: ${listError.message}` }, { status: 500 })
+  }
+  const existingAuthUser = existingUsers.users.find(
+    (user: { email?: string | null }) => user.email?.toLowerCase() === email.toLowerCase()
+  )
+  if (existingAuthUser) {
+    return NextResponse.json({ error: 'Er bestaat al een login met dit e-mailadres' }, { status: 409 })
+  }
+
   const { data: { user }, error: createError } = await auth.supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
+    user_metadata: {
+      role: 'trainer',
+      voornaam,
+      achternaam,
+      first_name: voornaam,
+      last_name: achternaam,
+      name: `${voornaam} ${achternaam}`,
+      full_name: `${voornaam} ${achternaam}`,
+    },
   })
 
   if (createError || !user) {
-    return NextResponse.json({ error: createError?.message ?? 'Aanmaken mislukt' }, { status: 500 })
+    const message = createError?.message ?? 'Aanmaken mislukt'
+    const status = message.toLowerCase().includes('already') ? 409 : 500
+    return NextResponse.json({ error: `Login aanmaken mislukt: ${message}` }, { status })
   }
 
   const { data: trainerRow, error: trainerError } = await auth.supabase

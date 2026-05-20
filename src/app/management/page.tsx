@@ -41,6 +41,13 @@ type TrainerPin = {
   type: 'trainer' | 'management'
 }
 
+const CURRENT_MANAGEMENT_PIN: TrainerPin = {
+  trainer_id: '__current__',
+  naam: 'Eigen PIN',
+  has_pin: false,
+  type: 'management',
+}
+
 type TrainerStats = {
   trainer_id: string
   totaal: number
@@ -1168,6 +1175,7 @@ export default function ManagementPage() {
   const pinByTrainerId = Object.fromEntries(
     consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
   ) as Record<string, TrainerPin>
+  const ownPinAction = ownPinPerson ?? CURRENT_MANAGEMENT_PIN
 
   if (loading) return (
     <>
@@ -1277,16 +1285,14 @@ export default function ManagementPage() {
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{trainers.filter(t => t.actief).length} actief</div>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {ownPinPerson && (
-                <button
-                  onClick={() => setPinPerson(ownPinPerson)}
-                  style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 16px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
-                >
-                  {ownPinPerson.has_pin ? 'Eigen PIN wijzigen' : 'Eigen PIN instellen'}
-                </button>
-              )}
+              <button
+                onClick={() => setPinPerson(ownPinAction)}
+                style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 16px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+              >
+                {ownPinAction.has_pin ? 'Eigen PIN wijzigen' : 'Eigen PIN instellen'}
+              </button>
               <button
                 onClick={() => setShowAddTrainer(true)}
                 style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 16px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s' }}

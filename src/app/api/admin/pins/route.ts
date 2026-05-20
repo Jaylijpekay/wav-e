@@ -10,6 +10,7 @@ type MgmtRow = {
   pin_hash: string | null
   supabase_user_id: string | null
 }
+type MgmtFallbackRow = Omit<MgmtRow, 'supabase_user_id'>
 
 export async function GET(req: NextRequest) {
   const auth = await getServerAuthContext(req)
@@ -20,10 +21,32 @@ export async function GET(req: NextRequest) {
 
   const supabase = auth.supabase
 
-  const [{ data: trainerData, error: trainerError }, { data: mgmtData, error: mgmtError }] = await Promise.all([
+  const [trainerResult, managementResult] = await Promise.all([
     supabase.from('trainers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
-    supabase.from('management_gebruikers').select('id, voornaam, achternaam, email, pin_hash, supabase_user_id').eq('actief', true).order('achternaam'),
+    supabase
+      .from('management_gebruikers')
+      .select('id, voornaam, achternaam, email, pin_hash, supabase_user_id')
+      .eq('actief', true)
+      .order('achternaam'),
   ])
+
+  let mgmtData = managementResult.data as MgmtRow[] | null
+  let mgmtError = managementResult.error
+
+  if (mgmtError) {
+    const fallback = await supabase
+      .from('management_gebruikers')
+      .select('id, voornaam, achternaam, email, pin_hash')
+      .eq('actief', true)
+      .order('achternaam')
+
+    mgmtData = fallback.data
+      ? (fallback.data as MgmtFallbackRow[]).map(row => ({ ...row, supabase_user_id: null }))
+      : null
+    mgmtError = fallback.error
+  }
+
+  const { data: trainerData, error: trainerError } = trainerResult
 
   if (trainerError) return NextResponse.json({ error: trainerError.message }, { status: 500 })
   if (mgmtError)    return NextResponse.json({ error: mgmtError.message   }, { status: 500 })

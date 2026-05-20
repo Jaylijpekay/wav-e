@@ -17,20 +17,37 @@ async function getAdminClient() {
   )
 }
 
+async function getSessionClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+}
+
 // AUTH: This route requires a valid Supabase session with role 'admin'.
 // Console sessions are not accepted. Do not migrate to service-role-only
 // until admin UI is moved off the browser Supabase client.
 export async function DELETE(req: NextRequest) {
-  const supabase = await getAdminClient()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  const sessionClient = await getSessionClient()
+  const { data: { user }, error: userError } = await sessionClient.auth.getUser()
   if (userError || !user) {
     return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
   }
 
-  const { data: role } = await supabase.rpc('get_my_role')
+  const { data: role } = await sessionClient.rpc('get_my_role')
   if (role !== 'admin') {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
+
+  const supabase = await getAdminClient()
 
   const { target_user_id } = await req.json()
 
