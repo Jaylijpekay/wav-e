@@ -204,6 +204,10 @@ export default function LedenDetail() {
   const [notitiesPosting, setNotitiesPosting] = useState(false)
   const [notitiesError, setNotitiesError] = useState<string | null>(null)
   const [notitiesMax, setNotitiesMax] = useState(10)
+  const [showAddActie, setShowAddActie] = useState(false)
+  const [actieTekst, setActieTekst] = useState('')
+  const [actieDeadline, setActieDeadline] = useState('')
+  const [actiePosting, setActiePosting] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -225,8 +229,6 @@ export default function LedenDetail() {
       setEvaluaties(evalData ?? [])
       const { data: contactData } = await supabase.from('contact_momenten').select('id, datum, type, notities, contact_door').eq('lid_id', id).order('datum', { ascending: false })
       setContacten(contactData ?? [])
-      const { data: actiesData } = await supabase.from('acties').select('id, omschrijving, status, aangemaakt, deadline').eq('lid_id', id).eq('status', 'open').order('aangemaakt', { ascending: true })
-      setActies(actiesData ?? [])
       setLoading(false)
     }
     if (id) load()
@@ -250,10 +252,41 @@ export default function LedenDetail() {
     if (id) fetchNotities()
   }, [id])
 
+  useEffect(() => {
+    const fetchActies = async () => {
+      const res = await fetch(`/api/acties?lid_id=${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setActies(data.acties ?? [])
+      }
+    }
+    if (id) fetchActies()
+  }, [id])
+
   const markActieAfgerond = async (actieId: string) => {
-    const supabase = getSupabase()
-    const { error } = await supabase.from('acties').update({ status: 'afgerond', afgerond: true, afgerond_op: new Date().toISOString() }).eq('id', actieId).select()
-    if (!error) setActies(prev => prev.filter(a => a.id !== actieId))
+    const res = await fetch(`/api/acties/${actieId}`, { method: 'PATCH' })
+    if (res.ok) setActies(prev => prev.filter(a => a.id !== actieId))
+  }
+
+  const addActie = async () => {
+    if (!actieTekst.trim() || actiePosting) return
+    setActiePosting(true)
+    try {
+      const res = await fetch('/api/acties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lid_id: id, omschrijving: actieTekst.trim(), deadline: actieDeadline || null }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setActies(prev => [...prev, data.actie])
+        setActieTekst('')
+        setActieDeadline('')
+        setShowAddActie(false)
+      }
+    } finally {
+      setActiePosting(false)
+    }
   }
 
   const logContact = async () => {
@@ -1331,11 +1364,47 @@ export default function LedenDetail() {
               <section className="ld-section">
                 <div className="ld-section-head">
                   <span className="ld-section-label">Open acties</span>
-                  <span className="ld-section-badge">{acties.length}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="ld-section-badge">{acties.length}</span>
+                    <button
+                      onClick={() => { setShowAddActie(o => !o); setActieTekst(''); setActieDeadline('') }}
+                      style={{ background: 'none', border: '1px solid var(--border-muted-dark)', borderRadius: 3, color: showAddActie ? 'var(--text-faint)' : 'var(--wave-green)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '1px 8px', minHeight: 26, minWidth: 26 }}
+                    >
+                      {showAddActie ? '×' : '+'}
+                    </button>
+                  </div>
                 </div>
-                {acties.length === 0
+                {showAddActie && (
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Omschrijving van de actie…"
+                      value={actieTekst}
+                      onChange={e => setActieTekst(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') addActie() }}
+                      autoFocus
+                      style={{ background: 'var(--surface-pressed)', border: '1px solid var(--border-muted-dark)', borderRadius: 3, color: 'var(--text-warm)', fontSize: '0.88rem', padding: '8px 10px', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        value={actieDeadline}
+                        onChange={e => setActieDeadline(e.target.value)}
+                        style={{ background: 'var(--surface-pressed)', border: '1px solid var(--border-muted-dark)', borderRadius: 3, color: 'var(--text-warm)', fontSize: '0.82rem', padding: '7px 10px', fontFamily: 'inherit' }}
+                      />
+                      <button
+                        onClick={addActie}
+                        disabled={!actieTekst.trim() || actiePosting}
+                        style={{ background: 'var(--wave-green)', border: 'none', borderRadius: 3, color: 'var(--color-black-soft)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', padding: '8px 14px', opacity: !actieTekst.trim() || actiePosting ? 0.5 : 1, textTransform: 'uppercase', fontFamily: 'inherit', minHeight: 34 }}
+                      >
+                        {actiePosting ? 'Opslaan…' : 'Toevoegen'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {acties.length === 0 && !showAddActie
                   ? <div className="ld-empty"><span>✓</span><span>Geen open acties</span></div>
-                  : (
+                  : acties.length > 0 && (
                     <div className="ld-table-block">
                       {acties.map(actie => {
                         const isOverdue = actie.deadline && new Date(actie.deadline) < new Date()
