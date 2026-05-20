@@ -131,6 +131,14 @@ export default function TrainerActiesPage() {
   const [leden, setLeden] = useState<Lid[]>([])
   const [acties, setActies] = useState<Actie[]>([])
   const [loading, setLoading] = useState(true)
+  const [completingId, setCompletingId] = useState<string | null>(null)
+
+  const completeActie = async (id: string) => {
+    setCompletingId(id)
+    const res = await fetch(`/api/acties/${id}`, { method: 'PATCH' })
+    if (res.ok) setActies(prev => prev.filter(a => a.id !== id))
+    setCompletingId(null)
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -505,6 +513,7 @@ export default function TrainerActiesPage() {
                       const deadlineLabel = getActieDeadlineLabel(actie, today)
                       const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
                       const overdue = isActieOverdue(actie, today)
+                      const completing = completingId === actie.id
                       return (
                         <div
                           key={actie.id}
@@ -522,6 +531,13 @@ export default function TrainerActiesPage() {
                               {deadlineDaysRemaining}d
                             </div>
                           )}
+                          <button
+                            onClick={() => completeActie(actie.id)}
+                            disabled={completing}
+                            style={{ background: 'none', border: '1px solid rgba(168,200,0,0.35)', borderRadius: 3, color: 'var(--wave-green)', cursor: completing ? 'default' : 'pointer', fontSize: '0.8rem', fontWeight: 700, minHeight: 36, minWidth: 36, opacity: completing ? 0.4 : 1, touchAction: 'manipulation', flexShrink: 0 }}
+                          >
+                            ✓
+                          </button>
                         </div>
                       )
                     })}

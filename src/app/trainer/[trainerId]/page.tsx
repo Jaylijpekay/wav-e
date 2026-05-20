@@ -1319,10 +1319,15 @@ export default function TrainerDashboard() {
                   <span className="td-portal-tile-sub">
                     {acties.length === 0
                       ? 'Alles afgerond'
-                      : `${acties.length} open${acties.some(a => {
-                          const d = a.deadline?.slice(0, 10) ?? null
-                          return d !== null && d < todayIsoDate()
-                        }) ? ' · let op verlopen' : ''}`
+                      : [
+                          `${acties.length} open`,
+                          acties.filter(a => a.is_management).length > 0
+                            ? `${acties.filter(a => a.is_management).length} van management`
+                            : null,
+                          acties.some(a => { const d = a.deadline?.slice(0, 10) ?? null; return d !== null && d < todayIsoDate() })
+                            ? 'let op verlopen'
+                            : null,
+                        ].filter(Boolean).join(' · ')
                     }
                   </span>
                 </div>
