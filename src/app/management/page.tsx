@@ -358,23 +358,23 @@ function AddLidModal({
     if (!trainerId)         { setError('Selecteer een trainer'); return }
 
     setSaving(true)
-    const supabase = getSupabase()
-    const { error: err } = await supabase.from('leden').insert({
-      lid_id:     lidId.trim().toUpperCase(),
-      voornaam:   voornaam.trim(),
-      achternaam: achternaam.trim(),
-      email:      email.trim() || null,
-      telefoon:   telefoon.trim() || null,
-      trainer_id: trainerId,
-      startdatum,
-      source:     'manual',
-      actief:     true,
-      status:     'Actief',
+    const res = await fetch(`/api/trainer/${trainerId}/leden`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lid_id:     lidId.trim().toUpperCase(),
+        voornaam:   voornaam.trim(),
+        achternaam: achternaam.trim(),
+        email:      email.trim() || null,
+        telefoon:   telefoon.trim() || null,
+        startdatum,
+      }),
     })
+    const data = await res.json()
     setSaving(false)
 
-    if (err) {
-      setError(err.message.includes('unique') ? `Lid-ID "${lidId}" bestaat al` : err.message)
+    if (!res.ok) {
+      setError(data.error ?? 'Lid aanmaken mislukt')
       return
     }
     onSaved()
@@ -1046,8 +1046,11 @@ export default function ManagementPage() {
   const deactivateTrainer = async (t: Trainer) => {
     if (!confirm(`Deactiveer trainer ${t.voornaam} ${t.achternaam}?\n\nDeze trainer wordt op inactief gezet. Hun data blijft bewaard.`)) return
     setDeactivating(t.id)
-    const supabase = getSupabase()
-    await supabase.from('trainers').update({ actief: false }).eq('id', t.id)
+    await fetch(`/api/management/trainers/${t.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actief: false }),
+    })
     setDeactivating(null)
     setRefreshKey(k => k + 1)
   }
@@ -1055,8 +1058,11 @@ export default function ManagementPage() {
   const deactivateLid = async (l: Lid) => {
     if (!confirm(`Deactiveer lid ${l.voornaam} ${l.achternaam}?\n\nDit lid wordt op inactief gezet. Hun data blijft bewaard.`)) return
     setDeactivating(l.id)
-    const supabase = getSupabase()
-    await supabase.from('leden').update({ actief: false, status: 'inactief' }).eq('id', l.id)
+    await fetch(`/api/management/leden/${l.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actief: false, status: 'inactief' }),
+    })
     setDeactivating(null)
     setRefreshKey(k => k + 1)
   }
