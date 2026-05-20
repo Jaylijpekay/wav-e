@@ -1062,11 +1062,11 @@ export default function ManagementPage() {
     try {
       const dataRes = await fetch('/api/management/data')
       const studioData = dataRes.ok ? await dataRes.json() : {}
-      const trainerData = studioData.trainers  ?? []
-      const ledenRaw    = studioData.leden     ?? []
-      const contacten   = studioData.contacten ?? []
-      const evaluaties  = studioData.evaluaties ?? []
-      const actiesData  = studioData.acties    ?? []
+      const trainerData  = (studioData.trainers   ?? []) as Trainer[]
+      const ledenRaw     = (studioData.leden      ?? []) as { id: string; lid_id: string; voornaam: string; achternaam: string; actief: boolean; status: string | null; trainer_id: string }[]
+      const contacten    = (studioData.contacten  ?? []) as { lid_id: string; datum: string }[]
+      const evaluaties   = (studioData.evaluaties ?? []) as { lid_id: string; datum: string; slaap: number | null; energie: number | null; stress: number | null; cyclus: number }[]
+      const actiesData   = (studioData.acties     ?? []) as { id: string; trainer_id: string; lid_id: string }[]
 
       const unreadRes = await fetch('/api/trainer-notities')
       if (unreadRes.ok) {
@@ -1092,7 +1092,7 @@ export default function ManagementPage() {
         // Route niet beschikbaar of geen JSON; laat PIN-acties leeg.
       }
 
-      const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
+      const enrichedLeden: Lid[] = ledenRaw.map(l => {
         const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
         const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
         const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
