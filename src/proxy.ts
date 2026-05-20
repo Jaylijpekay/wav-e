@@ -9,7 +9,9 @@ const PUBLIC_ROUTES = ['/login', '/api/console']
 
 const MANAGEMENT_ONLY_ROUTES = ['/management']
 
-const ADMIN_ONLY_ROUTES = ['/admin', '/api/admin']
+const ADMIN_API_ROUTES = ['/api/admin']
+
+const ADMIN_ONLY_ROUTES = ['/admin']
 
 const CONSOLE_ROUTE = '/console'
 
@@ -101,6 +103,12 @@ export async function proxy(request: NextRequest) {
 
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (ADMIN_API_ROUTES.some(route => pathname.startsWith(route))) {
+    response.headers.set('x-user-id', user.id)
+    response.headers.set('x-auth-mode', 'session')
+    return response
   }
 
   // ----------------------------------------------------------

@@ -981,77 +981,86 @@ export default function ManagementPage() {
   }
 
   const load = useCallback(async () => {
-    const supabase = getSupabase()
+    try {
+      const supabase = getSupabase()
 
-    const [
-      { data: trainerData },
-      { data: ledenRaw },
-      { data: contacten },
-      { data: evaluaties },
-      { data: actiesData },
-    ] = await Promise.all([
-      supabase.from('trainers').select('id, voornaam, achternaam, naam, email, actief').order('achternaam'),
-      supabase.from('leden').select('id, lid_id, voornaam, achternaam, actief, status, trainer_id').order('achternaam'),
-      supabase.from('contact_momenten').select('lid_id, datum').order('datum', { ascending: false }),
-      supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').order('cyclus', { ascending: false }),
-      supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
-    ])
+      const [
+        { data: trainerData },
+        { data: ledenRaw },
+        { data: contacten },
+        { data: evaluaties },
+        { data: actiesData },
+      ] = await Promise.all([
+        supabase.from('trainers').select('id, voornaam, achternaam, naam, email, actief').order('achternaam'),
+        supabase.from('leden').select('id, lid_id, voornaam, achternaam, actief, status, trainer_id').order('achternaam'),
+        supabase.from('contact_momenten').select('lid_id, datum').order('datum', { ascending: false }),
+        supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').order('cyclus', { ascending: false }),
+        supabase.from('acties').select('id, trainer_id, lid_id').eq('status', 'open'),
+      ])
 
-    const unreadRes = await fetch('/api/trainer-notities')
-    if (unreadRes.ok) {
-      const { berichten } = await unreadRes.json()
-      const arr = (berichten ?? []) as { trainer_id: string; gelezen_door_management: boolean }[]
-      const unreadOnly = arr.filter(b => !b.gelezen_door_management)
-      setTotalUnread(unreadOnly.length)
-      const counts: Record<string, number> = {}
-      for (const b of unreadOnly) {
-        counts[b.trainer_id] = (counts[b.trainer_id] ?? 0) + 1
+      const unreadRes = await fetch('/api/trainer-notities')
+      if (unreadRes.ok) {
+        const { berichten } = await unreadRes.json()
+        const arr = (berichten ?? []) as { trainer_id: string; gelezen_door_management: boolean }[]
+        const unreadOnly = arr.filter(b => !b.gelezen_door_management)
+        setTotalUnread(unreadOnly.length)
+        const counts: Record<string, number> = {}
+        for (const b of unreadOnly) {
+          counts[b.trainer_id] = (counts[b.trainer_id] ?? 0) + 1
+        }
+        setUnreadCounts(counts)
       }
-      setUnreadCounts(counts)
-    }
 
-    const pinsRes = await fetch('/api/admin/pins')
-    if (pinsRes.ok) {
-      const pinsData = await pinsRes.json()
-      setConsolePins(pinsData.trainers ?? [])
-    }
-
-    const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
-      const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
-      const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
-      const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
-      return {
-        ...l,
-        laatste_contact:   lastContactDatum,
-        laatste_evaluatie: lastEval?.datum    ?? null,
-        slaap:             lastEval?.slaap    ?? null,
-        energie:           lastEval?.energie  ?? null,
-        stress:            lastEval?.stress   ?? null,
+      try {
+        const pinsRes = await fetch('/api/admin/pins')
+        if (pinsRes.ok) {
+          const pinsData = await pinsRes.json()
+          setConsolePins(pinsData.trainers ?? [])
+        }
+      } catch {
+        // Route niet beschikbaar of geen JSON; laat Console PINs leeg.
       }
-    })
 
-    const stats: Record<string, TrainerStats> = {}
-    for (const t of trainerData ?? []) {
-      const tLeden = enrichedLeden.filter(l => l.trainer_id === t.id && l.actief)
-      stats[t.id] = {
-        trainer_id:  t.id,
-        totaal:      tLeden.length,
-        rood:        tLeden.filter(l => getLidStoplight(l) === 'red').length,
-        amber:       tLeden.filter(l => getLidStoplight(l) === 'amber').length,
-        open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
+      const enrichedLeden: Lid[] = (ledenRaw ?? []).map(l => {
+        const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
+        const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
+        const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
+        return {
+          ...l,
+          laatste_contact:   lastContactDatum,
+          laatste_evaluatie: lastEval?.datum    ?? null,
+          slaap:             lastEval?.slaap    ?? null,
+          energie:           lastEval?.energie  ?? null,
+          stress:            lastEval?.stress   ?? null,
+        }
+      })
+
+      const stats: Record<string, TrainerStats> = {}
+      for (const t of trainerData ?? []) {
+        const tLeden = enrichedLeden.filter(l => l.trainer_id === t.id && l.actief)
+        stats[t.id] = {
+          trainer_id:  t.id,
+          totaal:      tLeden.length,
+          rood:        tLeden.filter(l => getLidStoplight(l) === 'red').length,
+          amber:       tLeden.filter(l => getLidStoplight(l) === 'amber').length,
+          open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
+        }
       }
-    }
-    const ids = (ledenRaw ?? [])
-      .map(l => l.lid_id)
-      .filter(id => /^WE-\d+$/.test(id))
-      .map(id => parseInt(id.replace('WE-', ''), 10))
-    const maxId = ids.length > 0 ? Math.max(...ids) : 0
-    setNextLidId(`WE-${String(maxId + 1).padStart(3, '0')}`)
+      const ids = (ledenRaw ?? [])
+        .map(l => l.lid_id)
+        .filter(id => /^WE-\d+$/.test(id))
+        .map(id => parseInt(id.replace('WE-', ''), 10))
+      const maxId = ids.length > 0 ? Math.max(...ids) : 0
+      setNextLidId(`WE-${String(maxId + 1).padStart(3, '0')}`)
 
-    setTrainers(trainerData ?? [])
-    setLeden(enrichedLeden)
-    setTrainerStats(stats)
-    setLoading(false)
+      setTrainers(trainerData ?? [])
+      setLeden(enrichedLeden)
+      setTrainerStats(stats)
+    } catch (err) {
+      console.error('Management load error:', err)
+    } finally {
+      setLoading(false)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey intentionally recreates load after deactivation.
   }, [refreshKey])
 
