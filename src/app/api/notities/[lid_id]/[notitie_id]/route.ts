@@ -13,7 +13,7 @@ type RouteParams = {
 }
 
 const DELETE_ROLES: Role[] = ['trainer', 'management', 'admin']
-const GEZIEN_ROLES: Role[] = ['trainer', 'admin']
+const GEZIEN_ROLES: Role[] = ['trainer', 'management', 'admin']
 
 function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status })

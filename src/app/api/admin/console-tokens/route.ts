@@ -29,6 +29,10 @@ async function getAdminContext() {
   return { supabase, user, error: null }
 }
 
+// AUTH: All handlers in this file require a valid Supabase session with role 'admin'.
+// Console sessions are not accepted. Do not migrate to service-role-only
+// until admin UI is moved off the browser Supabase client.
+
 // GET - list all tokens
 export async function GET() {
   const { supabase, error: authError } = await getAdminContext()

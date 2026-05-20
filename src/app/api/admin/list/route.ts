@@ -28,6 +28,9 @@ async function getAdminContext() {
   return { supabase, user, error: null }
 }
 
+// AUTH: This route requires a valid Supabase session with role 'admin'.
+// Console sessions are not accepted. Do not migrate to service-role-only
+// until admin UI is moved off the browser Supabase client.
 export async function GET() {
   const { supabase, user: currentUser, error: authError } = await getAdminContext()
   if (authError) return authError

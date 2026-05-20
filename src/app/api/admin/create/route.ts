@@ -19,6 +19,9 @@ async function getAdminClient() {
   )
 }
 
+// AUTH: This route requires a valid Supabase session with role 'admin'.
+// Console sessions are not accepted. Do not migrate to service-role-only
+// until admin UI is moved off the browser Supabase client.
 export async function POST(req: NextRequest) {
   const supabase = await getAdminClient()
   const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()

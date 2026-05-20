@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerAuthContext } from '@/lib/serverAuth'
 
@@ -27,9 +28,11 @@ export async function POST(req: NextRequest) {
   const { naam } = await req.json()
   if (!naam?.trim()) return NextResponse.json({ error: 'Naam is verplicht' }, { status: 400 })
 
+  const token = randomBytes(32).toString('hex')
+
   const { data, error } = await auth.supabase
     .from('console_tokens')
-    .insert({ naam: naam.trim(), trainer_id: null, aangemaakt_door: auth.personId })
+    .insert({ naam: naam.trim(), token, trainer_id: null, aangemaakt_door: auth.personId })
     .select('id, token, naam, actief, aangemaakt_op, laatst_gebruikt')
     .single()
 
