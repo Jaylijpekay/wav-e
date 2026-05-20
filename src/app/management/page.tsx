@@ -476,18 +476,21 @@ function ActieModal({
 
   const save = async () => {
     setError(null)
-    if (!lidId)               { setError('Selecteer een lid'); return }
     if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
     setSaving(true)
-    const supabase = getSupabase()
-    const { error: err } = await supabase.from('acties').insert({
-      trainer_id: trainer.id, lid_id: lidId, type: 'custom',
-      omschrijving: omschrijving.trim(), deadline: deadline || null,
-      status: 'open', bron: 'management', afgerond: false,
-      aangemaakt_door: null,
+    const res = await fetch('/api/acties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        trainer_id:  trainer.id,
+        lid_id:      lidId || null,
+        omschrijving: omschrijving.trim(),
+        deadline:    deadline || null,
+      }),
     })
+    const data = await res.json()
     setSaving(false)
-    if (err) { setError(err.message); return }
+    if (!res.ok) { setError(data.error ?? 'Opslaan mislukt'); return }
     onSaved(); onClose()
   }
 
@@ -499,14 +502,14 @@ function ActieModal({
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Actie toewijzen</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {trainer.voornaam} {trainer.achternaam}</div>
         </div>
-        <Field label="Lid">
+        <Field label="Lid (optioneel)">
           <select
             value={lidId}
             onChange={e => setLidId(e.target.value)}
             disabled={!!prefillLid}
             style={{ ...inputStyle, color: lidId ? 'var(--text-primary)' : 'var(--text-muted)', opacity: prefillLid ? 0.7 : 1 }}
           >
-            <option value="">Selecteer lid…</option>
+            <option value="">— geen lid —</option>
             {trainerLeden.map(l => (
               <option key={l.id} value={l.id}>{l.voornaam} {l.achternaam}</option>
             ))}

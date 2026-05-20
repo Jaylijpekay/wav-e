@@ -30,16 +30,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
-  let body: { lid_id?: unknown; omschrijving?: unknown; deadline?: unknown }
+  let body: { lid_id?: unknown; trainer_id?: unknown; omschrijving?: unknown; deadline?: unknown }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Ongeldige JSON' }, { status: 400 }) }
 
-  const lidId = typeof body.lid_id === 'string' ? body.lid_id : null
+  const lidId       = typeof body.lid_id      === 'string' && body.lid_id      ? body.lid_id      : null
+  const bodyTrainer = typeof body.trainer_id  === 'string' && body.trainer_id  ? body.trainer_id  : null
   const omschrijving = typeof body.omschrijving === 'string' ? body.omschrijving.trim() : ''
-  const deadline = typeof body.deadline === 'string' && body.deadline ? body.deadline : null
+  const deadline    = typeof body.deadline    === 'string' && body.deadline    ? body.deadline    : null
 
-  if (!lidId) return NextResponse.json({ error: 'lid_id is verplicht' }, { status: 400 })
   if (!omschrijving) return NextResponse.json({ error: 'omschrijving is verplicht' }, { status: 400 })
 
+  // Lid-less actie: management/admin assigning a task directly to a trainer
+  if (!lidId) {
+    if (auth.role === 'trainer') {
+      return NextResponse.json({ error: 'Trainers moeten een lid selecteren' }, { status: 400 })
+    }
+    if (!bodyTrainer) {
+      return NextResponse.json({ error: 'trainer_id is verplicht wanneer geen lid is opgegeven' }, { status: 400 })
+    }
+    const { data, error } = await auth.supabase
+      .from('acties')
+      .insert({
+        lid_id:          null,
+        trainer_id:      bodyTrainer,
+        omschrijving,
+        deadline,
+        status:          'open',
+        type:            'custom',
+        bron:            'management',
+        afgerond:        false,
+        aangemaakt_door: auth.personId,
+      })
+      .select('id, omschrijving, status, aangemaakt, deadline')
+      .single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ actie: data }, { status: 201 })
+  }
+
+  // Lid-tied actie
   const { data: lid, error: lidError } = await auth.supabase
     .from('leden')
     .select('id, trainer_id')
