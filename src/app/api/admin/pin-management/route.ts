@@ -1,33 +1,13 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-
-async function getAdminClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {},
-      },
-    }
-  )
-}
+import { getServerAuthContext } from '@/lib/serverAuth'
 
 export async function POST(req: NextRequest) {
-  const supabase = await getAdminClient()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-  }
-
-  const { data: role } = await supabase.rpc('get_my_role')
-  if (role !== 'admin' && role !== 'management') {
+  const auth = await getServerAuthContext(req)
+  if (!auth) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  if (auth.role !== 'admin' && auth.role !== 'management') {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
+  const supabase = auth.supabase
 
   const { management_id, pin } = await req.json()
 
