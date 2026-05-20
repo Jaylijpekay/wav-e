@@ -1,19 +1,21 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 type NewUserRole = 'management' | 'trainer'
 
-async function getAdminClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
+// Service-role client that does NOT read cookies, so the caller's JWT
+// can't override the service-role Authorization header. Required to
+// bypass RLS on tables like user_roles.
+function getAdminClient() {
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll() {},
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   )
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
-  const supabase = await getAdminClient()
+  const supabase = getAdminClient()
 
   const { email, password, role, voornaam, achternaam } = await req.json()
 
