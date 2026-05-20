@@ -6,7 +6,9 @@ import { verifyConsoleSession } from '@/lib/consoleSession'
 // ROUTE DEFINITIONS
 // ============================================================
 
-const PUBLIC_ROUTES = ['/login', '/api/console', '/api/auth-context']
+// /console is intentionally public — the page itself validates the token
+// via /api/console/validate and shows an 'invalid' state if it fails.
+const PUBLIC_PREFIXES = ['/login', '/api/console', '/api/auth-context', '/console']
 
 const MANAGEMENT_ONLY_ROUTES = ['/management']
 
@@ -14,78 +16,46 @@ const ADMIN_API_ROUTES = ['/api/admin']
 
 const ADMIN_ONLY_ROUTES = ['/admin']
 
-const CONSOLE_ROUTE = '/console'
-
 const ADMIN_UUID = 'a596f282-c927-4a11-aaec-bb18721cac50'
 
-const validateConsoleToken = async (request: NextRequest) => {
-  const token = request.nextUrl.searchParams.get('token')
-    ?? request.cookies.get('console_token')?.value
+// ============================================================
+// CONSOLE SESSION CHECK (cryptographic only — no DB call)
+// ============================================================
 
-  if (!token) return null
-
-  const supabaseAdmin = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { getAll: () => [], setAll: () => {} } }
-  )
-
-  const { data, error } = await supabaseAdmin
-    .rpc('validate_console_token', { p_token: token })
-
-  if (error || !data) return null
-  return token
-}
-
-const allowConsoleSessionRoute = async (request: NextRequest) => {
+// The proxy only verifies the console_session HMAC signature and expiry.
+// The console_token DB validity check happens inside the API routes
+// (verify-pin/route.ts, serverAuth.ts) where a failed DB call does not
+// cause a redirect to /login — it just returns 401 to the client fetch.
+// Moving that DB check into the proxy caused every protected page request
+// to make a supabase RPC call; if that call failed or the token was
+// stale the request fell through to Supabase session auth, which also
+// failed for console-only sessions, producing the /login redirect.
+const allowConsoleSessionRoute = async (request: NextRequest): Promise<NextResponse | null> => {
   const { pathname } = request.nextUrl
-  const token = await validateConsoleToken(request)
-  if (!token) return null
 
   const session = await verifyConsoleSession(request.cookies.get('console_session')?.value)
   if (!session) return null
 
-  const trainerPath = `/trainer/${session.id}`
-  const trainerApiPath = `/api/trainer/${session.id}`
-  const isAllowedTrainerRoute =
-    session.type === 'trainer' &&
-    (
+  if (session.type === 'trainer') {
+    const trainerPath = `/trainer/${session.id}`
+    const allowed =
       pathname === trainerPath ||
       pathname.startsWith(`${trainerPath}/`) ||
-      pathname === trainerApiPath ||
-      pathname.startsWith(`${trainerApiPath}/`) ||
-      pathname.startsWith('/api/trainer-notities/') ||
-      pathname.startsWith('/api/notities/') ||
-      pathname.startsWith('/api/gesprek') ||
-      pathname.startsWith('/gesprek')
-    )
-
-  const isAllowedManagementRoute =
-    session.type === 'management' &&
-    (
-      pathname.startsWith('/management') ||
-      pathname.startsWith('/api/trainer-notities') ||
-      pathname.startsWith('/api/notities/')
-    )
-
-  if (!isAllowedTrainerRoute && !isAllowedManagementRoute) return null
-
-  const response = NextResponse.next()
-  response.headers.set('x-auth-mode', 'console-pin')
-  response.headers.set('x-console-person-type', session.type)
-  response.headers.set('x-console-person-id', session.id)
-
-  if (!request.cookies.get('console_token')) {
-    response.cookies.set('console_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365,
-      path: '/',
-    })
+      pathname.startsWith('/gesprek') ||
+      pathname.startsWith('/leden/')
+    if (!allowed) {
+      return NextResponse.redirect(new URL(trainerPath, request.url))
+    }
   }
 
-  return response
+  if (session.type === 'management') {
+    const allowed = pathname.startsWith('/management')
+    if (!allowed) {
+      return NextResponse.redirect(new URL('/management', request.url))
+    }
+  }
+
+  return NextResponse.next()
 }
 
 // ============================================================
@@ -96,39 +66,16 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // ----------------------------------------------------------
-  // 1. CONSOLE TOKEN PATH
+  // 1. PUBLIC ROUTES (including /console)
   // ----------------------------------------------------------
 
-  if (pathname.startsWith(CONSOLE_ROUTE)) {
-    const token = await validateConsoleToken(request)
-
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    const response = NextResponse.next()
-    response.headers.set('x-auth-mode', 'console')
-
-    if (!request.cookies.get('console_token')) {
-      response.cookies.set('console_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 365,
-        path: '/',
-      })
-    }
-
-    return response
-  }
-
-  // ----------------------------------------------------------
-  // 2. PUBLIC ROUTES
-  // ----------------------------------------------------------
-
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+  if (PUBLIC_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'))) {
     return NextResponse.next()
   }
+
+  // ----------------------------------------------------------
+  // 2. CONSOLE SESSION (fast — HMAC only, no network)
+  // ----------------------------------------------------------
 
   const consoleResponse = await allowConsoleSessionRoute(request)
   if (consoleResponse) return consoleResponse
