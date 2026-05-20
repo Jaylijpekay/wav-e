@@ -772,20 +772,28 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     if (!password.trim() || password.trim().length < 6) { setError('Wachtwoord is verplicht (min. 6 tekens)'); return }
 
     setSaving(true)
-    const res = await fetch('/api/management/trainers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: email.trim(),
-        password: password.trim(),
-        voornaam: voornaam.trim(),
-        achternaam: achternaam.trim(),
-      }),
-    })
-    const data = await res.json()
-    setSaving(false)
-    if (!res.ok) { setError(data.error ?? 'Aanmaken mislukt'); return }
-    onSaved(); onClose()
+    try {
+      const res = await fetch('/api/admin/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voornaam: voornaam.trim(),
+          achternaam: achternaam.trim(),
+          email: email.trim(),
+          password: password.trim(),
+          role: 'trainer',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Trainer aanmaken mislukt')
+        return
+      }
+      onSaved()
+      onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1033,6 +1041,7 @@ export default function ManagementPage() {
   const [showAddTrainer, setShowAddTrainer] = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
+  const [reassigningLid, setReassigningLid] = useState<string | null>(null)
 
   // Open actie modal from trainer row (user picks lid)
   const openActieFromTrainer = (t: Trainer) => {
@@ -1074,6 +1083,21 @@ export default function ManagementPage() {
     })
     setDeactivating(null)
     setRefreshKey(k => k + 1)
+  }
+
+  const reassignLidTrainer = async (lid: Lid, newTrainerId: string) => {
+    if (!newTrainerId || newTrainerId === lid.trainer_id) return
+    setReassigningLid(lid.id)
+    try {
+      await fetch(`/api/management/leden/${lid.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainer_id: newTrainerId }),
+      })
+      setRefreshKey(k => k + 1)
+    } finally {
+      setReassigningLid(null)
+    }
   }
 
   const load = useCallback(async () => {
@@ -1176,6 +1200,7 @@ export default function ManagementPage() {
     consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
   ) as Record<string, TrainerPin>
   const ownPinAction = ownPinPerson ?? CURRENT_MANAGEMENT_PIN
+  const activeTrainers = trainers.filter(t => t.actief)
 
   if (loading) return (
     <>
@@ -1435,7 +1460,7 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 120px 100px 160px', padding: '0 24px', height: 68, overflow: 'hidden', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
+                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 120px 100px 160px', padding: '10px 24px', minHeight: 96, overflow: 'hidden', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -1444,7 +1469,35 @@ export default function ManagementPage() {
                       onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
                       onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
                     >{l.voornaam} {l.achternaam}</span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
+                      <select
+                        value={l.trainer_id}
+                        disabled={reassigningLid === l.id}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => {
+                          e.stopPropagation()
+                          reassignLidTrainer(l, e.target.value)
+                        }}
+                        style={{
+                          minHeight: 44,
+                          background: 'var(--bg-raised)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 8,
+                          color: 'var(--text-primary)',
+                          padding: '6px 10px',
+                          fontSize: 13,
+                          fontFamily: 'inherit',
+                          cursor: reassigningLid === l.id ? 'default' : 'pointer',
+                          opacity: reassigningLid === l.id ? 0.6 : 1,
+                          maxWidth: '100%',
+                        }}
+                      >
+                        {activeTrainers.map(t => (
+                          <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>
+                        ))}
+                      </select>
+                    </span>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>

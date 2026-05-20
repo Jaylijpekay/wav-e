@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: currentRole } = await sessionClient.rpc('get_my_role')
-  if (currentRole !== 'admin') {
+  if (currentRole !== 'admin' && currentRole !== 'management') {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
