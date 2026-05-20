@@ -18,7 +18,6 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getSupabase } from '@/lib/supabase'
 
 type Evaluatie = {
   id: string
@@ -123,33 +122,17 @@ export default function EvaluatieDetail() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase()
-
-      const { data: lidData } = await supabase
-        .from('leden')
-        .select('voornaam, achternaam, lid_id')
-        .eq('id', id)
-        .single()
-      setLid(lidData)
-
-      const { data: evData } = await supabase
-        .from('evaluaties')
-        .select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, motivatie, tevredenheid, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm, doelen_behaald, notities, trainer:trainer_id(voornaam, achternaam)')
-        .eq('lid_id', id)
-        .eq('cyclus', Number(cyclus))
-        .single()
-      setEv(evData)
-
-      if (evData && Number(cyclus) > 1) {
-        const { data: prevData } = await supabase
-          .from('evaluaties')
-          .select('cyclus, slaap, energie, stress, voeding, beweging, motivatie, tevredenheid, gewicht_kg')
-          .eq('lid_id', id)
-          .eq('cyclus', Number(cyclus) - 1)
-          .single()
-        setPrev(prevData)
+      const res = await fetch(`/api/leden/${id}`)
+      if (res.ok) {
+        const { lid: lidData, evaluaties: allEvals } = await res.json()
+        setLid(lidData ?? null)
+        const n = Number(cyclus)
+        const evData = (allEvals ?? []).find((e: { cyclus: number }) => e.cyclus === n) ?? null
+        setEv(evData)
+        if (evData && n > 1) {
+          setPrev((allEvals ?? []).find((e: { cyclus: number }) => e.cyclus === n - 1) ?? null)
+        }
       }
-
       setLoading(false)
     }
     if (id && cyclus) load()

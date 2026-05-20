@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       .maybeSingle(),
     auth.supabase
       .from('evaluaties')
-      .select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm')
+      .select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm, doelen_behaald, notities, trainer:trainer_id(voornaam, achternaam)')
       .eq('lid_id', id)
       .order('cyclus', { ascending: false }),
     auth.supabase

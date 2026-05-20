@@ -18,7 +18,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getSupabase } from '@/lib/supabase'
 
 type Evaluatie = {
   id: string
@@ -374,18 +373,15 @@ export default function VooruitgangPage() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase()
-      const { data: lidData } = await supabase
-        .from('leden').select('voornaam, achternaam, lid_id').eq('id', id).single()
-      setLid(lidData)
-      const { data: evalData } = await supabase
-        .from('evaluaties')
-        .select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, motivatie, tevredenheid, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm, doelen_behaald')
-        .eq('lid_id', id)
-        .order('cyclus', { ascending: true })
-      const data = evalData ?? []
-      setEvals(data)
-      setSelectedIdx(data.length - 1)
+      const res = await fetch(`/api/leden/${id}`)
+      if (res.ok) {
+        const { lid: lidData, evaluaties: evalData } = await res.json()
+        setLid(lidData ?? null)
+        // API returns DESC; vooruitgang chart needs ASC
+        const sorted = (evalData ?? []).slice().sort((a: { cyclus: number }, b: { cyclus: number }) => a.cyclus - b.cyclus)
+        setEvals(sorted)
+        setSelectedIdx(sorted.length - 1)
+      }
       setLoading(false)
     }
     if (id) load()
