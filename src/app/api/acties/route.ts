@@ -48,6 +48,16 @@ export async function POST(req: NextRequest) {
     if (!bodyTrainer) {
       return NextResponse.json({ error: 'trainer_id is verplicht wanneer geen lid is opgegeven' }, { status: 400 })
     }
+
+    const { data: trainerExists } = await auth.supabase
+      .from('trainers')
+      .select('id')
+      .eq('id', bodyTrainer)
+      .single()
+    if (!trainerExists) {
+      return NextResponse.json({ error: 'trainer niet gevonden' }, { status: 404 })
+    }
+
     const { data, error } = await auth.supabase
       .from('acties')
       .insert({

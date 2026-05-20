@@ -76,11 +76,15 @@ export async function POST(req: NextRequest) {
 
 // PATCH - reactivate token
 export async function PATCH(req: NextRequest) {
+  const body = await req.json()
+  const { id, actief } = body
+  if (!id) return NextResponse.json({ error: 'id verplicht' }, { status: 400 })
+  if (typeof body.actief !== 'boolean') {
+    return NextResponse.json({ error: 'actief must be a boolean' }, { status: 400 })
+  }
+
   const { supabase, error: authError } = await getAdminContext()
   if (authError) return authError
-
-  const { id, actief } = await req.json()
-  if (!id) return NextResponse.json({ error: 'id verplicht' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('console_tokens')
