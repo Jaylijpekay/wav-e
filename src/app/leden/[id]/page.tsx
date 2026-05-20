@@ -211,24 +211,34 @@ export default function LedenDetail() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = getSupabase()
-      const { data: roleData } = await supabase.rpc('get_my_role')
-      setRole(roleData ?? null)
+      // Role via auth-context — works for both Supabase and console sessions
+      const authRes = await fetch('/api/auth-context')
+      const authData = authRes.ok ? await authRes.json() : {}
+      const roleData = authData.role ?? null
+      const authMode = authData.authMode ?? null
+      setRole(roleData)
 
-      if (roleData === 'trainer') {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: trainerData } = await supabase.from('trainers').select('naam').eq('id', user.id).single()
-          if (trainerData?.naam) setTrainerNaam(trainerData.naam)
-        }
+      // Trainer name — only fetchable for Supabase sessions (console sessions
+      // have no auth.users entry; contact form contactDoor will be empty)
+      if (roleData === 'trainer' && authMode === 'session') {
+        try {
+          const supabase = getSupabase()
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: trainerData } = await supabase.from('trainers').select('naam').eq('id', user.id).single()
+            if (trainerData?.naam) setTrainerNaam(trainerData.naam)
+          }
+        } catch { /* non-critical */ }
       }
 
-      const { data: lidData } = await supabase.from('leden').select('id, lid_id, voornaam, achternaam, email, telefoon, geboortedatum, startdatum, actief, trainer_id').eq('id', id).single()
-      setLid(lidData)
-      const { data: evalData } = await supabase.from('evaluaties').select('id, cyclus, datum, slaap, energie, stress, voeding, beweging, tevredenheid, motivatie, gewicht_kg, vetpercentage, spiermassa_kg, visceraal_vet, buikomvang_cm').eq('lid_id', id).order('cyclus', { ascending: false })
-      setEvaluaties(evalData ?? [])
-      const { data: contactData } = await supabase.from('contact_momenten').select('id, datum, type, notities, contact_door').eq('lid_id', id).order('datum', { ascending: false })
-      setContacten(contactData ?? [])
+      // Lid, evaluaties, contacten via server-side API
+      const lidRes = await fetch(`/api/leden/${id}`)
+      if (lidRes.ok) {
+        const { lid: lidData, evaluaties: evalData, contacten: contactData } = await lidRes.json()
+        setLid(lidData ?? null)
+        setEvaluaties(evalData ?? [])
+        setContacten(contactData ?? [])
+      }
       setLoading(false)
     }
     if (id) load()
