@@ -1,25 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getServiceRoleClient } from '@/lib/serverAuth'
 
 type NewUserRole = 'management' | 'trainer'
-
-// Service-role client that does NOT read cookies, so the caller's JWT
-// can't override the service-role Authorization header. Required to
-// bypass RLS on tables like user_roles.
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  )
-}
 
 async function getSessionClient() {
   const cookieStore = await cookies()
@@ -51,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Geen toegang' }, { status: 403 })
   }
 
-  const supabase = getAdminClient()
+  const supabase = getServiceRoleClient()
 
   const { email, password, role, voornaam, achternaam } = await req.json()
 
@@ -63,6 +47,17 @@ export async function POST(req: NextRequest) {
   }
   if (!voornaam?.trim() || !achternaam?.trim()) {
     return NextResponse.json({ error: 'Voornaam en achternaam zijn verplicht' }, { status: 400 })
+  }
+
+  const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers()
+  if (listError) {
+    return NextResponse.json({ error: `Gebruikerscontrole mislukt: ${listError.message}` }, { status: 500 })
+  }
+  const existingAuthUser = existingUsers.users.find(
+    (u: { email?: string | null }) => u.email?.toLowerCase() === email.toLowerCase()
+  )
+  if (existingAuthUser) {
+    return NextResponse.json({ error: 'Er bestaat al een login met dit e-mailadres' }, { status: 409 })
   }
 
   const newRole = role as NewUserRole

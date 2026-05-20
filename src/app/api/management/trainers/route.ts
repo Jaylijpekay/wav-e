@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerAuthContext } from '@/lib/serverAuth'
+import { getServerAuthContext, getServiceRoleClient } from '@/lib/serverAuth'
 
 type CreateTrainerBody = {
   email?: unknown
@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Voornaam en achternaam zijn verplicht' }, { status: 400 })
   }
 
-  const { data: existingUsers, error: listError } = await auth.supabase.auth.admin.listUsers()
+  const db = getServiceRoleClient()
+
+  const { data: existingUsers, error: listError } = await db.auth.admin.listUsers()
   if (listError) {
     return NextResponse.json({ error: `Gebruikerscontrole mislukt: ${listError.message}` }, { status: 500 })
   }
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Er bestaat al een login met dit e-mailadres' }, { status: 409 })
   }
 
-  const { data: trainerRow, error: trainerError } = await auth.supabase
+  const { data: trainerRow, error: trainerError } = await db
     .from('trainers')
     .insert({ voornaam, achternaam, email, actief: false })
     .select('id')
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: trainerError?.message ?? 'Trainer aanmaken mislukt' }, { status: 500 })
   }
 
-  const { data: { user }, error: createError } = await auth.supabase.auth.admin.createUser({
+  const { data: { user }, error: createError } = await db.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -75,7 +77,7 @@ export async function POST(req: NextRequest) {
   })
 
   if (createError || !user) {
-    await auth.supabase
+    await db
       .from('trainers')
       .update({ actief: false })
       .eq('id', trainerRow.id)
@@ -85,14 +87,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Login aanmaken mislukt: ${message}` }, { status })
   }
 
-  const { data: existingRole, error: roleReadError } = await auth.supabase
+  const { data: existingRole, error: roleReadError } = await db
     .from('user_roles')
     .select('id')
     .eq('user_id', user.id)
     .maybeSingle()
   if (roleReadError) {
-    await auth.supabase.auth.admin.deleteUser(user.id)
-    await auth.supabase
+    await db.auth.admin.deleteUser(user.id)
+    await db
       .from('trainers')
       .update({ actief: false })
       .eq('id', trainerRow.id)
@@ -100,33 +102,33 @@ export async function POST(req: NextRequest) {
   }
 
   const roleWrite = existingRole
-    ? auth.supabase
+    ? db
       .from('user_roles')
       .update({ role: 'trainer', trainer_id: trainerRow.id })
       .eq('id', existingRole.id)
-    : auth.supabase
+    : db
       .from('user_roles')
       .insert({ user_id: user.id, role: 'trainer', trainer_id: trainerRow.id })
 
   const { error: roleError } = await roleWrite
 
   if (roleError) {
-    await auth.supabase
+    await db
       .from('trainers')
       .update({ actief: false })
       .eq('id', trainerRow.id)
-    await auth.supabase.auth.admin.deleteUser(user.id)
+    await db.auth.admin.deleteUser(user.id)
     return NextResponse.json({ error: 'Aanmaken mislukt: rol kon niet worden opgeslagen' }, { status: 500 })
   }
 
-  const { error: activateError } = await auth.supabase
+  const { error: activateError } = await db
     .from('trainers')
     .update({ actief: true })
     .eq('id', trainerRow.id)
 
   if (activateError) {
-    await auth.supabase.auth.admin.deleteUser(user.id)
-    await auth.supabase
+    await db.auth.admin.deleteUser(user.id)
+    await db
       .from('trainers')
       .update({ actief: false })
       .eq('id', trainerRow.id)

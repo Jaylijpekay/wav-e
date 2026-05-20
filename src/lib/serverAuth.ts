@@ -1,7 +1,21 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
 import { verifyConsoleSession } from '@/lib/consoleSession'
+
+// Stateless service-role client. Use this for any write that must
+// bypass RLS (e.g. inserts into user_roles, trainers, management_gebruikers).
+// The SSR-based getServiceSupabase below leaks the caller's JWT from
+// cookies into the Authorization header, which overrides the service role
+// at PostgREST and re-enables RLS. This helper does not.
+export function getServiceRoleClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export type AppRole = 'trainer' | 'management' | 'admin'
 
