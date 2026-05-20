@@ -48,9 +48,11 @@ const allowConsoleSessionRoute = async (request: NextRequest): Promise<NextRespo
     }
   }
 
+  // Management console sessions can access any non-admin protected route —
+  // same scope as Supabase management sessions. canAccessTrainer/canAccessLid
+  // in the API layer enforce per-resource checks.
   if (session.type === 'management') {
-    const allowed = pathname.startsWith('/management')
-    if (!allowed) {
+    if (pathname.startsWith('/admin')) {
       return NextResponse.redirect(new URL('/management', request.url))
     }
   }
