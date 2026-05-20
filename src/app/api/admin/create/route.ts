@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
   if (newRole === 'management') {
     const { data: mgmtRow, error: mgmtErr } = await supabase
       .from('management_gebruikers')
-      .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, actief: true })
+      .insert({ voornaam: voornaam.trim(), achternaam: achternaam.trim(), email, actief: true, supabase_user_id: user.id })
       .select('id')
       .single()
 

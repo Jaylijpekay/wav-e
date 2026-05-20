@@ -13,7 +13,7 @@
  * management
  *
  * Gerelateerde API routes:
- * /api/admin/create, /api/admin/pins, /api/admin/pin, /api/admin/pin-management
+ * /api/management/trainers, /api/admin/pins, /api/admin/pin, /api/admin/pin-management
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -765,13 +765,12 @@ function AddTrainerModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     if (!password.trim() || password.trim().length < 6) { setError('Wachtwoord is verplicht (min. 6 tekens)'); return }
 
     setSaving(true)
-    const res = await fetch('/api/admin/create', {
+    const res = await fetch('/api/management/trainers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: email.trim(),
         password: password.trim(),
-        role: 'trainer',
         voornaam: voornaam.trim(),
         achternaam: achternaam.trim(),
       }),

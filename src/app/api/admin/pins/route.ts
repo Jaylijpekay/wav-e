@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerAuthContext } from '@/lib/serverAuth'
 
 type TrainerRow = { id: string; voornaam: string; achternaam: string; pin_hash: string | null }
-type MgmtRow   = { id: string; voornaam: string; achternaam: string; email: string | null; pin_hash: string | null }
+type MgmtRow = {
+  id: string
+  voornaam: string
+  achternaam: string
+  email: string | null
+  pin_hash: string | null
+  supabase_user_id: string | null
+}
 
 export async function GET(req: NextRequest) {
   const auth = await getServerAuthContext(req)
@@ -15,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: trainerData, error: trainerError }, { data: mgmtData, error: mgmtError }] = await Promise.all([
     supabase.from('trainers').select('id, voornaam, achternaam, pin_hash').eq('actief', true).order('achternaam'),
-    supabase.from('management_gebruikers').select('id, voornaam, achternaam, email, pin_hash').eq('actief', true).order('achternaam'),
+    supabase.from('management_gebruikers').select('id, voornaam, achternaam, email, pin_hash, supabase_user_id').eq('actief', true).order('achternaam'),
   ])
 
   if (trainerError) return NextResponse.json({ error: trainerError.message }, { status: 500 })
@@ -36,15 +43,28 @@ export async function GET(req: NextRequest) {
     })),
   ]
 
-  // Console sessions: match by person UUID; Supabase sessions: match by email
+  // Console sessions match by person UUID. Browser sessions should match by
+  // auth UUID, with email as a fallback for older management rows.
   let currentPerson = null
   if (auth.authMode === 'console') {
     currentPerson = (mgmtData as MgmtRow[] ?? []).find(m => m.id === auth.personId) ?? null
   } else {
     const { data: { user } } = await supabase.auth.getUser()
-    currentPerson = user
-      ? (mgmtData as MgmtRow[] ?? []).find(m => m.email?.toLowerCase() === user.email?.toLowerCase()) ?? null
-      : null
+    if (user) {
+      const managementRows = (mgmtData as MgmtRow[] ?? [])
+      currentPerson =
+        managementRows.find(m => m.supabase_user_id === user.id) ??
+        managementRows.find(m => m.id === user.id) ??
+        managementRows.find(m => m.email?.toLowerCase() === user.email?.toLowerCase()) ??
+        null
+
+      if (currentPerson && currentPerson.supabase_user_id !== user.id) {
+        await supabase
+          .from('management_gebruikers')
+          .update({ supabase_user_id: user.id })
+          .eq('id', currentPerson.id)
+      }
+    }
   }
 
   return NextResponse.json({
