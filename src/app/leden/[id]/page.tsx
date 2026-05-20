@@ -209,38 +209,42 @@ export default function LedenDetail() {
   const [actieTekst, setActieTekst] = useState('')
   const [actieDeadline, setActieDeadline] = useState('')
   const [actiePosting, setActiePosting] = useState(false)
+  const [actieError, setActieError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
-      // Role via auth-context — works for both Supabase and console sessions
-      const authRes = await fetch('/api/auth-context')
-      const authData = authRes.ok ? await authRes.json() : {}
-      const roleData = authData.role ?? null
-      const authMode = authData.authMode ?? null
-      setRole(roleData)
+      try {
+        // Role via auth-context — works for both Supabase and console sessions
+        const authRes = await fetch('/api/auth-context')
+        const authData = authRes.ok ? await authRes.json() : {}
+        const roleData = authData.role ?? null
+        const authMode = authData.authMode ?? null
+        setRole(roleData)
 
-      // Trainer name — only fetchable for Supabase sessions (console sessions
-      // have no auth.users entry; contact form contactDoor will be empty)
-      if (roleData === 'trainer' && authMode === 'session') {
-        try {
-          const supabase = getSupabase()
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const { data: trainerData } = await supabase.from('trainers').select('naam').eq('id', user.id).single()
-            if (trainerData?.naam) setTrainerNaam(trainerData.naam)
-          }
-        } catch { /* non-critical */ }
-      }
+        // Trainer name — only fetchable for Supabase sessions (console sessions
+        // have no auth.users entry; contact form contactDoor will be empty)
+        if (roleData === 'trainer' && authMode === 'session') {
+          try {
+            const supabase = getSupabase()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              const { data: trainerData } = await supabase.from('trainers').select('naam').eq('id', user.id).single()
+              if (trainerData?.naam) setTrainerNaam(trainerData.naam)
+            }
+          } catch { /* non-critical */ }
+        }
 
-      // Lid, evaluaties, contacten via server-side API
-      const lidRes = await fetch(`/api/leden/${id}`)
-      if (lidRes.ok) {
-        const { lid: lidData, evaluaties: evalData, contacten: contactData } = await lidRes.json()
-        setLid(lidData ?? null)
-        setEvaluaties(evalData ?? [])
-        setContacten(contactData ?? [])
+        // Lid, evaluaties, contacten via server-side API
+        const lidRes = await fetch(`/api/leden/${id}`)
+        if (lidRes.ok) {
+          const { lid: lidData, evaluaties: evalData, contacten: contactData } = await lidRes.json()
+          setLid(lidData ?? null)
+          setEvaluaties(evalData ?? [])
+          setContacten(contactData ?? [])
+        }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     if (id) load()
   }, [id])
@@ -282,6 +286,7 @@ export default function LedenDetail() {
   const addActie = async () => {
     if (!actieTekst.trim() || actiePosting) return
     setActiePosting(true)
+    setActieError(null)
     try {
       const res = await fetch('/api/acties', {
         method: 'POST',
@@ -294,7 +299,12 @@ export default function LedenDetail() {
         setActieTekst('')
         setActieDeadline('')
         setShowAddActie(false)
+      } else {
+        const err = await res.json().catch(() => null)
+        setActieError(err?.error ?? 'Actie opslaan mislukt')
       }
+    } catch {
+      setActieError('Verbindingsfout — probeer opnieuw')
     } finally {
       setActiePosting(false)
     }
@@ -303,33 +313,36 @@ export default function LedenDetail() {
   const logContact = async () => {
     if (!lid) return
     setSavingContact(true)
-    const resolvedDoor = role === 'trainer' ? trainerNaam : (contactDoor.trim() || null)
-    const res = await fetch('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lid_id:       lid.id,
-        trainer_id:   lid.trainer_id,
-        datum:        contactDatum,
-        type:         contactType,
-        notities:     contactNotities || null,
-        contact_door: resolvedDoor,
-      }),
-    })
-    if (!res.ok) {
-      console.error('logContact failed', await res.json().catch(() => null))
+    try {
+      const resolvedDoor = role === 'trainer' ? trainerNaam : (contactDoor.trim() || null)
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lid_id:       lid.id,
+          trainer_id:   lid.trainer_id,
+          datum:        contactDatum,
+          type:         contactType,
+          notities:     contactNotities || null,
+          contact_door: resolvedDoor,
+        }),
+      })
+      if (!res.ok) {
+        console.error('logContact failed', await res.json().catch(() => null))
+        return
+      }
+      const lidRes = await fetch(`/api/leden/${lid.id}`)
+      if (lidRes.ok) {
+        const { contacten: fresh } = await lidRes.json()
+        setContacten(fresh ?? [])
+      }
+      setContactOpen(false)
+      setContactNotities('')
+      setContactDoor('')
+    } catch { /* silent — individual fetches already log errors */ }
+    finally {
       setSavingContact(false)
-      return
     }
-    const lidRes = await fetch(`/api/leden/${lid.id}`)
-    if (lidRes.ok) {
-      const { contacten: fresh } = await lidRes.json()
-      setContacten(fresh ?? [])
-    }
-    setContactOpen(false)
-    setContactNotities('')
-    setContactDoor('')
-    setSavingContact(false)
   }
 
   const postNotitie = async () => {
@@ -1426,6 +1439,9 @@ export default function LedenDetail() {
                         {actiePosting ? 'Opslaan…' : 'Toevoegen'}
                       </button>
                     </div>
+                    {actieError && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--red-text)', padding: '4px 0' }}>{actieError}</div>
+                    )}
                   </div>
                 )}
                 {acties.length === 0 && !showAddActie

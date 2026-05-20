@@ -373,16 +373,19 @@ export default function VooruitgangPage() {
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch(`/api/leden/${id}`)
-      if (res.ok) {
-        const { lid: lidData, evaluaties: evalData } = await res.json()
-        setLid(lidData ?? null)
-        // API returns DESC; vooruitgang chart needs ASC
-        const sorted = (evalData ?? []).slice().sort((a: { cyclus: number }, b: { cyclus: number }) => a.cyclus - b.cyclus)
-        setEvals(sorted)
-        setSelectedIdx(sorted.length - 1)
+      try {
+        const res = await fetch(`/api/leden/${id}`)
+        if (res.ok) {
+          const { lid: lidData, evaluaties: evalData } = await res.json()
+          setLid(lidData ?? null)
+          // API returns DESC; vooruitgang chart needs ASC
+          const sorted = (evalData ?? []).slice().sort((a: { cyclus: number }, b: { cyclus: number }) => a.cyclus - b.cyclus)
+          setEvals(sorted)
+          setSelectedIdx(sorted.length - 1)
+        }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     if (id) load()
   }, [id])

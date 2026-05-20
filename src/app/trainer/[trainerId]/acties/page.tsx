@@ -132,12 +132,23 @@ export default function TrainerActiesPage() {
   const [acties, setActies] = useState<Actie[]>([])
   const [loading, setLoading] = useState(true)
   const [completingId, setCompletingId] = useState<string | null>(null)
+  const [completeError, setCompleteError] = useState<string | null>(null)
 
   const completeActie = async (id: string) => {
     setCompletingId(id)
-    const res = await fetch(`/api/acties/${id}`, { method: 'PATCH' })
-    if (res.ok) setActies(prev => prev.filter(a => a.id !== id))
-    setCompletingId(null)
+    setCompleteError(null)
+    try {
+      const res = await fetch(`/api/acties/${id}`, { method: 'PATCH' })
+      if (res.ok) {
+        setActies(prev => prev.filter(a => a.id !== id))
+      } else {
+        setCompleteError('Afmelden mislukt — probeer opnieuw')
+      }
+    } catch {
+      setCompleteError('Verbindingsfout — probeer opnieuw')
+    } finally {
+      setCompletingId(null)
+    }
   }
 
   useEffect(() => {
@@ -470,6 +481,9 @@ export default function TrainerActiesPage() {
             <span className="td-section-title">Open acties</span>
             <span className="td-section-count">{acties.length}</span>
           </div>
+          {completeError && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--red-text)', padding: '4px 0 8px', letterSpacing: '0.03em' }}>{completeError}</div>
+          )}
 
           {loading ? (
             <div className="td-empty">Laden…</div>

@@ -4,18 +4,19 @@
  * Management — Berichten inbox
  *
  * Wat doet deze pagina:
- * Aggregeert berichten van alle trainers in één inbox voor management. Ongelezen
- * komt bovenaan, daarbinnen nieuwste eerst. Management kan inline antwoorden.
+ * Aggregeert berichten van alle trainers in één inbox voor management.
+ * Gegroepeerd per trainer. Ongelezen trainers bovenaan. Inline lezen + antwoorden.
  *
  * Data:
  * Leest via API: trainer_notities (+ leden, trainers). Schrijft via API naar:
- * trainer_notities.
+ * trainer_notities. Markeert gelezen via PATCH /api/trainer-notities/[id]/gelezen.
  *
  * Toegang:
  * management / admin
  *
  * Gerelateerde API routes:
- * /api/trainer-notities (GET), /api/trainer-notities/[trainer_id] (POST)
+ * /api/trainer-notities (GET), /api/trainer-notities/[trainer_id] (POST),
+ * /api/trainer-notities/[id]/gelezen (PATCH)
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -27,14 +28,21 @@ type Bericht = {
   trainer_id: string
   trainer_naam: string
   auteur_id: string
+  auteur_type: string
   tekst: string
   aangemaakt_op: string
   gelezen_door_management: boolean
   lid_id: string | null
   lid_naam: string | null
+  verwijderd?: boolean
 }
 
-const PAGE_SIZE = 20
+type TrainerGroep = {
+  trainer_id: string
+  trainer_naam: string
+  ongelezen: number
+  berichten: Bericht[]
+}
 
 const touchButtonStyle: React.CSSProperties = { minHeight: 44, minWidth: 44 }
 
@@ -58,12 +66,52 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: '0.06em',
 }
 
+function formatDate(iso: string) {
+  try {
+    const d = new Date(iso)
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffH = diffMs / 1000 / 60 / 60
+    if (diffH < 1) return `${Math.max(1, Math.round(diffH * 60))}m geleden`
+    if (diffH < 24) return `${Math.round(diffH)}u geleden`
+    return d.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short' })
+  } catch {
+    return iso
+  }
+}
+
+function groupByTrainer(berichten: Bericht[]): TrainerGroep[] {
+  const map = new Map<string, TrainerGroep>()
+  for (const b of berichten) {
+    if (!map.has(b.trainer_id)) {
+      map.set(b.trainer_id, {
+        trainer_id: b.trainer_id,
+        trainer_naam: b.trainer_naam,
+        ongelezen: 0,
+        berichten: [],
+      })
+    }
+    const g = map.get(b.trainer_id)!
+    g.berichten.push(b)
+    if (!b.gelezen_door_management && b.auteur_type === 'trainer') g.ongelezen++
+  }
+  // Trainers met ongelezen bovenaan, daarbinnen nieuwste bericht eerst
+  return Array.from(map.values()).sort((a, b) => {
+    if (b.ongelezen !== a.ongelezen) return b.ongelezen - a.ongelezen
+    const aLatest = a.berichten[0]?.aangemaakt_op ?? ''
+    const bLatest = b.berichten[0]?.aangemaakt_op ?? ''
+    return bLatest.localeCompare(aLatest)
+  })
+}
+
 function ReplyModal({
-  target,
+  trainer_id,
+  trainer_naam,
   onClose,
   onSent,
 }: {
-  target: Bericht
+  trainer_id: string
+  trainer_naam: string
   onClose: () => void
   onSent: () => void
 }) {
@@ -77,7 +125,7 @@ function ReplyModal({
     if (tekst.length > 1000) { setError('Maximaal 1000 tekens'); return }
     setSaving(true)
     try {
-      const res = await fetch(`/api/trainer-notities/${target.trainer_id}`, {
+      const res = await fetch(`/api/trainer-notities/${trainer_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tekst: tekst.trim() }),
@@ -104,9 +152,8 @@ function ReplyModal({
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Beantwoorden</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {target.trainer_naam}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>→ {trainer_naam}</div>
         </div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={labelStyle}>Reactie</label>
           <textarea
@@ -123,13 +170,11 @@ function ReplyModal({
             </div>
           )}
         </div>
-
         {error && (
           <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>
             {error}
           </div>
         )}
-
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
@@ -150,20 +195,187 @@ function ReplyModal({
   )
 }
 
+function TrainerCard({
+  groep,
+  onMarkRead,
+  onReply,
+  onNavigateLid,
+  onNavigateTrainer,
+}: {
+  groep: TrainerGroep
+  onMarkRead: (id: string) => void
+  onReply: (trainer_id: string, trainer_naam: string) => void
+  onNavigateLid: (lid_id: string) => void
+  onNavigateTrainer: (trainer_id: string) => void
+}) {
+  const [expanded, setExpanded] = useState(groep.ongelezen > 0)
+  const hasOngelezen = groep.ongelezen > 0
+  const latestBericht = groep.berichten[0]
+
+  return (
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        border: `1px solid ${hasOngelezen ? 'rgba(99,102,241,0.3)' : 'var(--border-subtle)'}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        transition: 'border-color 0.2s',
+      }}
+    >
+      {/* Header — altijd zichtbaar */}
+      <div
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          cursor: 'pointer',
+          background: hasOngelezen ? 'var(--bg-raised)' : 'var(--bg-surface)',
+          userSelect: 'none',
+        }}
+      >
+        {/* Avatar */}
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+          background: hasOngelezen ? 'var(--color-accent)' : 'var(--bg-raised)',
+          border: `1px solid ${hasOngelezen ? 'var(--color-accent)' : 'var(--border-subtle)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 14, fontWeight: 700,
+          color: hasOngelezen ? 'var(--color-white)' : 'var(--text-muted)',
+        }}>
+          {groep.trainer_naam.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+              {groep.trainer_naam}
+            </span>
+            {hasOngelezen && (
+              <span style={{
+                fontSize: 11, fontWeight: 700,
+                background: 'var(--color-accent)', color: 'var(--color-white)',
+                borderRadius: 20, padding: '1px 7px',
+              }}>
+                {groep.ongelezen} nieuw
+              </span>
+            )}
+          </div>
+          {!expanded && latestBericht && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {latestBericht.tekst}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {latestBericht && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              {formatDate(latestBericht.aangemaakt_op)}
+            </span>
+          )}
+          <span style={{ color: 'var(--text-muted)', fontSize: 12, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+            ▾
+          </span>
+        </div>
+      </div>
+
+      {/* Berichten thread */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          {groep.berichten.map((b, i) => {
+            const isTrainer = b.auteur_type === 'trainer'
+            const isUnread = !b.gelezen_door_management && isTrainer
+            return (
+              <div
+                key={b.id}
+                style={{
+                  padding: '14px 20px',
+                  borderBottom: i < groep.berichten.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  background: isUnread ? 'rgba(99,102,241,0.04)' : 'transparent',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {isUnread && (
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0 }} />
+                    )}
+                    <span style={{ fontSize: 11, fontWeight: 600, color: isTrainer ? 'var(--text-primary)' : 'var(--color-accent-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {isTrainer ? groep.trainer_naam : 'Jij'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(b.aangemaakt_op)}</span>
+                </div>
+
+                <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', paddingLeft: isUnread ? 12 : 0 }}>
+                  {b.tekst}
+                </div>
+
+                {b.lid_id && b.lid_naam && (
+                  <span
+                    onClick={() => onNavigateLid(b.lid_id!)}
+                    style={{ fontSize: 12, color: 'var(--color-accent-text)', cursor: 'pointer', alignSelf: 'flex-start' }}
+                  >
+                    → {b.lid_naam}
+                  </span>
+                )}
+
+                {isUnread && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => onMarkRead(b.id)}
+                      style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 8px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+                    >
+                      ✓ Markeer gelezen
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {/* Footer: acties */}
+          <div style={{
+            padding: '12px 20px',
+            borderTop: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            background: 'var(--bg-raised)',
+          }}>
+            <button
+              onClick={() => onNavigateTrainer(groep.trainer_id)}
+              style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '6px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+            >
+              Bekijk trainer →
+            </button>
+            <button
+              onClick={() => onReply(groep.trainer_id, groep.trainer_naam)}
+              style={{ ...touchButtonStyle, background: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+            >
+              Beantwoorden
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BerichtenPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [berichten, setBerichten] = useState<Bericht[]>([])
-  const [visible, setVisible] = useState(PAGE_SIZE)
-  const [replyTarget, setReplyTarget] = useState<Bericht | null>(null)
+  const [replyTarget, setReplyTarget] = useState<{ trainer_id: string; trainer_naam: string } | null>(null)
 
   const loadBerichten = useCallback(async () => {
     const res = await fetch('/api/trainer-notities')
-    if (!res.ok) {
-      setBerichten([])
-      setLoading(false)
-      return
-    }
+    if (!res.ok) { setLoading(false); return }
     const { berichten: data } = await res.json()
     setBerichten((data ?? []) as Bericht[])
     setLoading(false)
@@ -174,26 +386,21 @@ export default function BerichtenPage() {
       const res = await fetch('/api/auth-context')
       if (!res.ok) { router.replace('/login'); return }
       const { role } = await res.json()
-      if (role !== 'management' && role !== 'admin') {
-        router.replace('/')
-        return
-      }
+      if (role !== 'management' && role !== 'admin') { router.replace('/'); return }
       await loadBerichten()
     }
     init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- init runs once on mount; loadBerichten is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const formatDate = (iso: string) => {
-    try {
-      return new Date(iso).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' })
-    } catch {
-      return iso
-    }
+  const markRead = async (id: string) => {
+    // Optimistic update
+    setBerichten(prev => prev.map(b => b.id === id ? { ...b, gelezen_door_management: true } : b))
+    await fetch(`/api/trainer-notities/${id}/gelezen`, { method: 'PATCH' }).catch(() => null)
   }
 
-  const items = berichten.slice(0, visible)
-  const hasMore = visible < berichten.length
+  const groepen = groupByTrainer(berichten.filter(b => !b.verwijderd))
+  const totaalOngelezen = groepen.reduce((s, g) => s + g.ongelezen, 0)
 
   if (loading) {
     return (
@@ -212,105 +419,59 @@ export default function BerichtenPage() {
 
       {replyTarget && (
         <ReplyModal
-          target={replyTarget}
+          trainer_id={replyTarget.trainer_id}
+          trainer_naam={replyTarget.trainer_naam}
           onClose={() => setReplyTarget(null)}
-          onSent={() => loadBerichten()}
+          onSent={loadBerichten}
         />
       )}
 
-      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Berichten</h1>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Berichten van trainers</p>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+              Berichten
+              {totaalOngelezen > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, background: 'var(--color-accent)', color: 'var(--color-white)', borderRadius: 20, padding: '2px 9px' }}>
+                  {totaalOngelezen}
+                </span>
+              )}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+              {groepen.length === 0
+                ? 'Geen berichten'
+                : `${groepen.length} trainer${groepen.length !== 1 ? 's' : ''}${totaalOngelezen > 0 ? ` · ${totaalOngelezen} ongelezen` : ''}`}
+            </p>
           </div>
           <a
             href="/management"
             style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', padding: '8px 16px', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
           >
-            ← Terug naar overzicht
+            ← Terug
           </a>
         </div>
 
-        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-          {berichten.length === 0 ? (
-            <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              Geen berichten van trainers.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {items.map((b, i) => {
-                const isUnread = !b.gelezen_door_management
-                return (
-                  <div
-                    key={b.id}
-                    style={{
-                      padding: '18px 24px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 10,
-                      borderBottom: i < items.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                      borderLeft: isUnread ? '3px solid rgba(99,102,241,0.5)' : '3px solid rgba(99,102,241,0.0)',
-                      background: isUnread ? 'var(--bg-raised)' : 'var(--bg-surface)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                        {isUnread && (
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0 }} />
-                        )}
-                        <span
-                          onClick={() => router.push(`/trainer/${b.trainer_id}`)}
-                          style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
-                          onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
-                        >
-                          {b.trainer_naam}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDate(b.aangemaakt_op)}</span>
-                    </div>
-
-                    <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                      {b.tekst}
-                    </div>
-
-                    {b.lid_id && b.lid_naam && (
-                      <span
-                        onClick={() => router.push(`/leden/${b.lid_id}`)}
-                        style={{ fontSize: 12, color: 'var(--color-accent-text)', cursor: 'pointer', alignSelf: 'flex-start' }}
-                      >
-                        → {b.lid_naam}
-                      </span>
-                    )}
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => setReplyTarget(b)}
-                        style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 16px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
-                      >
-                        Beantwoorden
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-
-              {hasMore && (
-                <div style={{ padding: '18px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'center' }}>
-                  <button
-                    onClick={() => setVisible(v => v + PAGE_SIZE)}
-                    style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 16px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
-                  >
-                    Toon meer
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
+        {/* Trainer groepen */}
+        {groepen.length === 0 ? (
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            Geen berichten van trainers.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {groepen.map(g => (
+              <TrainerCard
+                key={g.trainer_id}
+                groep={g}
+                onMarkRead={markRead}
+                onReply={(tid, tnaam) => setReplyTarget({ trainer_id: tid, trainer_naam: tnaam })}
+                onNavigateLid={lid_id => router.push(`/leden/${lid_id}`)}
+                onNavigateTrainer={trainer_id => router.push(`/trainer/${trainer_id}`)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </>
   )

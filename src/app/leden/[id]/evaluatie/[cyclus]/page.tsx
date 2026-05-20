@@ -122,18 +122,21 @@ export default function EvaluatieDetail() {
 
   useEffect(() => {
     const load = async () => {
-      const res = await fetch(`/api/leden/${id}`)
-      if (res.ok) {
-        const { lid: lidData, evaluaties: allEvals } = await res.json()
-        setLid(lidData ?? null)
-        const n = Number(cyclus)
-        const evData = (allEvals ?? []).find((e: { cyclus: number }) => e.cyclus === n) ?? null
-        setEv(evData)
-        if (evData && n > 1) {
-          setPrev((allEvals ?? []).find((e: { cyclus: number }) => e.cyclus === n - 1) ?? null)
+      try {
+        const res = await fetch(`/api/leden/${id}`)
+        if (res.ok) {
+          const { lid: lidData, evaluaties: allEvals } = await res.json()
+          setLid(lidData ?? null)
+          const n = Number(cyclus)
+          const evData = (allEvals ?? []).find((e: { cyclus: number }) => e.cyclus === n) ?? null
+          setEv(evData)
+          if (evData && n > 1) {
+            setPrev((allEvals ?? []).find((e: { cyclus: number }) => e.cyclus === n - 1) ?? null)
+          }
         }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     if (id && cyclus) load()
   }, [id, cyclus])

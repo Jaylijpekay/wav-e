@@ -831,10 +831,13 @@ function ConsolePanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const loadTokens = useCallback(async () => {
-    const res = await fetch('/api/management/console-tokens')
-    const { tokens } = res.ok ? await res.json() : { tokens: [] }
-    setTokens(tokens ?? [])
-    setLoading(false)
+    try {
+      const res = await fetch('/api/management/console-tokens')
+      const { tokens } = res.ok ? await res.json() : { tokens: [] }
+      setTokens(tokens ?? [])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { loadTokens() }, [loadTokens])

@@ -123,13 +123,18 @@ function ConsolePanel() {
   const [copiedId,  setCopiedId]  = useState<string | null>(null)
 
   const loadTokens = useCallback(async (): Promise<ConsoleToken[]> => {
-    const res = await fetch('/api/admin/console-tokens')
-    if (!res.ok) { setLoading(false); return [] }
-    const data = await res.json()
-    const loadedTokens = data.tokens ?? []
-    setTokens(loadedTokens)
-    setLoading(false)
-    return loadedTokens
+    try {
+      const res = await fetch('/api/admin/console-tokens')
+      if (!res.ok) return []
+      const data = await res.json()
+      const loadedTokens = data.tokens ?? []
+      setTokens(loadedTokens)
+      return loadedTokens
+    } catch {
+      return []
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- initial API load hydrates this client panel after mount.
@@ -271,10 +276,13 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const usersRes = await fetch('/api/admin/list')
-    const usersData = await usersRes.json()
-    setUsers(usersData.users ?? [])
-    setLoading(false)
+    try {
+      const usersRes = await fetch('/api/admin/list')
+      const usersData = await usersRes.json()
+      setUsers(usersData.users ?? [])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- initial API load hydrates the admin dashboard after mount.
