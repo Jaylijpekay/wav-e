@@ -557,11 +557,11 @@ export default function TrainerDashboard() {
                       right: 0,
                       zIndex: 1000,
                       minWidth: 220,
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-raised)',
+                      border: '1px solid var(--border-strong)',
                       borderRadius: 8,
                       overflow: 'hidden',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
                     }}>
                       {members.map(lid => (
                         <div
