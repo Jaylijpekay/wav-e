@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
+import { type SupabaseClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getServerAuthContext } from '@/lib/serverAuth'
+import { getServerAuthContext, getServiceRoleClient } from '@/lib/serverAuth'
 
 type AuteurType = 'trainer' | 'management' | 'admin'
 type Role = AuteurType
@@ -71,7 +72,7 @@ function isAllowed(role: Role | null, ownTrainerId: string | null, trainerId: st
 }
 
 async function resolveAuteurNamen(
-  supabase: Awaited<ReturnType<typeof getSupabase>>,
+  supabase: SupabaseClient,
   notities: TrainerNotitieRow[]
 ) {
   const trainerIds = [
@@ -200,7 +201,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { trainer_id } = await params
-    const { supabase, user, role, trainerId, error } = await getAuthContext(req)
+    const { user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -233,7 +234,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ? body.lid_id.trim()
         : null
 
-    const { data, error: insertError } = await supabase
+    // Service-role client bypasses RLS — required because the SSR client from
+    // getServerAuthContext leaks the caller's JWT into the Authorization header
+    // and re-enables RLS at PostgREST, causing "permission denied for table users"
+    // when management replies.
+    const db = getServiceRoleClient()
+
+    const { data, error: insertError } = await db
       .from('trainer_notities')
       .insert({
         trainer_id,
@@ -253,7 +260,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     const [notitie] = await resolveAuteurNamen(
-      supabase,
+      db,
       data as TrainerNotitieRow[]
     )
 

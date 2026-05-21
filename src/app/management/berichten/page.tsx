@@ -198,12 +198,14 @@ function ReplyModal({
 function TrainerCard({
   groep,
   onMarkRead,
+  onDelete,
   onReply,
   onNavigateLid,
   onNavigateTrainer,
 }: {
   groep: TrainerGroep
   onMarkRead: (id: string) => void
+  onDelete: (trainer_id: string, bericht_id: string) => void
   onReply: (trainer_id: string, trainer_naam: string) => void
   onNavigateLid: (lid_id: string) => void
   onNavigateTrainer: (trainer_id: string) => void
@@ -324,13 +326,21 @@ function TrainerCard({
                   </span>
                 )}
 
-                {isUnread && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {isTrainer && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                    {isUnread && (
+                      <button
+                        onClick={() => onMarkRead(b.id)}
+                        style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+                      >
+                        ✓ Gelezen
+                      </button>
+                    )}
                     <button
-                      onClick={() => onMarkRead(b.id)}
-                      style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 8px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+                      onClick={() => onDelete(groep.trainer_id, b.id)}
+                      style={{ ...touchButtonStyle, background: 'none', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
                     >
-                      ✓ Markeer gelezen
+                      Verwijder
                     </button>
                   </div>
                 )}
@@ -399,6 +409,12 @@ export default function BerichtenPage() {
     await fetch(`/api/trainer-notities/${id}/gelezen`, { method: 'PATCH' }).catch(() => null)
   }
 
+  const deleteBericht = async (trainerId: string, berichtId: string) => {
+    // Optimistic: hide immediately by marking as verwijderd
+    setBerichten(prev => prev.map(b => b.id === berichtId ? { ...b, verwijderd: true } : b))
+    await fetch(`/api/trainer-notities/${trainerId}/${berichtId}`, { method: 'DELETE' }).catch(() => null)
+  }
+
   const groepen = groupByTrainer(berichten.filter(b => !b.verwijderd))
   const totaalOngelezen = groepen.reduce((s, g) => s + g.ongelezen, 0)
 
@@ -465,6 +481,7 @@ export default function BerichtenPage() {
                 key={g.trainer_id}
                 groep={g}
                 onMarkRead={markRead}
+                onDelete={deleteBericht}
                 onReply={(tid, tnaam) => setReplyTarget({ trainer_id: tid, trainer_naam: tnaam })}
                 onNavigateLid={lid_id => router.push(`/leden/${lid_id}`)}
                 onNavigateTrainer={trainer_id => router.push(`/trainer/${trainer_id}`)}
