@@ -30,6 +30,7 @@ type BerichtItem = {
   trainer_id: string
   trainer_naam: string
   auteur_id: string
+  auteur_type: string
   tekst: string
   aangemaakt_op: string
   gelezen_door_management: boolean
@@ -53,7 +54,6 @@ export async function GET(req: NextRequest) {
     .from('trainer_notities')
     .select('id, trainer_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, lid_id')
     .eq('verwijderd', false)
-    .eq('auteur_type', 'trainer')
     .order('gelezen_door_management', { ascending: true })
     .order('aangemaakt_op', { ascending: false })
 
@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
       trainer_id: r.trainer_id,
       trainer_naam: trainerNaam,
       auteur_id: r.auteur_id,
+      auteur_type: r.auteur_type,
       tekst: r.tekst,
       aangemaakt_op: r.aangemaakt_op,
       gelezen_door_management: r.gelezen_door_management,
