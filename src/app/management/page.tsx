@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import { getSupabase } from '@/lib/supabase'
+import { isActieOpen } from '@/lib/actieUrgency'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 import Navigation from '@/app/components/Navigation'
 
@@ -73,6 +74,7 @@ type Lid = {
   actief: boolean
   status: string | null
   trainer_id: string
+  gestopt_op: string | null
   laatste_contact: string | null
   laatste_evaluatie: string | null
   slaap: number | null
@@ -82,10 +84,8 @@ type Lid = {
 
 type StudioCounts = {
   actief: number
-  bevroren: number
   on_hold: number
-  stopt: number
-  inactief: number
+  gestopt: number
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -484,6 +484,7 @@ function ActieModal({
   const save = async () => {
     setError(null)
     if (!omschrijving.trim()) { setError('Omschrijving is verplicht'); return }
+    if (!deadline) { setError('Deadline is verplicht'); return }
     setSaving(true)
     const res = await fetch('/api/acties', {
       method: 'POST',
@@ -526,8 +527,8 @@ function ActieModal({
           <textarea value={omschrijving} onChange={e => setOmschrijving(e.target.value)} placeholder="Wat moet deze trainer doen?" rows={3}
             style={{ ...inputStyle, resize: 'vertical' }} />
         </Field>
-        <Field label="Deadline (optioneel)">
-          <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={inputStyle} />
+        <Field label="Deadline">
+          <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} required style={inputStyle} />
         </Field>
         {error && <div style={{ fontSize: 13, color: 'var(--red-text)', padding: '8px 12px', background: 'rgba(220,38,38,0.07)', borderRadius: 8 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -1040,6 +1041,7 @@ export default function ManagementPage() {
   const [notitieTrainer, setNotitieTrainer] = useState<Trainer | null>(null)
   const [showAddLid, setShowAddLid]       = useState(false)
   const [showAddTrainer, setShowAddTrainer] = useState(false)
+  const [showGestopt, setShowGestopt]     = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
   const [reactivating, setReactivating]   = useState<string | null>(null)
@@ -1076,47 +1078,28 @@ export default function ManagementPage() {
     setRefreshKey(k => k + 1)
   }
 
-  const deactivateLid = async (l: Lid) => {
-    if (!confirm(`Deactiveer lid ${l.voornaam} ${l.achternaam}?\n\nDit lid wordt op inactief gezet. Hun data blijft bewaard.`)) return
+  const stoptLid = async (l: Lid) => {
+    if (!confirm(`Markeer ${l.voornaam} ${l.achternaam} als gestopt?\n\nHet lid wordt verborgen maar alle data blijft bewaard.`)) return
     setDeactivating(l.id)
-    try {
-      const res = await fetch(`/api/management/leden/${l.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actief: false, status: 'inactief' }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null)
-        alert(err?.error ?? 'Deactiveren mislukt')
-        return
-      }
-
-      setRefreshKey(k => k + 1)
-    } finally {
-      setDeactivating(null)
-    }
+    await fetch(`/api/management/leden/${l.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actief: false, status: 'gestopt' }),
+    })
+    setDeactivating(null)
+    setRefreshKey(k => k + 1)
   }
 
-  const reactivateLid = async (l: Lid) => {
+  const reactiveerLid = async (l: Lid) => {
+    if (!confirm(`Heractiveer ${l.voornaam} ${l.achternaam}?\n\nHet lid wordt weer actief.`)) return
     setReactivating(l.id)
-    try {
-      const res = await fetch(`/api/management/leden/${l.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actief: true, status: 'Actief' }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null)
-        alert(err?.error ?? 'Heractiveren mislukt')
-        return
-      }
-
-      setRefreshKey(k => k + 1)
-    } finally {
-      setReactivating(null)
-    }
+    await fetch(`/api/management/leden/${l.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actief: true }),
+    })
+    setReactivating(null)
+    setRefreshKey(k => k + 1)
   }
 
   const deleteLidPermanent = async (l: Lid) => {
@@ -1157,10 +1140,10 @@ export default function ManagementPage() {
       const dataRes = await fetch('/api/management/data')
       const studioData = dataRes.ok ? await dataRes.json() : {}
       const trainerData  = (studioData.trainers   ?? []) as Trainer[]
-      const ledenRaw     = (studioData.leden      ?? []) as { id: string; lid_id: string; voornaam: string; achternaam: string; actief: boolean; status: string | null; trainer_id: string }[]
+      const ledenRaw     = (studioData.leden      ?? []) as { id: string; lid_id: string; voornaam: string; achternaam: string; actief: boolean; status: string | null; trainer_id: string; gestopt_op?: string | null }[]
       const contacten    = (studioData.contacten  ?? []) as { lid_id: string; datum: string }[]
       const evaluaties   = (studioData.evaluaties ?? []) as { lid_id: string; datum: string; slaap: number | null; energie: number | null; stress: number | null; cyclus: number }[]
-      const actiesData   = (studioData.acties     ?? []) as { id: string; trainer_id: string; lid_id: string }[]
+      const actiesData   = (studioData.acties     ?? []) as { id: string; trainer_id: string; lid_id: string; deadline?: string | null; bron?: string | null; afgerond?: boolean | null }[]
 
       const unreadRes = await fetch('/api/trainer-notities')
       if (unreadRes.ok) {
@@ -1192,6 +1175,7 @@ export default function ManagementPage() {
         const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
         return {
           ...l,
+          gestopt_op:         l.gestopt_op ?? null,
           laatste_contact:   lastContactDatum,
           laatste_evaluatie: lastEval?.datum    ?? null,
           slaap:             lastEval?.slaap    ?? null,
@@ -1208,7 +1192,7 @@ export default function ManagementPage() {
           totaal:      tLeden.length,
           rood:        tLeden.filter(l => getLidStoplight(l) === 'red').length,
           amber:       tLeden.filter(l => getLidStoplight(l) === 'amber').length,
-          open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id).length,
+          open_acties: (actiesData ?? []).filter(a => a.trainer_id === t.id && isActieOpen(a.deadline ?? null, a.bron ?? 'management', a.afgerond ?? false)).length,
         }
       }
       const ids = (ledenRaw ?? [])
@@ -1232,14 +1216,13 @@ export default function ManagementPage() {
   useEffect(() => { load() }, [load])
 
   const counts: StudioCounts = {
-    actief:   leden.filter(l => l.status?.toLowerCase() === 'actief').length,
-    bevroren: leden.filter(l => l.status?.toLowerCase() === 'bevroren').length,
-    on_hold:  leden.filter(l => l.status?.toLowerCase() === 'on_hold' || l.status?.toLowerCase() === 'on hold').length,
-    stopt:    leden.filter(l => l.status?.toLowerCase() === 'stopt').length,
-    inactief: leden.filter(l => l.status?.toLowerCase() === 'inactief' || !l.actief).length,
+    actief:   leden.filter(l => l.actief && (l.status?.toLowerCase() === 'actief' || !l.status)).length,
+    on_hold:  leden.filter(l => l.actief && l.status?.toLowerCase() !== 'actief' && !!l.status).length,
+    gestopt:  leden.filter(l => !l.actief).length,
   }
 
   const visibleLeden = leden.filter(l => {
+    if (!l.actief && l.status?.toLowerCase() === 'gestopt') return false
     const q = memberSearch.trim().toLowerCase()
     if (q) {
       const fullName = `${l.voornaam} ${l.achternaam}`.toLowerCase()
@@ -1257,6 +1240,7 @@ export default function ManagementPage() {
     }
     return true
   })
+  const gestoptLeden = leden.filter(l => !l.actief && l.status?.toLowerCase() === 'gestopt')
   const pinByTrainerId = Object.fromEntries(
     consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
   ) as Record<string, TrainerPin>
@@ -1348,13 +1332,11 @@ export default function ManagementPage() {
         </div>
 
         {/* Studio counts */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           {([
-            { label: 'Actief',   value: counts.actief,   color: 'var(--green-signal)' },
-            { label: 'Bevroren', value: counts.bevroren, color: 'var(--amber)' },
-            { label: 'On hold',  value: counts.on_hold,  color: 'var(--amber)' },
-            { label: 'Stopt',    value: counts.stopt,    color: 'var(--red-danger)' },
-            { label: 'Inactief', value: counts.inactief, color: 'var(--text-quieter)'    },
+            { label: 'Actief',  value: counts.actief,  color: 'var(--green-signal)' },
+            { label: 'On hold', value: counts.on_hold, color: 'var(--amber)' },
+            { label: 'Gestopt', value: counts.gestopt, color: 'var(--text-quieter)' },
           ]).map(({ label, value, color }) => (
             <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ fontSize: 26, fontWeight: 800, color }}>{value}</div>
@@ -1517,7 +1499,7 @@ export default function ManagementPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 160px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
-                {['Naam', 'Status', 'Wijzig trainer', 'Trainer', 'Lid-ID', ''].map(h => (
+                {['Naam', 'Status', 'Trainer', 'Wijzig trainer', 'Lid-ID', ''].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
               </div>
@@ -1539,20 +1521,21 @@ export default function ManagementPage() {
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span onClick={e => e.stopPropagation()}>
                       <select
-                        value={l.trainer_id}
+                        value=""
                         disabled={reassigningLid === l.id}
                         onChange={e => {
                           e.stopPropagation()
                           reassignLidTrainer(l, e.target.value)
                         }}
-                        style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem', opacity: reassigningLid === l.id ? 0.6 : 1 }}
+                        style={{ ...inputStyle, width: 110, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem', opacity: reassigningLid === l.id ? 0.6 : 1 }}
                       >
+                        <option value="" disabled hidden>Wijzig</option>
                         {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
                       </select>
                     </span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
                     <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, textAlign: 'right', minWidth: 160, width: 160 }}>
                       {l.actief && (
@@ -1567,18 +1550,18 @@ export default function ManagementPage() {
                       )}
                       {l.actief && (
                         <button
-                          onClick={e => { e.stopPropagation(); deactivateLid(l) }}
+                          onClick={e => { e.stopPropagation(); stoptLid(l) }}
                           disabled={deactivating === l.id}
                           style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
                           onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
                           onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
                         >
-                          {deactivating === l.id ? '…' : 'Deactiveer'}
+                          {deactivating === l.id ? '…' : 'Gestopt'}
                         </button>
                       )}
                       {!l.actief && (
                         <button
-                          onClick={e => { e.stopPropagation(); reactivateLid(l) }}
+                          onClick={e => { e.stopPropagation(); reactiveerLid(l) }}
                           disabled={reactivating === l.id}
                           style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: reactivating === l.id ? 'default' : 'pointer', opacity: reactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
                           onMouseEnter={e => { if (reactivating !== l.id) { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
@@ -1605,6 +1588,35 @@ export default function ManagementPage() {
             </div>
           )}
         </section>
+
+        {gestoptLeden.length > 0 && (
+          <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+            <div
+              onClick={() => setShowGestopt(s => !s)}
+              style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)' }}>
+                Gestopte leden ({gestoptLeden.length})
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12, transform: showGestopt ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+            </div>
+            {showGestopt && gestoptLeden.map(l => (
+              <div key={l.id} style={{ padding: '12px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, opacity: 0.7 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{l.voornaam} {l.achternaam}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{l.lid_id}</div>
+                </div>
+                <button
+                  onClick={() => reactiveerLid(l)}
+                  disabled={reactivating === l.id}
+                  style={{ minHeight: 44, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 14px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: reactivating === l.id ? 0.5 : 1 }}
+                >
+                  {reactivating === l.id ? 'Heractiveren…' : 'Heractiveer'}
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
 
       </div>
     </>

@@ -18,6 +18,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { getActieUrgency, isActieOpen, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 import Navigation from '@/app/components/Navigation'
 
@@ -44,6 +45,8 @@ type Actie = {
   aangemaakt: string
   deadline: string | null
   status: 'open' | 'afgerond' | 'overdue'
+  bron: string
+  afgerond: boolean
   is_management: boolean
 }
 
@@ -526,6 +529,18 @@ export default function TrainerDashboard() {
   }
 
   const ledenByStoplight = (sig: 'red' | 'amber' | 'green') => leden.filter(l => getLidStoplight(l) === sig)
+  const dashboardActies = [
+    ...acties.filter(a => !a.afgerond && a.bron === 'management')
+      .sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? '')),
+    ...acties.filter(a => !a.afgerond && a.bron !== 'management' && isActieOpen(a.deadline, a.bron, a.afgerond))
+      .sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999')),
+  ]
+  const dashboardCritical = dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'rood')
+  const dashboardUrgency = dashboardCritical
+    ? 'rood'
+    : dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'oranje')
+      ? 'oranje'
+      : 'groen'
 
   return (
     <>
@@ -1319,19 +1334,33 @@ export default function TrainerDashboard() {
                 <div className="td-portal-tile-body">
                   <span className="td-portal-tile-label">Open acties</span>
                   <span className="td-portal-tile-sub">
-                    {acties.length === 0
+                    {dashboardActies.length === 0
                       ? 'Alles afgerond'
                       : [
-                          `${acties.length} open`,
-                          acties.filter(a => a.is_management).length > 0
-                            ? `${acties.filter(a => a.is_management).length} van management`
+                          `${dashboardActies.length} open`,
+                          dashboardActies.filter(a => a.bron === 'management').length > 0
+                            ? `${dashboardActies.filter(a => a.bron === 'management').length} van management`
                             : null,
-                          acties.some(a => { const d = a.deadline?.slice(0, 10) ?? null; return d !== null && d < todayIsoDate() })
-                            ? 'let op verlopen'
+                          dashboardActies.length > 0
+                            ? URGENCY_LABEL[dashboardUrgency]
                             : null,
                         ].filter(Boolean).join(' · ')
                     }
                   </span>
+                  {dashboardActies.length > 0 && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                      {dashboardActies.slice(0, 5).map(actie => {
+                        const urgency = getActieUrgency(actie.deadline, actie.bron)
+                        const kleur = urgency === 'toekomstig' ? 'groen' : urgency
+                        return (
+                          <span
+                            key={actie.id}
+                            style={{ width: 6, height: 6, borderRadius: '50%', background: URGENCY_COLOR[kleur], display: 'inline-block' }}
+                          />
+                        )
+                      })}
+                    </span>
+                  )}
                 </div>
               </button>
 

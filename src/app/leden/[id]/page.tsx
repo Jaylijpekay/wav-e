@@ -19,6 +19,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { getActieUrgency, isActieOpen, URGENCY_BG, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
 import { daysSince, getLatestContactDatum } from '@/lib/stoplight'
 
 type Lid = {
@@ -66,6 +67,8 @@ type Actie = {
   status: string
   aangemaakt: string
   deadline: string | null
+  bron: string
+  afgerond: boolean
 }
 
 type Notitie = {
@@ -206,6 +209,7 @@ export default function LedenDetail() {
   const [notitiesError, setNotitiesError] = useState<string | null>(null)
   const [notitiesMax, setNotitiesMax] = useState(10)
   const [showAddActie, setShowAddActie] = useState(false)
+  const [showToekomstigeActies, setShowToekomstigeActies] = useState(false)
   const [actieTekst, setActieTekst] = useState('')
   const [actieDeadline, setActieDeadline] = useState('')
   const [actiePosting, setActiePosting] = useState(false)
@@ -272,7 +276,11 @@ export default function LedenDetail() {
       const res = await fetch(`/api/acties?lid_id=${id}`)
       if (res.ok) {
         const data = await res.json()
-        setActies(data.acties ?? [])
+        setActies((data.acties ?? []).map((actie: Partial<Actie>) => ({
+          ...actie,
+          bron: actie.bron ?? 'trainer',
+          afgerond: actie.afgerond ?? actie.status === 'afgerond',
+        })) as Actie[])
       }
     }
     if (id) fetchActies()
@@ -285,6 +293,10 @@ export default function LedenDetail() {
 
   const addActie = async () => {
     if (!actieTekst.trim() || actiePosting) return
+    if (!actieDeadline) {
+      setActieError('Deadline is verplicht')
+      return
+    }
     setActiePosting(true)
     setActieError(null)
     try {
@@ -295,7 +307,12 @@ export default function LedenDetail() {
       })
       if (res.ok) {
         const data = await res.json()
-        setActies(prev => [...prev, data.actie])
+        const newActie = data.actie as Partial<Actie>
+        setActies(prev => [...prev, {
+          ...newActie,
+          bron: newActie.bron ?? (role === 'trainer' ? 'trainer' : 'management'),
+          afgerond: newActie.afgerond ?? false,
+        } as Actie])
         setActieTekst('')
         setActieDeadline('')
         setShowAddActie(false)
@@ -397,6 +414,12 @@ export default function LedenDetail() {
   const healthSignals = buildHealthSignals(latestEval)
   const lastContactDatum = getLatestContactDatum(contacten[0]?.datum, latestEval?.datum)
   const lastContactDays = daysSince(lastContactDatum)
+  const openActies = acties.filter(a =>
+    !a.afgerond && isActieOpen(a.deadline, a.bron, a.afgerond)
+  )
+  const toekomstigeActies = acties.filter(a =>
+    !a.afgerond && getActieUrgency(a.deadline, a.bron) === 'toekomstig'
+  )
 
   if (loading) return (
     <div style={{
@@ -1404,7 +1427,7 @@ export default function LedenDetail() {
                 <div className="ld-section-head">
                   <span className="ld-section-label">Open acties</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="ld-section-badge">{acties.length}</span>
+                    <span className="ld-section-badge">{openActies.length}</span>
                     <button
                       onClick={() => { setShowAddActie(o => !o); setActieTekst(''); setActieDeadline('') }}
                       style={{ background: 'none', border: '1px solid var(--border-muted-dark)', borderRadius: 3, color: showAddActie ? 'var(--text-faint)' : 'var(--wave-green)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '1px 8px', minHeight: 26, minWidth: 26 }}
@@ -1429,12 +1452,13 @@ export default function LedenDetail() {
                         type="date"
                         value={actieDeadline}
                         onChange={e => setActieDeadline(e.target.value)}
+                        required
                         style={{ background: 'var(--surface-pressed)', border: '1px solid var(--border-muted-dark)', borderRadius: 3, color: 'var(--text-warm)', fontSize: '0.82rem', padding: '7px 10px', fontFamily: 'inherit' }}
                       />
                       <button
                         onClick={addActie}
-                        disabled={!actieTekst.trim() || actiePosting}
-                        style={{ background: 'var(--wave-green)', border: 'none', borderRadius: 3, color: 'var(--color-black-soft)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', padding: '8px 14px', opacity: !actieTekst.trim() || actiePosting ? 0.5 : 1, textTransform: 'uppercase', fontFamily: 'inherit', minHeight: 34 }}
+                        disabled={!actieTekst.trim() || !actieDeadline || actiePosting}
+                        style={{ background: 'var(--wave-green)', border: 'none', borderRadius: 3, color: 'var(--color-black-soft)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', padding: '8px 14px', opacity: !actieTekst.trim() || !actieDeadline || actiePosting ? 0.5 : 1, textTransform: 'uppercase', fontFamily: 'inherit', minHeight: 34 }}
                       >
                         {actiePosting ? 'Opslaan…' : 'Toevoegen'}
                       </button>
@@ -1444,38 +1468,74 @@ export default function LedenDetail() {
                     )}
                   </div>
                 )}
-                {acties.length === 0 && !showAddActie
+                {openActies.length === 0 && toekomstigeActies.length === 0 && !showAddActie
                   ? <div className="ld-empty"><span>✓</span><span>Geen open acties</span></div>
-                  : acties.length > 0 && (
-                    <div className="ld-table-block">
-                      {acties.map(actie => {
-                        const isOverdue = actie.deadline && new Date(actie.deadline) < new Date()
-                        return (
-                          <div
-                            key={actie.id}
-                            className="ld-actie-row"
-                            style={{
-                              borderLeftColor: isOverdue
-                                ? 'var(--color-red, var(--red-danger))'
-                                : 'rgba(22,163,74,0.3)',
-                            }}
-                          >
-                            <div className="ld-actie-content">
-                              <div className="ld-actie-name">{actie.omschrijving}</div>
-                              <div className="ld-actie-meta">
-                                {formatDate(actie.aangemaakt)}
-                                {actie.deadline && (
-                                  <span style={{ color: isOverdue ? 'var(--color-red, var(--red-danger))' : 'var(--border-strong)' }}>
-                                    {' '}· deadline {formatDate(actie.deadline)}
-                                  </span>
-                                )}
+                  : (
+                    <>
+                      {openActies.length > 0 && (
+                        <div className="ld-table-block">
+                          {openActies.map(actie => {
+                            const urgency = getActieUrgency(actie.deadline, actie.bron)
+                            const kleur = urgency === 'toekomstig' ? 'groen' : urgency
+                            return (
+                              <div
+                                key={actie.id}
+                                className="ld-actie-row"
+                                style={{
+                                  borderLeftColor: URGENCY_COLOR[kleur],
+                                  background: URGENCY_BG[kleur],
+                                }}
+                              >
+                                <div className="ld-actie-content">
+                                  <div className="ld-actie-name">{actie.omschrijving}</div>
+                                  <div className="ld-actie-meta">
+                                    {formatDate(actie.aangemaakt)}
+                                    <span style={{ color: URGENCY_COLOR[kleur], fontWeight: 700 }}>
+                                      {' '}· {URGENCY_LABEL[urgency]}
+                                    </span>
+                                    {actie.deadline && (
+                                      <span style={{ color: URGENCY_COLOR[kleur] }}>
+                                        {' '}· deadline {formatDate(actie.deadline)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <button className="ld-done-btn" onClick={() => markActieAfgerond(actie.id)}>✓</button>
                               </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {toekomstigeActies.length > 0 && (
+                        <div className="ld-table-block" style={{ marginTop: 8, opacity: 0.72 }}>
+                          <button
+                            onClick={() => setShowToekomstigeActies(o => !o)}
+                            style={{ width: '100%', background: 'var(--bg-raised)', border: 'none', borderBottom: showToekomstigeActies ? '1px solid var(--border-subtle)' : 'none', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', fontFamily: 'inherit', cursor: 'pointer', minHeight: 44 }}
+                          >
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Toekomstig ({toekomstigeActies.length})</span>
+                            <span>{showToekomstigeActies ? '▲' : '▼'}</span>
+                          </button>
+                          {showToekomstigeActies && toekomstigeActies.map(actie => (
+                            <div
+                              key={actie.id}
+                              className="ld-actie-row"
+                              style={{ borderLeftColor: 'var(--border-subtle)' }}
+                            >
+                              <div className="ld-actie-content">
+                                <div className="ld-actie-name">{actie.omschrijving}</div>
+                                <div className="ld-actie-meta">
+                                  {formatDate(actie.aangemaakt)}
+                                  {actie.deadline && (
+                                    <span>{' '}· deadline {formatDate(actie.deadline)}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <button className="ld-done-btn" onClick={() => markActieAfgerond(actie.id)}>✓</button>
                             </div>
-                            <button className="ld-done-btn" onClick={() => markActieAfgerond(actie.id)}>✓</button>
-                          </div>
-                        )
-                      })}
-                    </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )
                 }
               </section>

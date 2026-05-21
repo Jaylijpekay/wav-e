@@ -18,6 +18,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.actief === 'boolean') {
     const update: Record<string, unknown> = { actief: body.actief }
     if (typeof body.status === 'string') update.status = body.status
+    if (body.actief === false && body.status === 'gestopt') {
+      update.gestopt_op = new Date().toISOString()
+    }
+    if (body.actief === true) {
+      update.gestopt_op = null
+      update.status = 'actief'
+    }
 
     const db = getServiceRoleClient()
     const { data, error } = await db

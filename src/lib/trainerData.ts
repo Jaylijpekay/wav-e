@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isActieOpen } from '@/lib/actieUrgency'
 import { getLatestContactDatum } from '@/lib/stoplight'
 
 type LidBase = {
@@ -32,6 +33,8 @@ type ActieRow = {
   aangemaakt?: string
   deadline?: string | null
   status?: 'open' | 'afgerond' | 'overdue'
+  bron?: string | null
+  afgerond?: boolean | null
 }
 
 const todayIsoDate = () => {
@@ -82,8 +85,8 @@ export async function fetchTrainerDashboardData(supabase: SupabaseClient, traine
   ] = await Promise.all([
     supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
     supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
-    supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
-    supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status').eq('trainer_id', trainerId).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
+    supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status, bron, afgerond').in('lid_id', lidIds).eq('status', 'open').order('aangemaakt', { ascending: true }),
+    supabase.from('acties').select('id, lid_id, omschrijving, aangemaakt, deadline, status, bron, afgerond').eq('trainer_id', trainerId).is('lid_id', null).eq('status', 'open').order('aangemaakt', { ascending: true }),
     supabase.from('evaluaties').select('id').in('lid_id', lidIds).gte('datum', firstOfMonth).lte('datum', today),
     supabase.from('acties').select('id').in('lid_id', lidIds).eq('status', 'afgerond').gte('afgerond_op', firstOfMonth),
     supabase
@@ -98,7 +101,11 @@ export async function fetchTrainerDashboardData(supabase: SupabaseClient, traine
 
   const openActiesPerLid: Record<string, number> = {}
   for (const a of (actiesData ?? []) as ActieRow[]) {
-    if (a.lid_id) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+    const bron = a.bron ?? 'trainer'
+    const afgerond = a.afgerond ?? a.status === 'afgerond'
+    if (a.lid_id && isActieOpen(a.deadline ?? null, bron, afgerond)) {
+      openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+    }
   }
 
   const contacts = (contacten ?? []) as ContactRow[]
@@ -132,7 +139,9 @@ export async function fetchTrainerDashboardData(supabase: SupabaseClient, traine
       aangemaakt: a.aangemaakt ?? '',
       deadline: a.deadline ?? null,
       status: a.status ?? 'open',
-      is_management: false,
+      bron: a.bron ?? 'trainer',
+      afgerond: a.afgerond ?? false,
+      is_management: (a.bron ?? 'trainer') === 'management',
     }
   })
 
@@ -146,6 +155,8 @@ export async function fetchTrainerDashboardData(supabase: SupabaseClient, traine
     aangemaakt: a.aangemaakt ?? '',
     deadline: a.deadline ?? null,
     status: a.status ?? 'open',
+    bron: a.bron ?? 'management',
+    afgerond: a.afgerond ?? false,
     is_management: true,
   }))
 
@@ -202,12 +213,16 @@ export async function fetchTrainerLedenData(supabase: SupabaseClient, trainerId:
   const [{ data: contacten }, { data: evaluaties }, { data: actiesData }] = await Promise.all([
     supabase.from('contact_momenten').select('lid_id, datum').in('lid_id', lidIds).order('datum', { ascending: false }),
     supabase.from('evaluaties').select('lid_id, datum, slaap, energie, stress, cyclus').in('lid_id', lidIds).order('cyclus', { ascending: false }),
-    supabase.from('acties').select('id, lid_id').in('lid_id', lidIds).eq('status', 'open'),
+    supabase.from('acties').select('id, lid_id, deadline, bron, afgerond, status').in('lid_id', lidIds).eq('status', 'open'),
   ])
 
   const openActiesPerLid: Record<string, number> = {}
   for (const a of (actiesData ?? []) as ActieRow[]) {
-    if (a.lid_id) openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+    const bron = a.bron ?? 'trainer'
+    const afgerond = a.afgerond ?? a.status === 'afgerond'
+    if (a.lid_id && isActieOpen(a.deadline ?? null, bron, afgerond)) {
+      openActiesPerLid[a.lid_id] = (openActiesPerLid[a.lid_id] ?? 0) + 1
+    }
   }
 
   const contacts = (contacten ?? []) as ContactRow[]

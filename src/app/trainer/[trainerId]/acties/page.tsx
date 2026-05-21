@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { getActieUrgency, isActieOpen, URGENCY_BG, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 import Navigation from '@/app/components/Navigation'
 
@@ -29,6 +30,8 @@ type Actie = {
   aangemaakt: string
   deadline: string | null
   status: 'open' | 'afgerond' | 'overdue'
+  bron: string
+  afgerond: boolean
   is_management: boolean
 }
 
@@ -133,6 +136,7 @@ export default function TrainerActiesPage() {
   const [loading, setLoading] = useState(true)
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [completeError, setCompleteError] = useState<string | null>(null)
+  const [showToekomstig, setShowToekomstig] = useState(false)
 
   const completeActie = async (id: string) => {
     setCompletingId(id)
@@ -170,6 +174,21 @@ export default function TrainerActiesPage() {
     }
     if (trainerId) load()
   }, [trainerId])
+
+  const managementActies = acties
+    .filter(a => !a.afgerond && a.bron === 'management')
+    .sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''))
+
+  const openActies = acties
+    .filter(a => !a.afgerond && a.bron !== 'management' && isActieOpen(a.deadline, a.bron, a.afgerond))
+    .sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999'))
+
+  const toekomstigeActies = acties
+    .filter(a => !a.afgerond && a.bron !== 'management' && getActieUrgency(a.deadline, a.bron) === 'toekomstig')
+    .sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''))
+
+  const zichtbareActiesCount = managementActies.length + openActies.length
+  const today = todayIsoDate()
 
   return (
     <>
@@ -400,6 +419,17 @@ export default function TrainerActiesPage() {
           display: inline-block;
         }
 
+        .td-urgency-badge {
+          font-size: 0.58rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          border-radius: 2px;
+          padding: 2px 6px;
+          margin-top: 3px;
+          display: inline-block;
+        }
+
         .td-empty {
           color: var(--border-muted-dark);
           font-size: 0.85rem;
@@ -479,7 +509,7 @@ export default function TrainerActiesPage() {
         <div className="td-body">
           <div className="td-section-header">
             <span className="td-section-title">Open acties</span>
-            <span className="td-section-count">{acties.length}</span>
+            <span className="td-section-count">{zichtbareActiesCount}</span>
           </div>
           {completeError && (
             <div style={{ fontSize: '0.75rem', color: 'var(--red-text)', padding: '4px 0 8px', letterSpacing: '0.03em' }}>{completeError}</div>
@@ -487,54 +517,31 @@ export default function TrainerActiesPage() {
 
           {loading ? (
             <div className="td-empty">Laden…</div>
-          ) : acties.length === 0 ? (
+          ) : zichtbareActiesCount === 0 && toekomstigeActies.length === 0 ? (
             <div className="td-empty">Geen open acties.</div>
-          ) : (() => {
-            const mgmt   = acties.filter(a => a.is_management)
-            const member = acties.filter(a => !a.is_management)
-
-            const groups: Record<string, Actie[]> = {}
-            for (const a of member) {
-              if (!a.lid_uuid) continue
-              if (!groups[a.lid_uuid]) groups[a.lid_uuid] = []
-              groups[a.lid_uuid].push(a)
-            }
-
-            const today = todayIsoDate()
-            const sortedLidIds = Object.keys(groups).sort((a, b) => {
-              const tierDiff = getLidActieSortTier(groups[a], today) - getLidActieSortTier(groups[b], today)
-              if (tierDiff !== 0) return tierDiff
-
-              const lidA = leden.find(l => l.id === a)
-              const lidB = leden.find(l => l.id === b)
-              const nameA = `${lidA?.voornaam ?? ''} ${lidA?.achternaam ?? ''}`.trim()
-              const nameB = `${lidB?.voornaam ?? ''} ${lidB?.achternaam ?? ''}`.trim()
-              return nameA.localeCompare(nameB, 'nl', { sensitivity: 'base' })
-            })
-
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-                {/* Management group */}
-                {mgmt.length > 0 && (
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {managementActies.length > 0 && (
+                <div>
+                  <div className="td-section-header" style={{ marginBottom: 8 }}>
+                    <span className="td-section-title">Van management</span>
+                    <span className="td-section-count">{managementActies.length}</span>
+                  </div>
                   <div className="td-list">
-                    <div className="td-group-header no-nav">
-                      <span style={{ width: 3, height: 12, background: 'var(--color-accent)', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-accent-text)' }}>Management</span>
-                      <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{mgmt.length}</span>
-                    </div>
-                    {mgmt.map(actie => {
+                    {managementActies.map(actie => {
+                      const urgency = getActieUrgency(actie.deadline, actie.bron)
+                      const kleur = urgency === 'toekomstig' ? 'groen' : urgency
                       const deadlineLabel = getActieDeadlineLabel(actie, today)
                       const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
-                      const overdue = isActieOverdue(actie, today)
                       const completing = completingId === actie.id
                       return (
                         <div
                           key={actie.id}
-                          className={`td-row no-nav${overdue ? ' overdue' : ''}`}
-                          style={{ borderLeftColor: overdue ? 'var(--color-stoplight-rood)' : 'var(--color-accent)' }}
+                          className="td-row no-nav"
+                          style={{ borderLeftColor: URGENCY_COLOR[kleur] }}
                         >
                           <div className="td-row-actie" style={{ color: 'var(--wave-gray)' }}>
+                            <span style={{ width: 8, height: 8, background: URGENCY_COLOR[kleur], borderRadius: '50%', display: 'inline-block', marginRight: 8 }} />
                             {actie.omschrijving}
                             {deadlineLabel && (
                               <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
@@ -556,62 +563,97 @@ export default function TrainerActiesPage() {
                       )
                     })}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Per-lid groups */}
-                {sortedLidIds.map(lidUuid => {
-                  const lidActies = groups[lidUuid]
-                  const lid = leden.find(l => l.id === lidUuid)
-                  const sig = lid ? getLidStoplight(lid) : 'green'
-                  const col = STOPLIGHT[sig]
-
-                  return (
-                    <div key={lidUuid} className="td-list">
-                      <div
-                        className="td-group-header"
-                        onClick={() => router.push(`/leden/${lidUuid}`)}
-                      >
-                        <span style={{ width: 3, height: 12, background: col.dot, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: col.text }}>
-                          {lid ? `${lid.voornaam} ${lid.achternaam}` : '—'}
-                        </span>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{lidActies.length}</span>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 'auto', letterSpacing: '0.06em' }}>
-                          {lid?.lid_id}
-                        </span>
-                      </div>
-
-                      {lidActies.map(actie => {
-                        const deadlineLabel = getActieDeadlineLabel(actie, today)
-                        const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
-                        const overdue = isActieOverdue(actie, today)
-                        return (
-                          <div
-                            key={actie.id}
-                            className={`td-row${overdue ? ' overdue' : ''}`}
-                            style={{ borderLeftColor: overdue ? 'var(--color-stoplight-rood)' : col.dot }}
-                            onClick={() => router.push(`/leden/${lidUuid}`)}
-                          >
-                            <div className="td-row-actie">
-                              {actie.omschrijving}
-                              {deadlineLabel && (
-                                <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
-                              )}
-                            </div>
-                            {deadlineDaysRemaining !== null && (
-                              <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
-                                {deadlineDaysRemaining}d
-                              </div>
+              {openActies.length > 0 && (
+                <div>
+                  <div className="td-section-header" style={{ marginBottom: 8 }}>
+                    <span className="td-section-title">Open acties</span>
+                    <span className="td-section-count">{openActies.length}</span>
+                  </div>
+                  <div className="td-list">
+                    {openActies.map(actie => {
+                      const urgency = getActieUrgency(actie.deadline, actie.bron)
+                      const kleur = urgency === 'toekomstig' ? 'groen' : urgency
+                      const deadlineLabel = getActieDeadlineLabel(actie, today)
+                      const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
+                      const completing = completingId === actie.id
+                      return (
+                        <div
+                          key={actie.id}
+                          className="td-row no-nav"
+                          style={{ borderLeftColor: URGENCY_COLOR[kleur] }}
+                        >
+                          <div className="td-row-actie">
+                            <div>{actie.omschrijving}</div>
+                            <span className="td-urgency-badge" style={{ color: URGENCY_COLOR[kleur], background: URGENCY_BG[kleur] }}>
+                              {URGENCY_LABEL[urgency]}
+                            </span>
+                            <span className="td-mgmt-badge" style={{ marginLeft: 6, color: 'var(--text-faint)', background: 'transparent', borderColor: 'var(--border-muted-dark)' }}>
+                              {actie.voornaam} {actie.achternaam}
+                            </span>
+                            {deadlineLabel && (
+                              <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
                             )}
                           </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
+                          {deadlineDaysRemaining !== null && (
+                            <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
+                              {deadlineDaysRemaining}d
+                            </div>
+                          )}
+                          <button
+                            onClick={() => completeActie(actie.id)}
+                            disabled={completing}
+                            style={{ background: 'none', border: '1px solid rgba(168,200,0,0.35)', borderRadius: 3, color: 'var(--wave-green)', cursor: completing ? 'default' : 'pointer', fontSize: '0.8rem', fontWeight: 700, minHeight: 36, minWidth: 36, opacity: completing ? 0.4 : 1, touchAction: 'manipulation', flexShrink: 0 }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {toekomstigeActies.length > 0 && (
+                <div className="td-list" style={{ opacity: 0.72 }}>
+                  <button
+                    className="td-group-header"
+                    onClick={() => setShowToekomstig(o => !o)}
+                    style={{ width: '100%', border: 'none', fontFamily: 'inherit' }}
+                  >
+                    <span style={{ width: 3, height: 12, background: 'var(--text-faint)', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Toekomstig</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{toekomstigeActies.length}</span>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 'auto' }}>
+                      {showToekomstig ? '▲' : '▼'}
+                    </span>
+                  </button>
+                  {showToekomstig && toekomstigeActies.map(actie => {
+                    const deadlineLabel = getActieDeadlineLabel(actie, today)
+                    return (
+                      <div
+                        key={actie.id}
+                        className="td-row no-nav"
+                        style={{ borderLeftColor: 'var(--border-muted-dark)', background: 'rgba(255,255,255,0.015)' }}
+                      >
+                        <div className="td-row-actie" style={{ color: 'var(--text-faint)' }}>
+                          {actie.omschrijving}
+                          <span className="td-mgmt-badge" style={{ marginLeft: 6, color: 'var(--text-faint)', background: 'transparent', borderColor: 'var(--border-muted-dark)' }}>
+                            {actie.voornaam} {actie.achternaam}
+                          </span>
+                          {deadlineLabel && (
+                            <div className="td-row-deadline neutral">{deadlineLabel.text}</div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               </div>
-            )
-          })()}
+          )}
         </div>
       </div>
     </>
