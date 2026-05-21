@@ -536,6 +536,11 @@ export default function GesprekNew() {
           .gn-doelen-row   { grid-template-columns: 1fr 1fr !important; }
         }
 
+        /* Desktop (mouse): all 6 lifestyle cards in one row, full width */
+        @media (min-width: 1024px) and (pointer: fine) {
+          .gn-slider-grid { grid-template-columns: repeat(6, 1fr); }
+        }
+
         /* Portrait tablet: full-width field-narrow */
         @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
           .gn-field-narrow { max-width: 100%; }

@@ -1091,6 +1091,18 @@ export default function ManagementPage() {
     setRefreshKey(k => k + 1)
   }
 
+  const deactiveerLid = async (l: Lid) => {
+    if (!confirm(`Deactiveer ${l.voornaam} ${l.achternaam}?\n\nHet lid wordt op inactief gezet maar alle data blijft bewaard.`)) return
+    setDeactivating(l.id)
+    await fetch(`/api/management/leden/${l.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actief: false, status: 'inactief' }),
+    })
+    setDeactivating(null)
+    setRefreshKey(k => k + 1)
+  }
+
   const reactiveerLid = async (l: Lid) => {
     if (!confirm(`Heractiveer ${l.voornaam} ${l.achternaam}?\n\nHet lid wordt weer actief.`)) return
     setReactivating(l.id)
@@ -1516,7 +1528,7 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 160px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 220px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
                 {['Naam', 'Status', 'Trainer', 'Wijzig trainer', 'Lid-ID', ''].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
@@ -1527,7 +1539,7 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 160px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
+                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 220px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -1555,7 +1567,7 @@ export default function ManagementPage() {
                       </select>
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
-                    <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, textAlign: 'right', minWidth: 160, width: 160 }}>
+                    <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 14, textAlign: 'right', minWidth: 220, width: 220 }}>
                       {l.actief && (
                         <button
                           onClick={e => { e.stopPropagation(); openActieFromLid(l) }}
@@ -1564,6 +1576,17 @@ export default function ManagementPage() {
                           onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
                         >
                           + Actie
+                        </button>
+                      )}
+                      {l.actief && (
+                        <button
+                          onClick={e => { e.stopPropagation(); deactiveerLid(l) }}
+                          disabled={deactivating === l.id}
+                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--amber-text)', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = 'var(--amber-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
+                        >
+                          {deactivating === l.id ? '…' : 'Deactiveer'}
                         </button>
                       )}
                       {l.actief && (

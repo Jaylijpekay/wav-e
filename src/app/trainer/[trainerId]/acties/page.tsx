@@ -304,14 +304,16 @@ export default function TrainerActiesPage() {
                 </button>
                 {showToekomstig && toekomstigeActies.map((actie, index) => {
                   const deadlineLabel = getActieDeadlineLabel(actie, today)
+                  const completing = completingId === actie.id
                   return (
                     <div key={actie.id} style={{ ...rowStyle, borderBottom: index < toekomstigeActies.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: 0.72 }}>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{actie.omschrijving}</div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                           {actie.voornaam} {actie.achternaam}{deadlineLabel ? ` · ${deadlineLabel.text}` : ''}
                         </div>
                       </div>
+                      <button style={{ ...checkButtonStyle, opacity: completing ? 0.5 : 1 }} onClick={() => completeActie(actie.id)} disabled={completing}>✓</button>
                     </div>
                   )
                 })}
