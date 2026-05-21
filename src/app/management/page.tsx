@@ -1034,6 +1034,8 @@ export default function ManagementPage() {
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
   const [statusFilter,  setStatusFilter]  = useState<string>('allen')
+  const [memberSearch, setMemberSearch]   = useState('')
+  const [openTrainerMenu, setOpenTrainerMenu] = useState<string | null>(null)
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
   const [actieLid,     setActieLid]       = useState<Lid | null>(null)
   const [notitieTrainer, setNotitieTrainer] = useState<Trainer | null>(null)
@@ -1041,6 +1043,8 @@ export default function ManagementPage() {
   const [showAddTrainer, setShowAddTrainer] = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
+  const [reactivating, setReactivating]   = useState<string | null>(null)
+  const [deletingLid,  setDeletingLid]    = useState<string | null>(null)
   const [reassigningLid, setReassigningLid] = useState<string | null>(null)
 
   // Open actie modal from trainer row (user picks lid)
@@ -1076,12 +1080,46 @@ export default function ManagementPage() {
   const deactivateLid = async (l: Lid) => {
     if (!confirm(`Deactiveer lid ${l.voornaam} ${l.achternaam}?\n\nDit lid wordt op inactief gezet. Hun data blijft bewaard.`)) return
     setDeactivating(l.id)
+    try {
+      const res = await fetch(`/api/management/leden/${l.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actief: false, status: 'inactief' }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        alert(err?.error ?? 'Deactiveren mislukt')
+        return
+      }
+
+      setRefreshKey(k => k + 1)
+    } finally {
+      setDeactivating(null)
+    }
+  }
+
+  const reactivateLid = async (l: Lid) => {
+    setReactivating(l.id)
     await fetch(`/api/management/leden/${l.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actief: false, status: 'inactief' }),
+      body: JSON.stringify({ actief: true, status: 'actief' }),
     })
-    setDeactivating(null)
+    setReactivating(null)
+    setRefreshKey(k => k + 1)
+  }
+
+  const deleteLidPermanent = async (l: Lid) => {
+    if (!confirm(`Verwijder lid ${l.voornaam} ${l.achternaam} permanent?\n\nDit verwijdert ook alle evaluaties, contactmomenten, notities en acties van dit lid. Dit kan niet ongedaan worden gemaakt.`)) return
+    setDeletingLid(l.id)
+    const res = await fetch(`/api/management/leden/${l.id}`, { method: 'DELETE' })
+    setDeletingLid(null)
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      alert(err?.error ?? 'Verwijderen mislukt')
+      return
+    }
     setRefreshKey(k => k + 1)
   }
 
@@ -1089,11 +1127,16 @@ export default function ManagementPage() {
     if (!newTrainerId || newTrainerId === lid.trainer_id) return
     setReassigningLid(lid.id)
     try {
-      await fetch(`/api/management/leden/${lid.id}`, {
+      const res = await fetch(`/api/management/leden/${lid.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trainer_id: newTrainerId }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        alert(err?.error ?? 'Trainer wijzigen mislukt')
+        return
+      }
       setRefreshKey(k => k + 1)
     } finally {
       setReassigningLid(null)
@@ -1188,6 +1231,15 @@ export default function ManagementPage() {
   }
 
   const visibleLeden = leden.filter(l => {
+    const q = memberSearch.trim().toLowerCase()
+    if (q) {
+      const fullName = `${l.voornaam} ${l.achternaam}`.toLowerCase()
+      if (
+        !l.voornaam.toLowerCase().includes(q) &&
+        !l.achternaam.toLowerCase().includes(q) &&
+        !fullName.includes(q)
+      ) return false
+    }
     if (trainerFilter !== 'allen' && l.trainer_id !== trainerFilter) return false
     if (statusFilter !== 'allen') {
       const s = (l.status ?? (l.actief ? 'actief' : 'inactief')).toLowerCase().replace(' ', '_')
@@ -1303,7 +1355,7 @@ export default function ManagementPage() {
           ))}
         </section>
 {/* Trainers */}
-        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'visible' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainers</div>
@@ -1427,9 +1479,16 @@ export default function ManagementPage() {
 
         {/* Member table */}
         <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden · {visibleLeden.length}</div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <input
+                type="search"
+                value={memberSearch}
+                onChange={e => setMemberSearch(e.target.value)}
+                placeholder="Zoek lid..."
+                style={{ ...inputStyle, width: 220, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}
+              />
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}>
                 <option value="allen">Alle statussen</option>
                 <option value="actief">Actief</option>
@@ -1449,8 +1508,8 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px 100px 160px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Naam', 'Trainer', 'Status', 'Lid-ID', ''].map(h => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 160px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
+                {['Naam', 'Status', 'Wijzig trainer', 'Trainer', 'Lid-ID', ''].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
               </div>
@@ -1460,7 +1519,7 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 120px 100px 160px', padding: '10px 24px', minHeight: 96, overflow: 'hidden', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer' }}
+                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 160px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -1469,38 +1528,41 @@ export default function ManagementPage() {
                       onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
                       onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
                     >{l.voornaam} {l.achternaam}</span>
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
-                      <select
-                        value={l.trainer_id}
-                        disabled={reassigningLid === l.id}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => {
-                          e.stopPropagation()
-                          reassignLidTrainer(l, e.target.value)
-                        }}
-                        style={{
-                          minHeight: 44,
-                          background: 'var(--bg-raised)',
-                          border: '1px solid var(--border-subtle)',
-                          borderRadius: 8,
-                          color: 'var(--text-primary)',
-                          padding: '6px 10px',
-                          fontSize: 13,
-                          fontFamily: 'inherit',
-                          cursor: reassigningLid === l.id ? 'default' : 'pointer',
-                          opacity: reassigningLid === l.id ? 0.6 : 1,
-                          maxWidth: '100%',
-                        }}
-                      >
-                        {activeTrainers.map(t => (
-                          <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>
-                        ))}
-                      </select>
-                    </span>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>
+                    <span style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                      <button
+                        disabled={reassigningLid === l.id}
+                        onClick={e => {
+                          e.stopPropagation()
+                          setOpenTrainerMenu(openTrainerMenu === l.id ? null : l.id)
+                        }}
+                        style={{ ...touchButtonStyle, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: reassigningLid === l.id ? 'default' : 'pointer', opacity: reassigningLid === l.id ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                      >
+                        {reassigningLid === l.id ? 'Wijzigen...' : 'Change trainer'}
+                      </button>
+
+                      {openTrainerMenu === l.id && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 20, minWidth: 220, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.22)' }}>
+                          {activeTrainers.map(t => (
+                            <button
+                              key={t.id}
+                              onClick={e => {
+                                e.stopPropagation()
+                                setOpenTrainerMenu(null)
+                                reassignLidTrainer(l, t.id)
+                              }}
+                              disabled={t.id === l.trainer_id}
+                              style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 12px', color: t.id === l.trainer_id ? 'var(--text-dim)' : 'var(--text-primary)', cursor: t.id === l.trainer_id ? 'default' : 'pointer', fontSize: 13, fontFamily: 'inherit' }}
+                            >
+                              {t.voornaam} {t.achternaam}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
                     <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, textAlign: 'right', minWidth: 160, width: 160 }}>
                       {l.actief && (
@@ -1522,6 +1584,28 @@ export default function ManagementPage() {
                           onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
                         >
                           {deactivating === l.id ? '…' : 'Deactiveer'}
+                        </button>
+                      )}
+                      {!l.actief && (
+                        <button
+                          onClick={e => { e.stopPropagation(); reactivateLid(l) }}
+                          disabled={reactivating === l.id}
+                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: reactivating === l.id ? 'default' : 'pointer', opacity: reactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
+                          onMouseEnter={e => { if (reactivating !== l.id) { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                        >
+                          {reactivating === l.id ? '…' : 'Heractiveren'}
+                        </button>
+                      )}
+                      {!l.actief && (
+                        <button
+                          onClick={e => { e.stopPropagation(); deleteLidPermanent(l) }}
+                          disabled={deletingLid === l.id}
+                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: deletingLid === l.id ? 'default' : 'pointer', opacity: deletingLid === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
+                          onMouseEnter={e => { if (deletingLid !== l.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
+                        >
+                          {deletingLid === l.id ? '…' : 'Verwijder'}
                         </button>
                       )}
                     </span>
