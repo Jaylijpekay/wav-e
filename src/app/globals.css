@@ -129,10 +129,10 @@
   --font-primary: 'Raleway', sans-serif;
 
   /* Desktop app shell */
-  --app-shell-max: 1880px;
-  --app-shell-wide: 2048px;
-  --app-shell-form: 1600px;
-  --app-shell-padding: clamp(20px, 2vw, 40px);
+  --app-shell-max: 90vw;
+  --app-shell-wide: 90vw;
+  --app-shell-form: 90vw;
+  --app-shell-padding: clamp(16px, 1.5vw, 32px);
 
   /* Radius — sharp, not pill */
   --radius-card:   3px;

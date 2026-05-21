@@ -118,7 +118,6 @@ export default function Home() {
           grid-template-columns: 1fr 1fr;
           gap: 1px;
           width: 100%;
-          max-width: 520px;
           background: var(--border-subtle);
           border: 1px solid var(--border-subtle);
           border-radius: 4px;
@@ -228,10 +227,16 @@ export default function Home() {
           0%, 100% { transform: translateY(0px);  box-shadow: 0 0 0 1px rgba(168,200,0,0.08), 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3); }
           50%       { transform: translateY(-5px); box-shadow: 0 0 0 1px rgba(168,200,0,0.13), 0 16px 48px rgba(0,0,0,0.45), 0 4px 16px rgba(0,0,0,0.25); }
         }
+
+        @media (min-width: 900px) {
+          .nav-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
+        }
       `}</style>
 
       <main className="home-root">
-        <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, position: 'relative', zIndex: 1 }}>
+        <div style={{ width: '90vw', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, position: 'relative', zIndex: 1 }}>
 
           <div className="wordmark">
             <div>

@@ -475,7 +475,7 @@ export default function VooruitgangPage() {
           border: 1px solid var(--report-green-border);
           border-radius: 16px;
           overflow: hidden;
-          width: min(1180px, calc(100vw - 48px));
+          width: 90vw;
           max-width: none;
           margin: 24px auto 0;
         }
