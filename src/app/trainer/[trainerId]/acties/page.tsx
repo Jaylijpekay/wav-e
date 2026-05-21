@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getSupabase } from '@/lib/supabase'
-import { getActieUrgency, isActieOpen, URGENCY_BG, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
+import { getActieUrgency, isActieOpen, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
 import Navigation from '@/app/components/Navigation'
 
@@ -35,14 +34,6 @@ type Actie = {
   is_management: boolean
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained for planned member dropdown work.
-type LidDropdown = {
-  id: string
-  lid_id: string
-  voornaam: string
-  achternaam: string
-}
-
 type Trainer = {
   id: string
   naam: string
@@ -57,10 +48,10 @@ const toUiStoplight = (stoplight: ReturnType<typeof getStoplight>): 'red' | 'amb
 const getLidStoplight = (lid: Lid): 'red' | 'amber' | 'green' =>
   toUiStoplight(getStoplight(daysSince(getLatestContactDatum(lid.laatste_contact, lid.laatste_evaluatie))))
 
-const STOPLIGHT = {
-  red:   { dot: 'var(--red-danger)', bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.2)',   text: 'var(--red-text)' },
-  amber: { dot: 'var(--amber)', bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.2)',   text: 'var(--amber-text)' },
-  green: { dot: 'var(--green-signal)', bg: 'rgba(22,163,74,0.08)',   border: 'rgba(22,163,74,0.2)',   text: 'var(--green-signal-text)' },
+const STOPLIGHT_DOT: Record<'red' | 'amber' | 'green', string> = {
+  red: 'var(--red-danger)',
+  amber: 'var(--amber)',
+  green: 'var(--green-signal)',
 }
 
 const DUTCH_MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
@@ -73,34 +64,12 @@ const todayIsoDate = () => {
   return `${year}-${month}-${day}`
 }
 
-const addDaysIsoDate = (isoDate: string, days: number) => {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  const date = new Date(year, month - 1, day + days)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
 const getIsoDatePart = (iso: string | null) => iso?.slice(0, 10) ?? null
 
 const formatDeadlineDate = (iso: string) => {
   const [year, month, day] = iso.slice(0, 10).split('-').map(Number)
   if (!year || !month || !day) return null
   return `${String(day).padStart(2, '0')} ${DUTCH_MONTHS[month - 1]}`
-}
-
-const isActieOverdue = (actie: Actie, today = todayIsoDate()) => {
-  const deadline = getIsoDatePart(actie.deadline)
-  return actie.status === 'open' && deadline !== null && deadline < today
-}
-
-const getActieDeadlineDaysRemaining = (actie: Actie, today = todayIsoDate()) => {
-  if (actie.status !== 'open') return null
-  const deadline = getIsoDatePart(actie.deadline)
-  if (!deadline || deadline <= today) return null
-  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number)
-  const [deadlineYear, deadlineMonth, deadlineDay] = deadline.split('-').map(Number)
-  const todayTime = new Date(todayYear, todayMonth - 1, todayDay).getTime()
-  const deadlineTime = new Date(deadlineYear, deadlineMonth - 1, deadlineDay).getTime()
-  return Math.round((deadlineTime - todayTime) / 86400000)
 }
 
 const getActieDeadlineLabel = (actie: Actie, today = todayIsoDate()) => {
@@ -111,18 +80,6 @@ const getActieDeadlineLabel = (actie: Actie, today = todayIsoDate()) => {
   if (deadline === today) return { text: 'Vandaag', tone: 'today' as const }
   const formatted = formatDeadlineDate(deadline)
   return formatted ? { text: `Deadline: ${formatted}`, tone: 'neutral' as const } : null
-}
-
-const getLidActieSortTier = (acties: Actie[], today = todayIsoDate()) => {
-  const nextWeek = addDaysIsoDate(today, 7)
-  const openActies = acties.filter(a => a.status === 'open')
-  if (openActies.some(a => isActieOverdue(a, today))) return 0
-  if (openActies.some(a => {
-    const deadline = getIsoDatePart(a.deadline)
-    return deadline !== null && deadline >= today && deadline <= nextWeek
-  })) return 1
-  if (openActies.length > 0) return 2
-  return 3
 }
 
 export default function TrainerActiesPage() {
@@ -146,10 +103,10 @@ export default function TrainerActiesPage() {
       if (res.ok) {
         setActies(prev => prev.filter(a => a.id !== id))
       } else {
-        setCompleteError('Afmelden mislukt — probeer opnieuw')
+        setCompleteError('Afmelden mislukt - probeer opnieuw')
       }
     } catch {
-      setCompleteError('Verbindingsfout — probeer opnieuw')
+      setCompleteError('Verbindingsfout - probeer opnieuw')
     } finally {
       setCompletingId(null)
     }
@@ -190,471 +147,178 @@ export default function TrainerActiesPage() {
   const zichtbareActiesCount = managementActies.length + openActies.length
   const today = todayIsoDate()
 
+  const secondaryButtonStyle: CSSProperties = {
+    minHeight: 44,
+    background: 'none',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 8,
+    padding: '9px 18px',
+    color: 'var(--text-muted)',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    touchAction: 'manipulation',
+  }
+  const checkButtonStyle: CSSProperties = {
+    ...secondaryButtonStyle,
+    width: 44,
+    padding: 0,
+    color: 'var(--green-signal-text)',
+    flexShrink: 0,
+    opacity: 1,
+  }
+  const sectionStyle: CSSProperties = {
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 16,
+    overflow: 'hidden',
+  }
+  const sectionHeaderStyle: CSSProperties = {
+    padding: '20px 24px',
+    borderBottom: '1px solid var(--border-subtle)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  }
+  const rowStyle: CSSProperties = {
+    padding: '14px 24px',
+    borderBottom: '1px solid var(--border-subtle)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    minHeight: 64,
+  }
+  const openActiesByLid = openActies.reduce<Record<string, Actie[]>>((acc, actie) => {
+    const key = actie.lid_uuid ?? 'zonder-lid'
+    acc[key] = [...(acc[key] ?? []), actie]
+    return acc
+  }, {})
+  const openActieGroups = Object.entries(openActiesByLid).sort(([a], [b]) => {
+    const lidA = leden.find(l => l.id === a)
+    const lidB = leden.find(l => l.id === b)
+    return `${lidA?.voornaam ?? ''} ${lidA?.achternaam ?? ''}`.localeCompare(`${lidB?.voornaam ?? ''} ${lidB?.achternaam ?? ''}`, 'nl', { sensitivity: 'base' })
+  })
+
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
+      <Navigation />
 
-        *, *::before, *::after { box-sizing: border-box; }
-
-        .td-root {
-          min-height: 100vh;
-          min-height: 100dvh;
-          background: var(--bg-base);
-          color: var(--text-warm);
-          font-family: 'Raleway', sans-serif;
-          position: relative;
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        .td-root::before { display: none; }
-
-        .td-header {
-          display: none;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          background: rgba(17,17,17,0.92);
-          border-bottom: 1px solid rgba(168,200,0,0.15);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          height: 56px;
-          display: flex;
-          align-items: center;
-          padding: 0 1.5rem;
-        }
-
-        .td-header-inner {
-          max-width: var(--app-shell-max);
-          width: 100%;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .td-wordmark {
-          display: flex;
-          align-items: baseline;
-          gap: 0;
-          text-decoration: none;
-          flex-shrink: 0;
-        }
-        .td-wordmark-wav { font-size: 1.1rem; font-weight: 700; color: var(--text-low); letter-spacing: -0.01em; }
-        .td-wordmark-e   { font-size: 1.1rem; font-weight: 700; color: var(--wave-green); letter-spacing: -0.01em; }
-
-        .td-header-right {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: nowrap;
-        }
-
-        .td-trainer-name {
-          font-size: 0.72rem;
-          font-weight: 500;
-          color: var(--text-faint);
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-right: 2px;
-          white-space: nowrap;
-        }
-
-        .td-btn-secondary {
-          font-family: 'Raleway', sans-serif;
-          font-size: 0.72rem;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          padding: 10px 16px;
-          min-height: 44px;
-          border-radius: 3px;
-          border: 1px solid var(--border-muted-dark);
-          background: transparent;
-          color: var(--text-mid);
-          cursor: pointer;
-          transition: border-color 0.15s, color 0.15s, background 0.15s;
-          white-space: nowrap;
-          touch-action: manipulation;
-        }
-        .td-btn-secondary:hover {
-          border-color: rgba(168,200,0,0.4);
-          color: var(--wave-green);
-          background: rgba(168,200,0,0.06);
-        }
-        .td-btn-secondary:active {
-          border-color: rgba(168,200,0,0.5);
-          color: var(--wave-green);
-          background: rgba(168,200,0,0.08);
-        }
-
-        .td-dropdown {
-          position: absolute;
-          top: calc(100% + 8px);
-          right: 0;
-          background: var(--surface-dark);
-          border: 1px solid var(--border-muted-dark);
-          border-radius: 4px;
-          min-width: 240px;
-          z-index: 200;
-          overflow: hidden;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-          animation: dropIn 0.15s ease-out both;
-        }
-
-        @keyframes dropIn {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .td-dropdown-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 16px;
-          cursor: pointer;
-          border-bottom: 1px solid var(--bg-base);
-          transition: background 0.1s;
-          min-height: 48px;
-        }
-        .td-dropdown-item:last-child { border-bottom: none; }
-        .td-dropdown-item:hover  { background: rgba(168,200,0,0.06); }
-        .td-dropdown-item:active { background: rgba(168,200,0,0.10); }
-
-        .td-dropdown-name  { font-size: 0.88rem; color: var(--text-warm); font-weight: 500; }
-        .td-dropdown-meta  { font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.05em; }
-        .td-dropdown-empty { padding: 16px; font-size: 0.8rem; color: var(--text-faint); text-align: center; }
-
-        .td-body {
-          max-width: var(--app-shell-max);
-          margin: 0 auto;
-          padding: 32px var(--app-shell-padding) 6rem;
-          position: relative;
-          z-index: 1;
-        }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .td-section-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 1rem;
-          animation: fadeUp 0.4s ease-out both;
-        }
-
-        .td-section-title {
-          font-size: 0.65rem;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--text-faint);
-        }
-
-        .td-section-count {
-          font-size: 0.65rem;
-          color: var(--border-muted-dark);
-          background: var(--surface-pressed);
-          padding: 2px 7px;
-          border-radius: 2px;
-          font-weight: 600;
-        }
-
-        .td-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 3px;
-          overflow: hidden;
-          animation: fadeUp 0.4s ease-out 0.08s both;
-        }
-
-        .td-row {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          padding: 18px 20px;
-          min-height: 56px;
-          background: rgba(255,255,255,0.02);
-          border-left: 3px solid transparent;
-          cursor: pointer;
-          transition: background 0.15s;
-          touch-action: manipulation;
-        }
-
-        .td-row:hover:not(.no-nav) { background: rgba(255,255,255,0.04); }
-        .td-row:active:not(.no-nav) { background: var(--surface-pressed); }
-        .td-row.no-nav { cursor: default; }
-        .td-row.overdue { border-left-color: var(--color-stoplight-rood); }
-
-        .td-row-actie { flex: 1; font-size: 0.85rem; color: var(--text-dim); line-height: 1.4; }
-        .td-row-dagen { font-size: 0.75rem; font-variant-numeric: tabular-nums; flex: 0 0 36px; text-align: right; font-weight: 600; }
-        .td-row-deadline {
-          margin-top: 5px;
-          font-size: 0.62rem;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        .td-row-deadline.neutral { color: var(--text-faint); }
-        .td-row-deadline.today { color: var(--amber-text); }
-        .td-row-deadline.overdue { color: var(--color-stoplight-rood); }
-
-        .td-mgmt-badge {
-          font-size: 0.58rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--color-accent-text);
-          background: rgba(99,102,241,0.1);
-          border: 1px solid rgba(99,102,241,0.2);
-          border-radius: 2px;
-          padding: 2px 6px;
-          margin-top: 3px;
-          display: inline-block;
-        }
-
-        .td-urgency-badge {
-          font-size: 0.58rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          border-radius: 2px;
-          padding: 2px 6px;
-          margin-top: 3px;
-          display: inline-block;
-        }
-
-        .td-empty {
-          color: var(--border-muted-dark);
-          font-size: 0.85rem;
-          padding: 4rem 0;
-          text-align: center;
-          letter-spacing: 0.05em;
-        }
-
-        .td-group-header {
-          padding: 10px 20px 8px;
-          background: rgba(255,255,255,0.02);
-          border-bottom: 1px solid rgba(255,255,255,0.04);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          min-height: 44px;
-          touch-action: manipulation;
-        }
-        .td-group-header:active { background: var(--surface-dark); }
-        .td-group-header.no-nav { cursor: default; }
-
-        @media (min-width: 768px) and (pointer: coarse) {
-          .td-header { height: 64px; padding: 0 2rem; }
-
-          .td-btn-secondary {
-            padding: 12px 20px;
-            min-height: 48px;
-            font-size: 0.78rem;
-          }
-
-          .td-body { padding: 32px 24px 6rem; }
-
-          .td-dropdown-item { padding: 16px 20px; min-height: 54px; }
-          .td-dropdown-name { font-size: 0.95rem; }
-
-          .td-row { padding: 20px 24px; min-height: 64px; }
-          .td-row-actie { font-size: 0.9rem; }
-
-          .td-group-header { padding: 12px 24px 10px; min-height: 50px; }
-
-          .td-dropdown { min-width: 280px; }
-        }
-
-        @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
-          .td-trainer-name { display: inline; }
-        }
-
-        @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
-          .td-trainer-name { display: none; }
-          .td-header-right { gap: 8px; }
-          .td-btn-secondary { padding: 10px 12px; font-size: 0.7rem; }
-        }
-      `}</style>
-
-      <div className="td-root">
-        <Navigation />
-
-        <header className="td-header">
-          <div className="td-header-inner">
-            <div className="td-wordmark">
-              <span className="td-wordmark-wav">wav</span>
-              <span className="td-wordmark-e">-e</span>
-            </div>
-            <div className="td-header-right">
-              {trainer?.naam && <span className="td-trainer-name">{trainer.naam}</span>}
-              <button
-                className="td-btn-secondary"
-                onClick={() => router.push(`/trainer/${trainerId}`)}
-              >
-                ← Dashboard
-              </button>
+      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Mijn acties</h1>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+              {zichtbareActiesCount} open acties{trainer?.naam ? ` · ${trainer.naam}` : ''}
             </div>
           </div>
-        </header>
+          <button style={secondaryButtonStyle} onClick={() => router.push(`/trainer/${trainerId}`)}>
+            ← Dashboard
+          </button>
+        </div>
 
-        <div className="td-body">
-          <div className="td-section-header">
-            <span className="td-section-title">Open acties</span>
-            <span className="td-section-count">{zichtbareActiesCount}</span>
-          </div>
-          {completeError && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--red-text)', padding: '4px 0 8px', letterSpacing: '0.03em' }}>{completeError}</div>
-          )}
+        {completeError && (
+          <div style={{ color: 'var(--red-text)', fontSize: 13 }}>{completeError}</div>
+        )}
 
-          {loading ? (
-            <div className="td-empty">Laden…</div>
-          ) : zichtbareActiesCount === 0 && toekomstigeActies.length === 0 ? (
-            <div className="td-empty">Geen open acties.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {managementActies.length > 0 && (
-                <div>
-                  <div className="td-section-header" style={{ marginBottom: 8 }}>
-                    <span className="td-section-title">Van management</span>
-                    <span className="td-section-count">{managementActies.length}</span>
-                  </div>
-                  <div className="td-list">
-                    {managementActies.map(actie => {
-                      const urgency = getActieUrgency(actie.deadline, actie.bron)
-                      const kleur = urgency === 'toekomstig' ? 'groen' : urgency
-                      const deadlineLabel = getActieDeadlineLabel(actie, today)
-                      const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
-                      const completing = completingId === actie.id
-                      return (
-                        <div
-                          key={actie.id}
-                          className="td-row no-nav"
-                          style={{ borderLeftColor: URGENCY_COLOR[kleur] }}
-                        >
-                          <div className="td-row-actie" style={{ color: 'var(--wave-gray)' }}>
-                            <span style={{ width: 8, height: 8, background: URGENCY_COLOR[kleur], borderRadius: '50%', display: 'inline-block', marginRight: 8 }} />
-                            {actie.omschrijving}
-                            {deadlineLabel && (
-                              <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
-                            )}
-                          </div>
-                          {deadlineDaysRemaining !== null && (
-                            <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
-                              {deadlineDaysRemaining}d
-                            </div>
-                          )}
-                          <button
-                            onClick={() => completeActie(actie.id)}
-                            disabled={completing}
-                            style={{ background: 'none', border: '1px solid rgba(168,200,0,0.35)', borderRadius: 3, color: 'var(--wave-green)', cursor: completing ? 'default' : 'pointer', fontSize: '0.8rem', fontWeight: 700, minHeight: 36, minWidth: 36, opacity: completing ? 0.4 : 1, touchAction: 'manipulation', flexShrink: 0 }}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
+        {loading ? (
+          <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 14 }}>Laden…</div>
+        ) : zichtbareActiesCount === 0 && toekomstigeActies.length === 0 ? (
+          <section style={sectionStyle}>
+            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen open acties.</div>
+          </section>
+        ) : (
+          <>
+            {managementActies.length > 0 && (
+              <section style={sectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Van management</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{managementActies.length}</div>
                 </div>
-              )}
+                {managementActies.map((actie, index) => {
+                  const deadlineLabel = getActieDeadlineLabel(actie, today)
+                  const completing = completingId === actie.id
+                  return (
+                    <div key={actie.id} style={{ ...rowStyle, borderBottom: index < managementActies.length - 1 ? '1px solid var(--border-subtle)' : 'none', borderLeft: '3px solid var(--color-accent)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{actie.omschrijving}</div>
+                        <div style={{ fontSize: 12, color: 'var(--color-accent-text)', marginTop: 4, fontWeight: 700 }}>Management</div>
+                        {deadlineLabel && (
+                          <div style={{ fontSize: 12, color: deadlineLabel.tone === 'overdue' ? 'var(--red-text)' : 'var(--text-muted)', marginTop: 4 }}>{deadlineLabel.text}</div>
+                        )}
+                      </div>
+                      <button style={{ ...checkButtonStyle, opacity: completing ? 0.5 : 1 }} onClick={() => completeActie(actie.id)} disabled={completing}>✓</button>
+                    </div>
+                  )
+                })}
+              </section>
+            )}
 
-              {openActies.length > 0 && (
-                <div>
-                  <div className="td-section-header" style={{ marginBottom: 8 }}>
-                    <span className="td-section-title">Open acties</span>
-                    <span className="td-section-count">{openActies.length}</span>
-                  </div>
-                  <div className="td-list">
-                    {openActies.map(actie => {
-                      const urgency = getActieUrgency(actie.deadline, actie.bron)
-                      const kleur = urgency === 'toekomstig' ? 'groen' : urgency
-                      const deadlineLabel = getActieDeadlineLabel(actie, today)
-                      const deadlineDaysRemaining = getActieDeadlineDaysRemaining(actie, today)
-                      const completing = completingId === actie.id
-                      return (
-                        <div
-                          key={actie.id}
-                          className="td-row no-nav"
-                          style={{ borderLeftColor: URGENCY_COLOR[kleur] }}
-                        >
-                          <div className="td-row-actie">
-                            <div>{actie.omschrijving}</div>
-                            <span className="td-urgency-badge" style={{ color: URGENCY_COLOR[kleur], background: URGENCY_BG[kleur] }}>
-                              {URGENCY_LABEL[urgency]}
-                            </span>
-                            <span className="td-mgmt-badge" style={{ marginLeft: 6, color: 'var(--text-faint)', background: 'transparent', borderColor: 'var(--border-muted-dark)' }}>
-                              {actie.voornaam} {actie.achternaam}
-                            </span>
-                            {deadlineLabel && (
-                              <div className={`td-row-deadline ${deadlineLabel.tone}`}>{deadlineLabel.text}</div>
-                            )}
-                          </div>
-                          {deadlineDaysRemaining !== null && (
-                            <div className="td-row-dagen" style={{ color: 'var(--text-faint)' }}>
-                              {deadlineDaysRemaining}d
-                            </div>
-                          )}
-                          <button
-                            onClick={() => completeActie(actie.id)}
-                            disabled={completing}
-                            style={{ background: 'none', border: '1px solid rgba(168,200,0,0.35)', borderRadius: 3, color: 'var(--wave-green)', cursor: completing ? 'default' : 'pointer', fontSize: '0.8rem', fontWeight: 700, minHeight: 36, minWidth: 36, opacity: completing ? 0.4 : 1, touchAction: 'manipulation', flexShrink: 0 }}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
+            {openActies.length > 0 && (
+              <section style={sectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Open acties</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{openActies.length}</div>
                 </div>
-              )}
+                {openActieGroups.map(([lidUuid, lidActies]) => {
+                  const lid = leden.find(l => l.id === lidUuid)
+                  const sig = lid ? getLidStoplight(lid) : 'green'
+                  return (
+                    <div key={lidUuid}>
+                      <div style={{ padding: '10px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{lid ? `${lid.voornaam} ${lid.achternaam}` : 'Zonder lid'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lid?.lid_id}</div>
+                      </div>
+                      {lidActies.map(actie => {
+                        const urgency = getActieUrgency(actie.deadline, actie.bron)
+                        const kleur = urgency === 'toekomstig' ? 'groen' : urgency
+                        const deadlineLabel = getActieDeadlineLabel(actie, today)
+                        const completing = completingId === actie.id
+                        return (
+                          <div key={actie.id} style={{ ...rowStyle, borderLeft: `3px solid ${URGENCY_COLOR[kleur]}` }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: STOPLIGHT_DOT[sig], flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{actie.omschrijving}</div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: URGENCY_COLOR[kleur], textTransform: 'uppercase', letterSpacing: '0.06em' }}>{URGENCY_LABEL[urgency]}</span>
+                                {deadlineLabel && <span style={{ fontSize: 12, color: deadlineLabel.tone === 'overdue' ? 'var(--red-text)' : 'var(--text-muted)' }}>{deadlineLabel.text}</span>}
+                              </div>
+                            </div>
+                            <button style={{ ...checkButtonStyle, opacity: completing ? 0.5 : 1 }} onClick={() => completeActie(actie.id)} disabled={completing}>✓</button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </section>
+            )}
 
-              {toekomstigeActies.length > 0 && (
-                <div className="td-list" style={{ opacity: 0.72 }}>
-                  <button
-                    className="td-group-header"
-                    onClick={() => setShowToekomstig(o => !o)}
-                    style={{ width: '100%', border: 'none', fontFamily: 'inherit' }}
-                  >
-                    <span style={{ width: 3, height: 12, background: 'var(--text-faint)', borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Toekomstig</span>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 2 }}>{toekomstigeActies.length}</span>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--border-muted-dark)', marginLeft: 'auto' }}>
-                      {showToekomstig ? '▲' : '▼'}
-                    </span>
-                  </button>
-                  {showToekomstig && toekomstigeActies.map(actie => {
-                    const deadlineLabel = getActieDeadlineLabel(actie, today)
-                    return (
-                      <div
-                        key={actie.id}
-                        className="td-row no-nav"
-                        style={{ borderLeftColor: 'var(--border-muted-dark)', background: 'rgba(255,255,255,0.015)' }}
-                      >
-                        <div className="td-row-actie" style={{ color: 'var(--text-faint)' }}>
-                          {actie.omschrijving}
-                          <span className="td-mgmt-badge" style={{ marginLeft: 6, color: 'var(--text-faint)', background: 'transparent', borderColor: 'var(--border-muted-dark)' }}>
-                            {actie.voornaam} {actie.achternaam}
-                          </span>
-                          {deadlineLabel && (
-                            <div className="td-row-deadline neutral">{deadlineLabel.text}</div>
-                          )}
+            {toekomstigeActies.length > 0 && (
+              <section style={sectionStyle}>
+                <button
+                  onClick={() => setShowToekomstig(o => !o)}
+                  style={{ ...sectionHeaderStyle, width: '100%', background: 'var(--bg-surface)', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: 'pointer', touchAction: 'manipulation', minHeight: 44 }}
+                >
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Toekomstig ({toekomstigeActies.length})</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{showToekomstig ? '▲' : '▼'}</div>
+                </button>
+                {showToekomstig && toekomstigeActies.map((actie, index) => {
+                  const deadlineLabel = getActieDeadlineLabel(actie, today)
+                  return (
+                    <div key={actie.id} style={{ ...rowStyle, borderBottom: index < toekomstigeActies.length - 1 ? '1px solid var(--border-subtle)' : 'none', opacity: 0.72 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{actie.omschrijving}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                          {actie.voornaam} {actie.achternaam}{deadlineLabel ? ` · ${deadlineLabel.text}` : ''}
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-              </div>
-          )}
-        </div>
+                    </div>
+                  )
+                })}
+              </section>
+            )}
+          </>
+        )}
       </div>
     </>
   )
