@@ -16,7 +16,7 @@
  * /api/management/trainers, /api/admin/pins, /api/admin/pin, /api/admin/pin-management
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import { getSupabase } from '@/lib/supabase'
@@ -84,7 +84,7 @@ type Lid = {
 
 type StudioCounts = {
   actief: number
-  on_hold: number
+  inactief: number
   gestopt: number
 }
 
@@ -1042,6 +1042,7 @@ export default function ManagementPage() {
   const [showAddLid, setShowAddLid]       = useState(false)
   const [showAddTrainer, setShowAddTrainer] = useState(false)
   const [showGestopt, setShowGestopt]     = useState(false)
+  const gestoptRef = useRef<HTMLDivElement>(null)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [deactivating, setDeactivating]   = useState<string | null>(null)
   const [reactivating, setReactivating]   = useState<string | null>(null)
@@ -1217,12 +1218,11 @@ export default function ManagementPage() {
 
   const counts: StudioCounts = {
     actief:   leden.filter(l => l.actief && (l.status?.toLowerCase() === 'actief' || !l.status)).length,
-    on_hold:  leden.filter(l => l.actief && l.status?.toLowerCase() !== 'actief' && !!l.status).length,
-    gestopt:  leden.filter(l => !l.actief).length,
+    inactief: leden.filter(l => !l.actief && l.status?.toLowerCase() !== 'gestopt').length,
+    gestopt:  leden.filter(l => !l.actief && l.status?.toLowerCase() === 'gestopt').length,
   }
 
   const visibleLeden = leden.filter(l => {
-    if (!l.actief && l.status?.toLowerCase() === 'gestopt') return false
     const q = memberSearch.trim().toLowerCase()
     if (q) {
       const fullName = `${l.voornaam} ${l.achternaam}`.toLowerCase()
@@ -1233,14 +1233,26 @@ export default function ManagementPage() {
       ) return false
     }
     if (trainerFilter !== 'allen' && l.trainer_id !== trainerFilter) return false
-    if (statusFilter !== 'allen') {
-      const s = (l.status ?? (l.actief ? 'actief' : 'inactief')).toLowerCase().replace(' ', '_')
-      const f = statusFilter.toLowerCase().replace(' ', '_')
-      if (s !== f) return false
+
+    if (statusFilter === 'gestopt') {
+      return !l.actief && l.status?.toLowerCase() === 'gestopt'
+    }
+    if (statusFilter === 'allen') {
+      return !(l.status?.toLowerCase() === 'gestopt' && !l.actief)
+    }
+    if (statusFilter === 'actief') {
+      return l.actief && (l.status?.toLowerCase() === 'actief' || !l.status)
+    }
+    if (statusFilter === 'inactief') {
+      return !l.actief && l.status?.toLowerCase() !== 'gestopt'
     }
     return true
   })
   const gestoptLeden = leden.filter(l => !l.actief && l.status?.toLowerCase() === 'gestopt')
+  const openGestoptSection = () => {
+    setShowGestopt(true)
+    setTimeout(() => gestoptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
   const pinByTrainerId = Object.fromEntries(
     consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
   ) as Record<string, TrainerPin>
@@ -1311,32 +1323,40 @@ export default function ManagementPage() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>Studio-overzicht · Wav-e</p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {gestoptLeden.length > 0 && (
+              <button
+                onClick={openGestoptSection}
+                style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 16px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+              >
+                Heractiveer gestopt lid ({gestoptLeden.length})
+              </button>
+            )}
+            <button
+              onClick={() => setShowAddLid(true)}
+              style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 16px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+            >
+              + Lid toevoegen
+            </button>
             <a
               href="/management/berichten"
-              style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
+              style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: 'var(--color-accent)', border: 'none', borderRadius: 8, color: 'var(--color-white)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
             >
               Berichten
               {totalUnread > 0 && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, background: 'rgba(99,102,241,0.15)', color: 'var(--color-accent-text)', fontSize: 10, fontWeight: 700, padding: '0 5px', lineHeight: 1 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, background: 'rgba(255,255,255,0.25)', color: 'var(--color-white)', fontSize: 10, fontWeight: 700, padding: '0 5px', lineHeight: 1 }}>
                   {totalUnread}
                 </span>
               )}
             </a>
-            <button
-              onClick={() => setShowAddLid(true)}
-              style={{ ...touchButtonStyle, background: 'var(--color-accent, var(--color-accent))', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            >
-              + Lid toevoegen
-            </button>
           </div>
         </div>
 
         {/* Studio counts */}
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           {([
-            { label: 'Actief',  value: counts.actief,  color: 'var(--green-signal)' },
-            { label: 'On hold', value: counts.on_hold, color: 'var(--amber)' },
-            { label: 'Gestopt', value: counts.gestopt, color: 'var(--text-quieter)' },
+            { label: 'Actief',   value: counts.actief,   color: 'var(--green-signal)' },
+            { label: 'Inactief', value: counts.inactief, color: 'var(--amber)' },
+            { label: 'Gestopt',  value: counts.gestopt,  color: 'var(--text-muted)' },
           ]).map(({ label, value, color }) => (
             <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
               <div style={{ fontSize: 26, fontWeight: 800, color }}>{value}</div>
@@ -1480,12 +1500,10 @@ export default function ManagementPage() {
                 style={{ ...inputStyle, width: 220, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}
               />
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}>
-                <option value="allen">Alle statussen</option>
+                <option value="allen">Alle leden</option>
                 <option value="actief">Actief</option>
-                <option value="bevroren">Bevroren</option>
-                <option value="on_hold">On hold</option>
-                <option value="stopt">Stopt</option>
                 <option value="inactief">Inactief</option>
+                <option value="gestopt">Gestopt</option>
               </select>
               <select value={trainerFilter} onChange={e => setTrainerFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem' }}>
                 <option value="allen">Alle trainers</option>
@@ -1589,8 +1607,8 @@ export default function ManagementPage() {
           )}
         </section>
 
-        {gestoptLeden.length > 0 && (
-          <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+        {statusFilter !== 'gestopt' && gestoptLeden.length > 0 && (
+          <section ref={gestoptRef} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
             <div
               onClick={() => setShowGestopt(s => !s)}
               style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -1609,7 +1627,7 @@ export default function ManagementPage() {
                 <button
                   onClick={() => reactiveerLid(l)}
                   disabled={reactivating === l.id}
-                  style={{ minHeight: 44, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 14px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: reactivating === l.id ? 0.5 : 1 }}
+                  style={{ minHeight: 44, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 14px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: reactivating === l.id ? 0.5 : 1, touchAction: 'manipulation' }}
                 >
                   {reactivating === l.id ? 'Heractiveren…' : 'Heractiveer'}
                 </button>
