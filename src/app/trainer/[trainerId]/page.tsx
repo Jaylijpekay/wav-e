@@ -83,9 +83,15 @@ const getLidStoplight = (lid: Lid): 'red' | 'amber' | 'green' =>
   toUiStoplight(getStoplight(daysSince(getLatestContactDatum(lid.laatste_contact, lid.laatste_evaluatie))))
 
 const STOPLIGHT = {
-  red: { dot: 'var(--red-danger)', text: 'var(--red-text)', label: 'Aandacht nodig' },
-  amber: { dot: 'var(--amber)', text: 'var(--amber-text)', label: 'Let op' },
-  green: { dot: 'var(--green-signal)', text: 'var(--green-signal-text)', label: 'Op koers' },
+  red: { dot: 'var(--red-danger)', bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.2)', text: 'var(--red-text)' },
+  amber: { dot: 'var(--amber)', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.2)', text: 'var(--amber-text)' },
+  green: { dot: 'var(--green-signal)', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.2)', text: 'var(--green-signal-text)' },
+}
+
+const STOPLIGHT_LABELS = {
+  red: 'Aandacht nodig',
+  amber: 'Let op',
+  green: 'Op koers',
 }
 
 const DUTCH_MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
@@ -254,6 +260,65 @@ function AddLidModal({
   )
 }
 
+function MomentumStrip({ gesprekken, actiesAfgerond }: MomentumProps) {
+  const [dispGesprekken, setDispGesprekken] = useState(0)
+  const [dispActies, setDispActies] = useState(0)
+
+  useEffect(() => {
+    if (gesprekken === 0 && actiesAfgerond === 0) return
+    const duration = 800
+    const steps = 40
+    const interval = duration / steps
+    let step = 0
+    const timer = setInterval(() => {
+      step++
+      const t = step / steps
+      const eased = 1 - Math.pow(1 - t, 3)
+      setDispGesprekken(Math.round(eased * gesprekken))
+      setDispActies(Math.round(eased * actiesAfgerond))
+      if (step >= steps) clearInterval(timer)
+    }, interval)
+    return () => clearInterval(timer)
+  }, [gesprekken, actiesAfgerond])
+
+  const maand = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][new Date().getMonth()]
+
+  return (
+    <div style={{
+      padding: '20px 24px',
+      borderRadius: 12,
+      border: '1px solid var(--border-subtle)',
+      background: 'var(--bg-surface)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+        Deze maand · {maand}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: '2.4rem', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--green-signal-text)', fontVariantNumeric: 'tabular-nums' }}>
+            {dispGesprekken}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}>
+            Gesprekken
+          </span>
+        </div>
+        <div style={{ width: 1, height: 48, background: 'var(--border-subtle)', margin: '0 28px', flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: '2.4rem', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--green-signal-text)', fontVariantNumeric: 'tabular-nums' }}>
+            {dispActies}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}>
+            Acties afgerond
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TrainerDashboard() {
   const { trainerId } = useParams()
   const router = useRouter()
@@ -278,7 +343,7 @@ export default function TrainerDashboard() {
   const [berichtError, setBerichtError] = useState<string | null>(null)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
-  const stoplichtRef = useRef<HTMLDivElement>(null)
+  const stoplichtRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -436,58 +501,88 @@ export default function TrainerDashboard() {
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{greeting()} · {todayLabel()}</div>
         </div>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-          <div style={{ ...sectionStyle, padding: '16px 20px' }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--color-accent-text)' }}>{momentum.gesprekken}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Gesprekken deze maand</div>
-          </div>
-          <div style={{ ...sectionStyle, padding: '16px 20px' }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--green-signal-text)' }}>{momentum.actiesAfgerond}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Acties afgerond</div>
-          </div>
-        </section>
+        {!loading && (
+          <MomentumStrip
+            gesprekken={momentum.gesprekken}
+            actiesAfgerond={momentum.actiesAfgerond}
+          />
+        )}
 
-        <section style={sectionStyle} ref={stoplichtRef}>
-          <div style={sectionHeaderStyle}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Stoplicht</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{leden.length} actieve leden</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-            {(['red', 'amber', 'green'] as const).map(sig => {
-              const isOpen = openStoplight === sig
-              const members = ledenByStoplight(sig)
-              const col = STOPLIGHT[sig]
-              return (
-                <div key={sig} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => members.length > 0 && setOpenStoplight(isOpen ? null : sig)}
-                    style={{ width: '100%', minHeight: 72, background: isOpen ? 'var(--bg-raised)' : 'none', border: 'none', borderRight: sig !== 'green' ? '1px solid var(--border-subtle)' : 'none', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: members.length > 0 ? 'pointer' : 'default', touchAction: 'manipulation' }}
-                  >
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.dot }} />
-                    <span style={{ fontSize: 20, fontWeight: 800, color: col.text }}>{counts[sig]}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{col.label}</span>
-                  </button>
-                  {isOpen && members.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, minWidth: 240, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
-                      {members.map(lid => (
-                        <div
-                          key={lid.id}
-                          onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
-                          style={{ padding: '12px 14px', minHeight: 44, display: 'flex', justifyContent: 'space-between', gap: 12, cursor: 'pointer', touchAction: 'manipulation', borderBottom: '1px solid var(--border-subtle)' }}
-                        >
-                          <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{lid.voornaam} {lid.achternaam}</span>
-                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{lid.lid_id}</span>
-                        </div>
-                      ))}
-                    </div>
+        <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative' }} ref={stoplichtRef}>
+          {(['red', 'amber', 'green'] as const).map(sig => {
+            const isOpen = openStoplight === sig
+            const members = ledenByStoplight(sig)
+            const col = STOPLIGHT[sig]
+            return (
+              <div key={sig} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => members.length > 0 && setOpenStoplight(isOpen ? null : sig)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '14px 18px',
+                    minHeight: 48,
+                    background: isOpen ? col.bg : 'none',
+                    border: `1px solid ${isOpen ? col.border : 'var(--border-subtle)'}`,
+                    borderRadius: 8,
+                    cursor: members.length > 0 ? 'pointer' : 'default',
+                    touchAction: 'manipulation',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.dot, flexShrink: 0 }} />
+                  <span style={{ fontSize: 20, fontWeight: 800, color: col.text }}>{counts[sig]}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{STOPLIGHT_LABELS[sig]}</span>
+                  {members.length > 0 && (
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 2 }}>{isOpen ? '▲' : '▼'}</span>
                   )}
-                </div>
-              )
-            })}
+                </button>
+                {isOpen && members.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    zIndex: 200,
+                    minWidth: 220,
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  }}>
+                    {members.map(lid => (
+                      <div
+                        key={lid.id}
+                        onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          minHeight: 44,
+                          cursor: 'pointer',
+                          touchAction: 'manipulation',
+                          borderBottom: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
+                          {lid.voornaam} {lid.achternaam}
+                        </span>
+                        <span style={{ color: col.text, fontSize: 12 }}>{lid.lid_id}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{leden.length} actieve leden</span>
           </div>
         </section>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           <div style={{ position: 'relative' }} ref={gesprekRef}>
             <button style={{ ...primaryButtonStyle, width: '100%', minHeight: 76, textAlign: 'left' }} onClick={() => setGesprekOpen(o => !o)}>
               Nieuw gesprek
