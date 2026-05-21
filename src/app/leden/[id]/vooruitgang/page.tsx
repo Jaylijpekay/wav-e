@@ -475,7 +475,8 @@ export default function VooruitgangPage() {
           border: 1px solid var(--report-green-border);
           border-radius: 16px;
           overflow: hidden;
-          max-width: 680px;
+          width: min(1180px, calc(100vw - 48px));
+          max-width: none;
           margin: 24px auto 0;
         }
 
@@ -583,7 +584,7 @@ export default function VooruitgangPage() {
           .vg-back { font-size: 0.82rem; }
 
           /* Card fills more of the tablet viewport */
-          .vg-card { max-width: 92vw; margin: 28px auto 0; }
+          .vg-card { width: 92vw; margin: 28px auto 0; }
 
           /* Rings: bigger on tablet */
           .vg-rings { padding: 24px 28px; gap: 12px; }
@@ -602,14 +603,14 @@ export default function VooruitgangPage() {
 
         /* Portrait tablet: card nearly full width */
         @media (max-width: 899px) and (pointer: coarse) and (orientation: portrait) {
-          .vg-card { max-width: 96vw; border-radius: 12px; }
+          .vg-card { width: 96vw; border-radius: 12px; }
           /* Rings: 3 per row on portrait to avoid cramping */
           .vg-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
         }
 
         /* Landscape tablet: keep 6-col rings, wider card */
         @media (min-width: 900px) and (pointer: coarse) and (orientation: landscape) {
-          .vg-card { max-width: 760px; }
+          .vg-card { width: 92vw; }
         }
       `}</style>
 
