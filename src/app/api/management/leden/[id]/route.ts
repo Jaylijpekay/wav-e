@@ -20,12 +20,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (typeof body.status === 'string') update.status = body.status
 
     const db = getServiceRoleClient()
-    const { error } = await db
+    const { data, error } = await db
       .from('leden')
       .update(update)
       .eq('id', id)
+      .select('id')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data?.length) return NextResponse.json({ error: 'Lid niet gevonden' }, { status: 404 })
   }
 
   if (body.trainer_id) {
@@ -45,12 +47,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Trainer niet gevonden' }, { status: 404 })
     }
 
-    const { error } = await db
+    const { data, error } = await db
       .from('leden')
       .update({ trainer_id: body.trainer_id })
       .eq('id', id)
+      .select('id')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data?.length) return NextResponse.json({ error: 'Lid niet gevonden' }, { status: 404 })
   }
 
   return NextResponse.json({ ok: true })

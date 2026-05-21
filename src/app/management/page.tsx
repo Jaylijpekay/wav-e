@@ -1035,7 +1035,6 @@ export default function ManagementPage() {
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
   const [statusFilter,  setStatusFilter]  = useState<string>('allen')
   const [memberSearch, setMemberSearch]   = useState('')
-  const [openTrainerMenu, setOpenTrainerMenu] = useState<string | null>(null)
   const [actieTrainer, setActieTrainer]   = useState<Trainer | null>(null)
   const [actieLid,     setActieLid]       = useState<Lid | null>(null)
   const [notitieTrainer, setNotitieTrainer] = useState<Trainer | null>(null)
@@ -1101,13 +1100,23 @@ export default function ManagementPage() {
 
   const reactivateLid = async (l: Lid) => {
     setReactivating(l.id)
-    await fetch(`/api/management/leden/${l.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actief: true, status: 'actief' }),
-    })
-    setReactivating(null)
-    setRefreshKey(k => k + 1)
+    try {
+      const res = await fetch(`/api/management/leden/${l.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actief: true, status: 'Actief' }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        alert(err?.error ?? 'Heractiveren mislukt')
+        return
+      }
+
+      setRefreshKey(k => k + 1)
+    } finally {
+      setReactivating(null)
+    }
   }
 
   const deleteLidPermanent = async (l: Lid) => {
@@ -1252,7 +1261,6 @@ export default function ManagementPage() {
     consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
   ) as Record<string, TrainerPin>
   const ownPinAction = ownPinPerson ?? CURRENT_MANAGEMENT_PIN
-  const activeTrainers = trainers.filter(t => t.actief)
 
   if (loading) return (
     <>
@@ -1531,36 +1539,18 @@ export default function ManagementPage() {
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: STATUS_COLOR[l.status?.toLowerCase() ?? ''] ?? 'var(--text-muted)' }}>
                       {l.status ?? (l.actief ? 'actief' : 'inactief')}
                     </span>
-                    <span style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                      <button
+                    <span onClick={e => e.stopPropagation()}>
+                      <select
+                        value={l.trainer_id}
                         disabled={reassigningLid === l.id}
-                        onClick={e => {
+                        onChange={e => {
                           e.stopPropagation()
-                          setOpenTrainerMenu(openTrainerMenu === l.id ? null : l.id)
+                          reassignLidTrainer(l, e.target.value)
                         }}
-                        style={{ ...touchButtonStyle, background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: reassigningLid === l.id ? 'default' : 'pointer', opacity: reassigningLid === l.id ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                        style={{ ...inputStyle, width: 'auto', background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-primary)', fontSize: '1rem', opacity: reassigningLid === l.id ? 0.6 : 1 }}
                       >
-                        {reassigningLid === l.id ? 'Wijzigen...' : 'Change trainer'}
-                      </button>
-
-                      {openTrainerMenu === l.id && (
-                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 20, minWidth: 220, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.22)' }}>
-                          {activeTrainers.map(t => (
-                            <button
-                              key={t.id}
-                              onClick={e => {
-                                e.stopPropagation()
-                                setOpenTrainerMenu(null)
-                                reassignLidTrainer(l, t.id)
-                              }}
-                              disabled={t.id === l.trainer_id}
-                              style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 12px', color: t.id === l.trainer_id ? 'var(--text-dim)' : 'var(--text-primary)', cursor: t.id === l.trainer_id ? 'default' : 'pointer', fontSize: 13, fontFamily: 'inherit' }}
-                            >
-                              {t.voornaam} {t.achternaam}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                        {trainers.map(t => <option key={t.id} value={t.id}>{t.voornaam} {t.achternaam}</option>)}
+                      </select>
                     </span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trainer ? `${trainer.voornaam} ${trainer.achternaam}` : '—'}</span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
