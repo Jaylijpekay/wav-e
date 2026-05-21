@@ -495,7 +495,7 @@ export default function TrainerDashboard() {
         />
       )}
 
-      <div style={{ width: '100%', minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ width: '90%', minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{trainer?.naam ?? 'Trainer'}</h1>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{greeting()} · {todayLabel()}</div>
@@ -508,83 +508,93 @@ export default function TrainerDashboard() {
           />
         )}
 
-        <section style={{ display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative' }} ref={stoplichtRef}>
-          {(['red', 'amber', 'green'] as const).map(sig => {
-            const isOpen = openStoplight === sig
-            const members = ledenByStoplight(sig)
-            const col = STOPLIGHT[sig]
-            return (
-              <div key={sig} style={{ position: 'relative' }}>
-                <button
-                  onClick={() => members.length > 0 && setOpenStoplight(isOpen ? null : sig)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '14px 18px',
-                    minHeight: 48,
-                    background: isOpen ? col.bg : 'none',
-                    border: `1px solid ${isOpen ? col.border : 'var(--border-subtle)'}`,
-                    borderRadius: 8,
-                    cursor: members.length > 0 ? 'pointer' : 'default',
-                    touchAction: 'manipulation',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.dot, flexShrink: 0 }} />
-                  <span style={{ fontSize: 20, fontWeight: 800, color: col.text }}>{counts[sig]}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{STOPLIGHT_LABELS[sig]}</span>
-                  {members.length > 0 && (
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 2 }}>{isOpen ? '▲' : '▼'}</span>
-                  )}
-                </button>
-                {isOpen && members.length > 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 6px)',
-                    left: 0,
-                    zIndex: 200,
-                    minWidth: 220,
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                  }}>
-                    {members.map(lid => (
-                      <div
-                        key={lid.id}
-                        onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '12px 16px',
-                          minHeight: 44,
-                          cursor: 'pointer',
-                          touchAction: 'manipulation',
-                          borderBottom: '1px solid var(--border-subtle)',
-                        }}
-                      >
-                        <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
-                          {lid.voornaam} {lid.achternaam}
-                        </span>
-                        <span style={{ color: col.text, fontSize: 12 }}>{lid.lid_id}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0' }}>
+        <section ref={stoplichtRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{leden.length} actieve leden</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {(['red', 'amber', 'green'] as const).map(sig => {
+              const isOpen = openStoplight === sig
+              const members = ledenByStoplight(sig)
+              const col = STOPLIGHT[sig]
+              return (
+                <div key={sig} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => members.length > 0 && setOpenStoplight(isOpen ? null : sig)}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      padding: '14px 18px',
+                      minHeight: 76,
+                      background: isOpen ? col.bg : 'none',
+                      border: `1px solid ${isOpen ? col.border : 'var(--border-subtle)'}`,
+                      borderRadius: 8,
+                      cursor: members.length > 0 ? 'pointer' : 'default',
+                      touchAction: 'manipulation',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.dot, flexShrink: 0 }} />
+                      <span style={{ fontSize: 20, fontWeight: 800, color: col.text }}>{counts[sig]}</span>
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                      {STOPLIGHT_LABELS[sig]}
+                      {members.length > 0 && (
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{isOpen ? '▲' : '▼'}</span>
+                      )}
+                    </span>
+                  </button>
+                  {isOpen && members.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      left: 0,
+                      right: 0,
+                      zIndex: 1000,
+                      minWidth: 220,
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    }}>
+                      {members.map(lid => (
+                        <div
+                          key={lid.id}
+                          onClick={() => { setOpenStoplight(null); router.push(`/leden/${lid.id}`) }}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 16px',
+                            minHeight: 44,
+                            cursor: 'pointer',
+                            touchAction: 'manipulation',
+                            borderBottom: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
+                            {lid.voornaam} {lid.achternaam}
+                          </span>
+                          <span style={{ color: col.text, fontSize: 12 }}>{lid.lid_id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </section>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           <div style={{ position: 'relative' }} ref={gesprekRef}>
-            <button style={{ ...primaryButtonStyle, width: '100%', minHeight: 76, textAlign: 'left' }} onClick={() => setGesprekOpen(o => !o)}>
+            <button style={{ ...primaryButtonStyle, width: '100%', minHeight: 76, textAlign: 'center' }} onClick={() => setGesprekOpen(o => !o)}>
               Nieuw gesprek
               <div style={{ fontSize: 12, fontWeight: 500, marginTop: 4 }}>Start een cyclus</div>
             </button>
@@ -603,7 +613,7 @@ export default function TrainerDashboard() {
             )}
           </div>
 
-          <button style={{ ...secondaryButtonStyle, minHeight: 76, textAlign: 'left' }} onClick={() => router.push(`/trainer/${trainerId}/acties`)}>
+          <button style={{ ...secondaryButtonStyle, minHeight: 76, textAlign: 'center' }} onClick={() => router.push(`/trainer/${trainerId}/acties`)}>
             Open acties
             <div style={{ fontSize: 12, fontWeight: 500, marginTop: 4 }}>
               {dashboardActies.length === 0 ? 'Alles afgerond' : `${dashboardActies.length} open · ${URGENCY_LABEL[dashboardUrgency]}`}
@@ -618,11 +628,11 @@ export default function TrainerDashboard() {
               </span>
             )}
           </button>
-          <button style={{ ...secondaryButtonStyle, minHeight: 76, textAlign: 'left' }} onClick={() => router.push(`/trainer/${trainerId}/leden`)}>
+          <button style={{ ...secondaryButtonStyle, minHeight: 76, textAlign: 'center' }} onClick={() => router.push(`/trainer/${trainerId}/leden`)}>
             Mijn leden
             <div style={{ fontSize: 12, fontWeight: 500, marginTop: 4 }}>{leden.length} actief</div>
           </button>
-          <button style={{ ...secondaryButtonStyle, minHeight: 76, textAlign: 'left' }} onClick={() => setShowAddLid(true)}>
+          <button style={{ ...secondaryButtonStyle, minHeight: 76, textAlign: 'center' }} onClick={() => setShowAddLid(true)}>
             Nieuw lid
             <div style={{ fontSize: 12, fontWeight: 500, marginTop: 4 }}>Lid toevoegen</div>
           </button>

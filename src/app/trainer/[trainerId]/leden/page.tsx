@@ -140,27 +140,11 @@ export default function MijnLedenPage() {
     fontFamily: 'inherit',
   }
 
-  const filterButtonStyle = (active: boolean): CSSProperties => ({
-    minHeight: 44,
-    background: active ? 'var(--bg-raised)' : 'none',
-    border: `1px solid ${active ? 'var(--border-strong)' : 'var(--border-subtle)'}`,
-    borderRadius: 8,
-    padding: '8px 14px',
-    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-    fontSize: 12,
-    fontWeight: 700,
-    cursor: 'pointer',
-    touchAction: 'manipulation',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-  })
-
   return (
     <>
       <Navigation />
 
-      <div style={{ width: '100%', minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ width: '90%', minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Mijn leden</h1>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
@@ -170,25 +154,52 @@ export default function MijnLedenPage() {
 
           {/* Stoplight filter */}
           {!loading && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                style={filterButtonStyle(filter === 'all')}
-                onClick={() => setFilter('all')}
-              >
-                Allen <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{leden.length}</span>
-              </button>
-              {(['red', 'amber', 'green'] as const).map(sig => (
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
-                  key={sig}
-                  style={filterButtonStyle(filter === sig)}
-                  onClick={() => setFilter(sig)}
+                  onClick={() => setFilter('all')}
+                  style={{ minHeight: 32, background: 'none', border: 'none', padding: '4px 0', color: filter === 'all' ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s', touchAction: 'manipulation' }}
+                  onMouseEnter={e => (e.currentTarget.style.textDecorationColor = 'var(--text-muted)')}
+                  onMouseLeave={e => (e.currentTarget.style.textDecorationColor = 'transparent')}
                 >
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: STOPLIGHT[sig].dot, display: 'inline-block' }} />
-                  {STOPLIGHT[sig].label}
-                  <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{counts[sig]}</span>
+                  Toon allen ({leden.length})
                 </button>
-              ))}
-            </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                {(['red', 'amber', 'green'] as const).map(sig => {
+                  const col = STOPLIGHT[sig]
+                  const isActive = filter === sig
+                  return (
+                    <button
+                      key={sig}
+                      onClick={() => setFilter(isActive ? 'all' : sig)}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        padding: '14px 18px',
+                        minHeight: 76,
+                        background: isActive ? col.bg : 'none',
+                        border: `1px solid ${isActive ? col.border : 'var(--border-subtle)'}`,
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        touchAction: 'manipulation',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.dot, flexShrink: 0 }} />
+                        <span style={{ fontSize: 20, fontWeight: 800, color: col.text }}>{counts[sig]}</span>
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{col.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
           )}
 
           {/* Search */}
@@ -212,6 +223,11 @@ export default function MijnLedenPage() {
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{visible.length} {visible.length === 1 ? 'resultaat' : 'resultaten'}</div>
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 1fr) 120px 140px 180px 80px 24px', columnGap: 16, padding: '10px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', alignItems: 'center' }}>
+                {['', 'Naam', 'Lid-ID', 'Status', 'Laatste contact', 'Acties', ''].map((h, i) => (
+                  <span key={i} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
+                ))}
+              </div>
               {visible.map((lid, index) => {
                 const sig = getLidStoplight(lid)
                 const col = STOPLIGHT[sig]
@@ -222,31 +238,29 @@ export default function MijnLedenPage() {
                 const contactColor = dagContact === null
                   ? 'var(--text-muted)'
                   : dagContact > 28 ? 'var(--red-text)' : dagContact > 14 ? 'var(--amber-text)' : 'var(--text-muted)'
+                const statusLabel = lid.status ?? (lid.actief ? 'actief' : 'inactief')
 
                 return (
                   <div
                     key={lid.id}
                     onClick={() => router.push(`/leden/${lid.id}`)}
-                    style={{ padding: '14px 24px', borderBottom: index < visible.length - 1 ? '1px solid var(--border-subtle)' : 'none', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', minHeight: 72, touchAction: 'manipulation' }}
+                    style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 1fr) 120px 140px 180px 80px 24px', columnGap: 16, padding: '14px 24px', minHeight: 72, borderBottom: index < visible.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', cursor: 'pointer', touchAction: 'manipulation', transition: 'background 0.12s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.dot, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lid.voornaam} {lid.achternaam}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{lid.lid_id}</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      {lid.status && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[lid.status.toLowerCase()] ?? 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{lid.status}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lid.voornaam} {lid.achternaam}</span>
+                    <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lid.lid_id}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[statusLabel.toLowerCase()] ?? 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{statusLabel}</span>
+                    <span style={{ fontSize: 13, color: contactColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contactLabel}</span>
+                    <span>
+                      {lid.open_acties > 0 ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 8px', borderRadius: 11, background: 'rgba(220,38,38,0.10)', color: 'var(--red-text)', fontSize: 11, fontWeight: 800 }}>{lid.open_acties}</span>
+                      ) : (
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>—</span>
                       )}
-                      <div style={{ textAlign: 'right', minWidth: 110 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Laatste contact</div>
-                        <div style={{ fontSize: 13, color: contactColor, marginTop: 2 }}>{contactLabel}</div>
-                      </div>
-                      {lid.open_acties > 0 && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, borderRadius: 11, background: 'rgba(220,38,38,0.10)', color: 'var(--red-text)', fontSize: 11, fontWeight: 800 }}>{lid.open_acties}</span>
-                      )}
-                      <span style={{ color: 'var(--text-muted)', fontSize: 18 }}>›</span>
-                    </div>
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 18, textAlign: 'right' }}>›</span>
                   </div>
                 )
               })}
