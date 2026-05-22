@@ -108,11 +108,13 @@ function ReplyModal({
   trainer_naam,
   onClose,
   onSent,
+  onBerichtDismiss,
 }: {
   trainer_id: string
   trainer_naam: string
   onClose: () => void
   onSent: () => void
+  onBerichtDismiss?: () => void
 }) {
   const [tekst, setTekst] = useState('')
   const [saving, setSaving] = useState(false)
@@ -135,6 +137,7 @@ function ReplyModal({
         return
       }
       onSent()
+      onBerichtDismiss?.()
       onClose()
     } catch {
       setError('Verbindingsfout')
@@ -197,13 +200,13 @@ function ReplyModal({
 function TrainerCard({
   groep,
   onDelete,
-  onReply,
+  onReplyBericht,
   onNavigateLid,
   onNavigateTrainer,
 }: {
   groep: TrainerGroep
   onDelete: (trainer_id: string, bericht_id: string) => void
-  onReply: (trainer_id: string, trainer_naam: string) => void
+  onReplyBericht: (trainer_id: string, trainer_naam: string, bericht_id: string) => void
   onNavigateLid: (lid_id: string) => void
   onNavigateTrainer: (trainer_id: string) => void
 }) {
@@ -326,6 +329,12 @@ function TrainerCard({
                 {isTrainer && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
                     <button
+                      onClick={() => onReplyBericht(groep.trainer_id, groep.trainer_naam, b.id)}
+                      style={{ ...touchButtonStyle, background: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+                    >
+                      Beantwoorden
+                    </button>
+                    <button
                       onClick={() => onDelete(groep.trainer_id, b.id)}
                       style={{ ...touchButtonStyle, background: 'none', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
                     >
@@ -343,7 +352,7 @@ function TrainerCard({
             borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-start',
             gap: 10,
             background: 'var(--bg-raised)',
           }}>
@@ -352,12 +361,6 @@ function TrainerCard({
               style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '6px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
             >
               Bekijk trainer →
-            </button>
-            <button
-              onClick={() => onReply(groep.trainer_id, groep.trainer_naam)}
-              style={{ ...touchButtonStyle, background: 'var(--color-accent)', color: 'var(--color-white)', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
-            >
-              Beantwoorden
             </button>
           </div>
         </div>
@@ -370,7 +373,7 @@ export default function BerichtenPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [berichten, setBerichten] = useState<Bericht[]>([])
-  const [replyTarget, setReplyTarget] = useState<{ trainer_id: string; trainer_naam: string } | null>(null)
+  const [replyTarget, setReplyTarget] = useState<{ trainer_id: string; trainer_naam: string; bericht_id: string } | null>(null)
 
   const loadBerichten = useCallback(async () => {
     const res = await fetch('/api/trainer-notities')
@@ -424,6 +427,9 @@ export default function BerichtenPage() {
           trainer_naam={replyTarget.trainer_naam}
           onClose={() => setReplyTarget(null)}
           onSent={loadBerichten}
+          onBerichtDismiss={() => {
+            setDeletedIds(prev => new Set([...prev, replyTarget.bericht_id]))
+          }}
         />
       )}
 
@@ -466,7 +472,7 @@ export default function BerichtenPage() {
                 key={g.trainer_id}
                 groep={g}
                 onDelete={deleteBericht}
-                onReply={(tid, tnaam) => setReplyTarget({ trainer_id: tid, trainer_naam: tnaam })}
+                onReplyBericht={(tid, tnaam, bid) => setReplyTarget({ trainer_id: tid, trainer_naam: tnaam, bericht_id: bid })}
                 onNavigateLid={lid_id => router.push(`/leden/${lid_id}`)}
                 onNavigateTrainer={trainer_id => router.push(`/trainer/${trainer_id}`)}
               />
