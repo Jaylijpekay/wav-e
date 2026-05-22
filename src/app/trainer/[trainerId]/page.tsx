@@ -341,6 +341,7 @@ export default function TrainerDashboard() {
   const [berichtenMax, setBerichtenMax] = useState(5)
   const [berichtPosting, setBerichtPosting] = useState(false)
   const [berichtError, setBerichtError] = useState<string | null>(null)
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplichtRef = useRef<HTMLElement>(null)
@@ -443,7 +444,13 @@ export default function TrainerDashboard() {
     }
   }
 
-  const deleteBericht = async (notitieId: string) => {
+  const deleteBericht = async (notitieId: string, isManagement: boolean) => {
+    if (isManagement) {
+      // Management replies: hide locally only, never delete from DB
+      setDeletedIds(prev => new Set([...prev, notitieId]))
+      return
+    }
+    // Trainer's own messages: soft delete via API
     const previous = berichten
     setBerichten(prev => prev.filter(b => b.id !== notitieId))
     setBerichtError(null)
@@ -660,39 +667,77 @@ export default function TrainerDashboard() {
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Berichten</div>
-            {berichten.length > 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{berichten.length}</div>}
+            {berichten.filter(b => !deletedIds.has(b.id)).length > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {berichten.filter(b => !deletedIds.has(b.id)).length}
+              </div>
+            )}
           </div>
           {berichtError && <div style={{ color: 'var(--red-text)', fontSize: 13, padding: '12px 24px' }}>{berichtError}</div>}
           {berichtenLoading ? (
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Laden…</div>
-          ) : berichten.length === 0 ? (
+          ) : berichten.filter(b => !deletedIds.has(b.id)).length === 0 ? (
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen berichten.</div>
           ) : (
             <div>
-              {berichten.slice(0, berichtenMax).map(bericht => {
-                const isSelf = bericht.auteur_type === 'trainer'
+              {berichten.filter(b => !deletedIds.has(b.id)).slice(0, berichtenMax).map(bericht => {
+                const isManagement = bericht.auteur_type !== 'trainer'
                 const date = new Date(bericht.aangemaakt_op)
                 const dateLabel = `${date.getDate()} ${DUTCH_MONTHS[date.getMonth()]}`
                 return (
-                  <div key={bericht.id} style={{ padding: '14px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 12 }}>
-                    {!isSelf && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', marginTop: 6, flexShrink: 0 }} />}
+                  <div
+                    key={bericht.id}
+                    style={{
+                      padding: '14px 24px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      gap: 12,
+                      background: isManagement ? 'rgba(99,102,241,0.04)' : 'transparent',
+                    }}
+                  >
+                    {isManagement && (
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', marginTop: 6, flexShrink: 0 }} />
+                    )}
                     <div style={{ flex: 1 }}>
                       <div style={{ color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{bericht.tekst}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 6 }}>{bericht.auteur_naam} · {dateLabel}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 6 }}>
+                        {isManagement ? 'Management' : 'Jij'} · {dateLabel}
+                      </div>
                     </div>
-                    <button style={{ ...secondaryButtonStyle, padding: '6px 10px', fontSize: 12 }} onClick={() => deleteBericht(bericht.id)} aria-label="Bericht verwijderen">×</button>
+                    <button
+                      style={{ ...secondaryButtonStyle, padding: '6px 10px', fontSize: 12 }}
+                      onClick={() => deleteBericht(bericht.id, isManagement)}
+                      aria-label="Bericht verwijderen"
+                    >
+                      ×
+                    </button>
                   </div>
                 )
               })}
-              {berichten.length > berichtenMax && (
+              {berichten.filter(b => !deletedIds.has(b.id)).length > berichtenMax && (
                 <button style={{ ...secondaryButtonStyle, margin: 16 }} onClick={() => setBerichtenMax(n => n + 10)}>Toon meer</button>
               )}
             </div>
           )}
           <div style={{ padding: 24, borderTop: '1px solid var(--border-subtle)' }}>
-            <textarea value={berichtTekst} onChange={e => setBerichtTekst(e.target.value)} placeholder="Schrijf een bericht aan management…" maxLength={1000} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            {berichtTekst.length >= 800 && <div style={{ textAlign: 'right', color: berichtTekst.length >= 1000 ? 'var(--red-text)' : 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>{berichtTekst.length}/1000</div>}
-            <button onClick={postBericht} disabled={berichtPosting || !berichtTekst.trim()} style={{ ...secondaryButtonStyle, marginTop: 10, opacity: berichtPosting || !berichtTekst.trim() ? 0.4 : 1 }}>
+            <textarea
+              value={berichtTekst}
+              onChange={e => setBerichtTekst(e.target.value)}
+              placeholder="Schrijf een bericht aan management…"
+              maxLength={1000}
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
+            {berichtTekst.length >= 800 && (
+              <div style={{ textAlign: 'right', color: berichtTekst.length >= 1000 ? 'var(--red-text)' : 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                {berichtTekst.length}/1000
+              </div>
+            )}
+            <button
+              onClick={postBericht}
+              disabled={berichtPosting || !berichtTekst.trim()}
+              style={{ ...secondaryButtonStyle, marginTop: 10, opacity: berichtPosting || !berichtTekst.trim() ? 0.4 : 1 }}
+            >
               {berichtPosting ? '…' : 'Versturen'}
             </button>
           </div>

@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
     .from('trainer_notities')
     .select('id, trainer_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, lid_id')
     .eq('verwijderd', false)
+    .eq('auteur_type', 'trainer')
     .order('gelezen_door_management', { ascending: true })
     .order('aangemaakt_op', { ascending: false })
 

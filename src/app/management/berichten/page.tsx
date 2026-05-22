@@ -34,7 +34,6 @@ type Bericht = {
   gelezen_door_management: boolean
   lid_id: string | null
   lid_naam: string | null
-  verwijderd?: boolean
 }
 
 type TrainerGroep = {
@@ -197,14 +196,12 @@ function ReplyModal({
 
 function TrainerCard({
   groep,
-  onMarkRead,
   onDelete,
   onReply,
   onNavigateLid,
   onNavigateTrainer,
 }: {
   groep: TrainerGroep
-  onMarkRead: (id: string) => void
   onDelete: (trainer_id: string, bericht_id: string) => void
   onReply: (trainer_id: string, trainer_naam: string) => void
   onNavigateLid: (lid_id: string) => void
@@ -328,14 +325,6 @@ function TrainerCard({
 
                 {isTrainer && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-                    {isUnread && (
-                      <button
-                        onClick={() => onMarkRead(b.id)}
-                        style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
-                      >
-                        ✓ Gelezen
-                      </button>
-                    )}
                     <button
                       onClick={() => onDelete(groep.trainer_id, b.id)}
                       style={{ ...touchButtonStyle, background: 'none', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
@@ -403,19 +392,15 @@ export default function BerichtenPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const markRead = async (id: string) => {
-    // Optimistic update
-    setBerichten(prev => prev.map(b => b.id === id ? { ...b, gelezen_door_management: true } : b))
-    await fetch(`/api/trainer-notities/${id}/gelezen`, { method: 'PATCH' }).catch(() => null)
-  }
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const deleteBericht = async (trainerId: string, berichtId: string) => {
-    // Optimistic: hide immediately by marking as verwijderd
-    setBerichten(prev => prev.map(b => b.id === berichtId ? { ...b, verwijderd: true } : b))
+    // Optimistic: remove immediately
+    setDeletedIds(prev => new Set([...prev, berichtId]))
     await fetch(`/api/trainer-notities/${trainerId}/${berichtId}`, { method: 'DELETE' }).catch(() => null)
   }
 
-  const groepen = groupByTrainer(berichten.filter(b => !b.verwijderd))
+  const groepen = groupByTrainer(berichten.filter(b => !deletedIds.has(b.id)))
   const totaalOngelezen = groepen.reduce((s, g) => s + g.ongelezen, 0)
 
   if (loading) {
@@ -480,7 +465,6 @@ export default function BerichtenPage() {
               <TrainerCard
                 key={g.trainer_id}
                 groep={g}
-                onMarkRead={markRead}
                 onDelete={deleteBericht}
                 onReply={(tid, tnaam) => setReplyTarget({ trainer_id: tid, trainer_naam: tnaam })}
                 onNavigateLid={lid_id => router.push(`/leden/${lid_id}`)}
