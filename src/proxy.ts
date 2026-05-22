@@ -150,8 +150,15 @@ export async function proxy(request: NextRequest) {
   if (pathname === '/') {
     if (user.id === ADMIN_UUID) return NextResponse.redirect(new URL('/admin', request.url))
     if (role === 'management') return NextResponse.redirect(new URL('/management', request.url))
-    if (role === 'trainer') return NextResponse.redirect(new URL('/leden', request.url))
+    if (role === 'trainer' && roleRow?.trainer_id) return NextResponse.redirect(new URL(`/trainer/${roleRow.trainer_id}`, request.url))
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (pathname === '/leden') {
+    if (role === 'trainer' && roleRow?.trainer_id) {
+      return NextResponse.redirect(new URL(`/trainer/${roleRow.trainer_id}/leden`, request.url))
+    }
+    return NextResponse.redirect(new URL('/management', request.url))
   }
 
   if (MANAGEMENT_ONLY_ROUTES.some(route => pathname.startsWith(route))) {
@@ -160,15 +167,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // /leden (exact list) is trainer-only - management has their own overview.
   // /leden/[id] and deeper + /gesprek are accessible to both trainer and management
   // (Karim is management but also acts as trainer).
-  const isTrainerOnly = pathname === '/leden'
-
-  if (isTrainerOnly && role !== 'trainer' && user.id !== ADMIN_UUID) {
-    return NextResponse.redirect(new URL('/management', request.url))
-  }
-
   response.headers.set('x-user-id', user.id)
   response.headers.set('x-user-role', role ?? '')
   response.headers.set('x-user-trainer-id', roleRow?.trainer_id ?? '')

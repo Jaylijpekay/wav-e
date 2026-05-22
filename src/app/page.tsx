@@ -4,7 +4,7 @@
  * Startpagina
  *
  * Wat doet deze pagina:
- * Deze pagina is de ingang van de app. Trainers kunnen hun dashboard openen en er zijn snelle ingangen naar management, nieuw lid en admin.
+ * Deze pagina is de ingang van de app. Trainers kunnen hun dashboard openen en er zijn snelle ingangen naar management en admin.
  *
  * Data:
  * Leest uit: trainers.
@@ -230,7 +230,7 @@ export default function Home() {
 
         @media (min-width: 900px) {
           .nav-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
       `}</style>
@@ -269,12 +269,6 @@ export default function Home() {
             <div className="nav-card" onClick={() => router.push('/management')}>
               <div className="card-label">Management</div>
               <div className="card-desc">Studio-breed overzicht</div>
-              <span className="card-arrow">→</span>
-            </div>
-
-            <div className="nav-card" onClick={() => router.push('/nieuw-lid')}>
-              <div className="card-label">Nieuw lid</div>
-              <div className="card-desc">Lid toevoegen</div>
               <span className="card-arrow">→</span>
             </div>
 

@@ -11,6 +11,10 @@ export default function AdminBar() {
   const [trainersOpen, setTrainersOpen] = useState(false)
   const [leden, setLeden]     = useState<{ id: string; voornaam: string; achternaam: string; lid_id: string }[]>([])
   const [trainers, setTrainers] = useState<{ id: string; voornaam: string; achternaam: string }[]>([])
+  const [ledenLoaded, setLedenLoaded] = useState(false)
+  const [trainersLoaded, setTrainersLoaded] = useState(false)
+  const [ledenLoading, setLedenLoading] = useState(false)
+  const [trainersLoading, setTrainersLoading] = useState(false)
 
   const ledenRef    = useRef<HTMLDivElement>(null)
   const trainersRef = useRef<HTMLDivElement>(null)
@@ -25,17 +29,43 @@ export default function AdminBar() {
       if (role !== 'admin') return
 
       setVisible(true)
-
-      const [{ data: ledenData }, { data: trainerData }] = await Promise.all([
-        supabase.from('leden').select('id, voornaam, achternaam, lid_id').eq('actief', true).order('achternaam'),
-        supabase.from('trainers').select('id, voornaam, achternaam').eq('actief', true).order('achternaam'),
-      ])
-
-      setLeden(ledenData ?? [])
-      setTrainers(trainerData ?? [])
     }
     check()
   }, [])
+
+  const loadLeden = async () => {
+    if (ledenLoaded || ledenLoading) return
+    setLedenLoading(true)
+    try {
+      const supabase = getSupabase()
+      const { data } = await supabase
+        .from('leden')
+        .select('id, voornaam, achternaam, lid_id')
+        .eq('actief', true)
+        .order('achternaam')
+      setLeden(data ?? [])
+      setLedenLoaded(true)
+    } finally {
+      setLedenLoading(false)
+    }
+  }
+
+  const loadTrainers = async () => {
+    if (trainersLoaded || trainersLoading) return
+    setTrainersLoading(true)
+    try {
+      const supabase = getSupabase()
+      const { data } = await supabase
+        .from('trainers')
+        .select('id, voornaam, achternaam')
+        .eq('actief', true)
+        .order('achternaam')
+      setTrainers(data ?? [])
+      setTrainersLoaded(true)
+    } finally {
+      setTrainersLoading(false)
+    }
+  }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -167,14 +197,21 @@ export default function AdminBar() {
         <div className="ab-dropdown-wrap" ref={trainersRef}>
           <button
             className="ab-btn"
-            onClick={() => { setTrainersOpen(o => !o); setLedenOpen(false) }}
+            onClick={() => {
+              const nextOpen = !trainersOpen
+              setTrainersOpen(nextOpen)
+              setLedenOpen(false)
+              if (nextOpen) void loadTrainers()
+            }}
           >
             Trainers {trainersOpen ? '▲' : '▼'}
           </button>
 
           {trainersOpen && (
             <div className="ab-dropdown">
-              {trainers.length === 0
+              {trainersLoading
+                ? <div style={{ padding: '10px', color: 'var(--text-quieter)', fontSize: '0.7rem' }}>Laden…</div>
+                : trainers.length === 0
                 ? <div style={{ padding: '10px', color: 'var(--text-quieter)', fontSize: '0.7rem' }}>Geen trainers</div>
                 : trainers.map(t => (
                   <div
@@ -194,14 +231,21 @@ export default function AdminBar() {
         <div className="ab-dropdown-wrap" ref={ledenRef}>
           <button
             className="ab-btn"
-            onClick={() => { setLedenOpen(o => !o); setTrainersOpen(false) }}
+            onClick={() => {
+              const nextOpen = !ledenOpen
+              setLedenOpen(nextOpen)
+              setTrainersOpen(false)
+              if (nextOpen) void loadLeden()
+            }}
           >
             Leden {ledenOpen ? '▲' : '▼'}
           </button>
 
           {ledenOpen && (
             <div className="ab-dropdown">
-              {leden.length === 0
+              {ledenLoading
+                ? <div style={{ padding: '10px', color: 'var(--text-quieter)', fontSize: '0.7rem' }}>Laden…</div>
+                : leden.length === 0
                 ? <div style={{ padding: '10px', color: 'var(--text-quieter)', fontSize: '0.7rem' }}>Geen leden</div>
                 : leden.map(l => (
                   <div

@@ -14,6 +14,8 @@
  * Geen.
  */
 
+import { redirect } from 'next/navigation'
+
 export default function NieuwLid() {
-  return <div />
+  redirect('/')
 }

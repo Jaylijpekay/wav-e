@@ -12,6 +12,7 @@ export default function Navigation() {
   const pathname = usePathname()
   const [role, setRole] = useState<NavRole>(null)
   const [authMode, setAuthMode] = useState<AuthMode>(null)
+  const [trainerId, setTrainerId] = useState<string | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
   const trainerIdFromPath = pathname.match(/^\/trainer\/([^/]+)/)?.[1]
 
@@ -22,6 +23,7 @@ export default function Navigation() {
       const data = await res.json()
       setRole((data.role as NavRole) ?? null)
       setAuthMode((data.authMode as AuthMode) ?? null)
+      setTrainerId(typeof data.trainerId === 'string' ? data.trainerId : null)
     }
     load()
   }, [])
@@ -38,17 +40,16 @@ export default function Navigation() {
     }
   }
 
-  const trainerLinks = trainerIdFromPath
+  const activeTrainerId = trainerIdFromPath ?? trainerId
+
+  const trainerLinks = activeTrainerId
     ? [
-        { href: `/trainer/${trainerIdFromPath}`, label: 'Dashboard' },
-        { href: `/trainer/${trainerIdFromPath}/leden`, label: 'Leden' },
-        { href: `/trainer/${trainerIdFromPath}/acties`, label: 'Acties' },
+        { href: `/trainer/${activeTrainerId}`, label: 'Dashboard' },
+        { href: `/trainer/${activeTrainerId}/leden`, label: 'Leden' },
+        { href: `/trainer/${activeTrainerId}/acties`, label: 'Acties' },
         { href: '/gesprek/new', label: 'Gesprek' },
       ]
-    : [
-        { href: '/leden', label: 'Leden' },
-        { href: '/gesprek/new', label: 'Gesprek' },
-      ]
+    : []
 
   const managementLinks = [
     { href: '/management', label: 'Management' },

@@ -1151,9 +1151,7 @@ export default function ManagementPage() {
       const dataRes = await fetch('/api/management/data')
       const studioData = dataRes.ok ? await dataRes.json() : {}
       const trainerData  = (studioData.trainers   ?? []) as Trainer[]
-      const ledenRaw     = (studioData.leden      ?? []) as { id: string; lid_id: string; voornaam: string; achternaam: string; actief: boolean; status: string | null; trainer_id: string; gestopt_op?: string | null }[]
-      const contacten    = (studioData.contacten  ?? []) as { lid_id: string; datum: string }[]
-      const evaluaties   = (studioData.evaluaties ?? []) as { lid_id: string; datum: string; slaap: number | null; energie: number | null; stress: number | null; cyclus: number }[]
+      const ledenRaw     = (studioData.leden      ?? []) as Lid[]
       const actiesData   = (studioData.acties     ?? []) as { id: string; trainer_id: string; lid_id: string; deadline?: string | null; bron?: string | null; afgerond?: boolean | null }[]
 
       try {
@@ -1168,17 +1166,14 @@ export default function ManagementPage() {
       }
 
       const enrichedLeden: Lid[] = ledenRaw.map(l => {
-        const lastContact = (contacten ?? []).find(c => c.lid_id === l.id)
-        const lastEval    = (evaluaties ?? []).find(e => e.lid_id === l.id)
-        const lastContactDatum = getLatestContactDatum(lastContact?.datum, lastEval?.datum)
         return {
           ...l,
           gestopt_op:         l.gestopt_op ?? null,
-          laatste_contact:   lastContactDatum,
-          laatste_evaluatie: lastEval?.datum    ?? null,
-          slaap:             lastEval?.slaap    ?? null,
-          energie:           lastEval?.energie  ?? null,
-          stress:            lastEval?.stress   ?? null,
+          laatste_contact:   l.laatste_contact ?? null,
+          laatste_evaluatie: l.laatste_evaluatie ?? null,
+          slaap:             l.slaap ?? null,
+          energie:           l.energie ?? null,
+          stress:            l.stress ?? null,
         }
       })
 
