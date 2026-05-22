@@ -139,6 +139,28 @@ const touchButtonStyle: React.CSSProperties = {
   minWidth: 44,
 }
 
+const tableActionButtonStyle: React.CSSProperties = {
+  ...touchButtonStyle,
+  background: 'var(--bg-raised)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 6,
+  padding: '5px 12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+}
+
+const tableDangerButtonStyle: React.CSSProperties = {
+  ...tableActionButtonStyle,
+  border: '1px solid rgba(220,38,38,0.25)',
+}
+
+const tableWarningButtonStyle: React.CSSProperties = {
+  ...tableActionButtonStyle,
+  border: '1px solid rgba(217,119,6,0.30)',
+}
+
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
   color: 'var(--text-muted)',
@@ -1429,7 +1451,7 @@ export default function ManagementPage() {
                         return (
                           <button
                             onClick={() => setPinPerson(pinPersonForTrainer)}
-                            style={{ ...touchButtonStyle, background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            style={{ ...tableActionButtonStyle, color: 'var(--text-muted)', fontSize: 12 }}
                           >
                             {pinPersonForTrainer.has_pin ? 'PIN wijzigen' : 'PIN instellen'}
                           </button>
@@ -1439,9 +1461,9 @@ export default function ManagementPage() {
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <button
                         onClick={() => openActieFromTrainer(t)}
-                        style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '5px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                        onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                        style={{ ...tableActionButtonStyle, color: 'var(--text-muted)', fontSize: 12 }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                       >
                         + Actie
                       </button>
@@ -1449,9 +1471,9 @@ export default function ManagementPage() {
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <button
                         onClick={() => openNotitieModal(t)}
-                        style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '5px 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                        onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                        style={{ ...tableActionButtonStyle, color: 'var(--text-muted)', fontSize: 12 }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                       >
                         + Bericht
                       </button>
@@ -1461,9 +1483,9 @@ export default function ManagementPage() {
                         <button
                           onClick={() => deactivateTrainer(t)}
                           disabled={deactivating === t.id}
-                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '5px 0', color: 'var(--red-text)', fontSize: 12, fontWeight: 600, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => { if (deactivating !== t.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
-                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
+                          style={{ ...tableDangerButtonStyle, color: 'var(--red-text)', fontSize: 12, cursor: deactivating === t.id ? 'default' : 'pointer', opacity: deactivating === t.id ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (deactivating !== t.id) e.currentTarget.style.borderColor = 'var(--red-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)' }}
                         >
                           {deactivating === t.id ? '…' : 'Deactiveer'}
                         </button>
@@ -1507,7 +1529,7 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 220px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 300px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
                 {['Naam', 'Status', 'Trainer', 'Wijzig trainer', 'Lid-ID', ''].map(h => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
                 ))}
@@ -1518,7 +1540,7 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 220px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
+                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 300px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -1546,13 +1568,13 @@ export default function ManagementPage() {
                       </select>
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
-                    <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 14, textAlign: 'right', minWidth: 220, width: 220 }}>
+                    <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, textAlign: 'right', minWidth: 300, width: 300 }}>
                       {l.actief && (
                         <button
                           onClick={e => { e.stopPropagation(); openActieFromLid(l) }}
-                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
-                          onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                          style={{ ...tableActionButtonStyle, padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                         >
                           + Actie
                         </button>
@@ -1561,9 +1583,9 @@ export default function ManagementPage() {
                         <button
                           onClick={e => { e.stopPropagation(); deactiveerLid(l) }}
                           disabled={deactivating === l.id}
-                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--amber-text)', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = 'var(--amber-text)' }}
-                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
+                          style={{ ...tableWarningButtonStyle, padding: '4px 10px', color: 'var(--amber-text)', fontSize: 11, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.borderColor = 'var(--amber-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(217,119,6,0.30)' }}
                         >
                           {deactivating === l.id ? '…' : 'Deactiveer'}
                         </button>
@@ -1572,9 +1594,9 @@ export default function ManagementPage() {
                         <button
                           onClick={e => { e.stopPropagation(); stoptLid(l) }}
                           disabled={deactivating === l.id}
-                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
-                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
+                          style={{ ...tableDangerButtonStyle, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.borderColor = 'var(--red-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)' }}
                         >
                           {deactivating === l.id ? '…' : 'Gestopt'}
                         </button>
@@ -1583,9 +1605,9 @@ export default function ManagementPage() {
                         <button
                           onClick={e => { e.stopPropagation(); reactiveerLid(l) }}
                           disabled={reactivating === l.id}
-                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: reactivating === l.id ? 'default' : 'pointer', opacity: reactivating === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s, color 0.15s' }}
-                          onMouseEnter={e => { if (reactivating !== l.id) { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                          style={{ ...tableActionButtonStyle, padding: '4px 10px', color: 'var(--text-muted)', fontSize: 11, cursor: reactivating === l.id ? 'default' : 'pointer', opacity: reactivating === l.id ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (reactivating !== l.id) { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                         >
                           {reactivating === l.id ? '…' : 'Heractiveren'}
                         </button>
@@ -1594,9 +1616,9 @@ export default function ManagementPage() {
                         <button
                           onClick={e => { e.stopPropagation(); deleteLidPermanent(l) }}
                           disabled={deletingLid === l.id}
-                          style={{ ...touchButtonStyle, background: 'none', border: 'none', padding: '4px 0', color: 'var(--red-text)', fontSize: 11, fontWeight: 600, cursor: deletingLid === l.id ? 'default' : 'pointer', opacity: deletingLid === l.id ? 0.5 : 1, whiteSpace: 'nowrap', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color 0.15s' }}
-                          onMouseEnter={e => { if (deletingLid !== l.id) e.currentTarget.style.textDecorationColor = 'var(--red-text)' }}
-                          onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent' }}
+                          style={{ ...tableDangerButtonStyle, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, cursor: deletingLid === l.id ? 'default' : 'pointer', opacity: deletingLid === l.id ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (deletingLid !== l.id) e.currentTarget.style.borderColor = 'var(--red-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)' }}
                         >
                           {deletingLid === l.id ? '…' : 'Verwijder'}
                         </button>
