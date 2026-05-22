@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getServerAuthContext } from '@/lib/serverAuth'
+import { getServerAuthContext, getServiceRoleClient } from '@/lib/serverAuth'
 
 type AuteurType = 'trainer' | 'management' | 'admin'
 type Role = AuteurType
@@ -163,7 +163,7 @@ async function resolveAuteurNamen(
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { lid_id } = await params
-    const { supabase, user, role, trainerId, error } = await getAuthContext(req)
+    const { supabase, user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -210,7 +210,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { lid_id } = await params
-    const { supabase, user, role, trainerId, error } = await getAuthContext(req)
+    const { supabase, user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -219,6 +219,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (!role || !(await canAccessLid(supabase, role, trainerId, lid_id))) {
       return jsonError('Geen toegang', 403)
     }
+
+    const db = getServiceRoleClient()
 
     let body: {
       tekst?: unknown
@@ -252,7 +254,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         return jsonError('Ongeldige evaluatie', 400)
       }
 
-      const { data: evaluatie, error: evaluatieError } = await supabase
+      const { data: evaluatie, error: evaluatieError } = await db
         .from('evaluaties')
         .select('id')
         .eq('id', body.evaluatie_id)
@@ -273,7 +275,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ? body.toon_aan_trainer
         : false
 
-    const { data, error: insertError } = await supabase
+    const { data, error: insertError } = await db
       .from('notities')
       .insert({
         lid_id,
@@ -296,7 +298,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     const [notitie] = await resolveAuteurNamen(
-      supabase,
+      db,
       data as NotitieRow[]
     )
 

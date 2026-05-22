@@ -169,11 +169,13 @@ export async function fetchTrainerDashboardData(supabase: SupabaseClient, traine
     aangemaakt_op: string
   }[]).map(melding => {
     const lid = ledenBase.find(l => l.id === melding.lid_id)
+    const lidNaam = lid ? `${lid.voornaam} ${lid.achternaam}` : '-'
+    const lidReferentie = lid ? `${lidNaam} (${lid.lid_id})` : lidNaam
     return {
       id: melding.id,
       lid_id: melding.lid_id,
-      lid_naam: lid ? `${lid.voornaam} ${lid.achternaam}` : '-',
-      tekst: melding.tekst,
+      lid_naam: lidNaam,
+      tekst: `Betreft: ${lidReferentie}\n\n${melding.tekst}`,
       auteur_naam: 'Management',
       aangemaakt_op: melding.aangemaakt_op,
     }
