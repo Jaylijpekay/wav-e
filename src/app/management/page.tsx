@@ -1453,7 +1453,7 @@ export default function ManagementPage() {
                         onMouseEnter={e => { e.currentTarget.style.textDecorationColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-primary)' }}
                         onMouseLeave={e => { e.currentTarget.style.textDecorationColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
                       >
-                        + Notitie
+                        + Bericht
                       </button>
                     </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>

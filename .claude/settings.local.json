@@ -12,7 +12,12 @@
       "Bash(findstr /i \"supabase trigger schema migration\")",
       "Bash(findstr /i /r \"supabase trigger schema migrat \\\\.sql\")",
       "Bash(git log *)",
-      "Bash(git show *)"
+      "Bash(git show *)",
+      "Bash(git -C \"E:\\\\AI\\\\wav-e\" status)",
+      "Bash(git -C \"E:\\\\AI\\\\wav-e\" diff)",
+      "Bash(git -C \"E:\\\\AI\\\\wav-e\" add src/app/management/page.tsx)",
+      "Bash(git -C 'E:\\\\AI\\\\wav-e' commit -m ' *)",
+      "Bash(git *)"
     ]
   }
 }
