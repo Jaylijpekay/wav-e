@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     if (body.actief === true) {
       update.gestopt_op = null
-      update.status = 'actief'
+      update.status = 'Actief'
     }
 
     const db = getServiceRoleClient()
