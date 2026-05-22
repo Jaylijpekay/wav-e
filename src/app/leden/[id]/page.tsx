@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type CSSProperties } from 'react'
+import { useState, useEffect, useMemo, type CSSProperties } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { getActieUrgency, isActieOpen, URGENCY_BG, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
@@ -226,8 +226,15 @@ export default function LedenDetail() {
 
   useEffect(() => {
     const load = async () => {
+      setNotitiesLoading(true)
       try {
-        const authRes = await fetch('/api/auth-context')
+        const [authRes, lidRes, notitiesRes, actiesRes] = await Promise.all([
+          fetch('/api/auth-context'),
+          fetch(`/api/leden/${id}`),
+          fetch(`/api/notities/${id}`),
+          fetch(`/api/acties?lid_id=${id}`),
+        ])
+
         const authData = authRes.ok ? await authRes.json() : {}
         const roleData = authData.role ?? null
         const authMode = authData.authMode ?? null
@@ -244,51 +251,37 @@ export default function LedenDetail() {
           } catch { /* non-critical */ }
         }
 
-        const lidRes = await fetch(`/api/leden/${id}`)
         if (lidRes.ok) {
           const { lid: lidData, evaluaties: evalData, contacten: contactData } = await lidRes.json()
           setLid(lidData ?? null)
           setEvaluaties(evalData ?? [])
           setContacten(contactData ?? [])
         }
-      } finally {
-        setLoading(false)
-      }
-    }
-    if (id) load()
-  }, [id])
 
-  useEffect(() => {
-    const fetchNotities = async () => {
-      setNotitiesLoading(true)
-      try {
-        const res = await fetch(`/api/notities/${id}`)
-        if (!res.ok) throw new Error('Ophalen mislukt')
-        const data = await res.json()
-        setNotities(data.notities ?? [])
+        if (notitiesRes.ok) {
+          const data = await notitiesRes.json()
+          setNotities(data.notities ?? [])
+        } else {
+          setNotities([])
+        }
+
+        if (actiesRes.ok) {
+          const data = await actiesRes.json()
+          setActies((data.acties ?? []).map((actie: Partial<Actie>) => ({
+            ...actie,
+            bron: actie.bron ?? 'trainer',
+            afgerond: actie.afgerond ?? actie.status === 'afgerond',
+          })) as Actie[])
+        }
       } catch {
         setNotities([])
+        setActies([])
       } finally {
+        setLoading(false)
         setNotitiesLoading(false)
       }
     }
-
-    if (id) fetchNotities()
-  }, [id])
-
-  useEffect(() => {
-    const fetchActies = async () => {
-      const res = await fetch(`/api/acties?lid_id=${id}`)
-      if (res.ok) {
-        const data = await res.json()
-        setActies((data.acties ?? []).map((actie: Partial<Actie>) => ({
-          ...actie,
-          bron: actie.bron ?? 'trainer',
-          afgerond: actie.afgerond ?? actie.status === 'afgerond',
-        })) as Actie[])
-      }
-    }
-    if (id) fetchActies()
+    if (id) load()
   }, [id])
 
   const markActieAfgerond = async (actieId: string) => {
@@ -416,8 +409,14 @@ export default function LedenDetail() {
   const healthSignals = buildHealthSignals(latestEval)
   const lastContactDatum = getLatestContactDatum(contacten[0]?.datum, latestEval?.datum)
   const lastContactDays = daysSince(lastContactDatum)
-  const openActies = acties.filter(a => !a.afgerond && isActieOpen(a.deadline, a.bron, a.afgerond))
-  const toekomstigeActies = acties.filter(a => !a.afgerond && getActieUrgency(a.deadline, a.bron) === 'toekomstig')
+  const openActies = useMemo(
+    () => acties.filter(a => !a.afgerond && isActieOpen(a.deadline, a.bron, a.afgerond)),
+    [acties]
+  )
+  const toekomstigeActies = useMemo(
+    () => acties.filter(a => !a.afgerond && getActieUrgency(a.deadline, a.bron) === 'toekomstig'),
+    [acties]
+  )
   const primarySignal: 'red' | 'amber' | 'green' = lastContactDays === null || lastContactDays > 28 ? 'red' : lastContactDays > 14 ? 'amber' : 'green'
 
   if (loading) return (

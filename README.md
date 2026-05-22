@@ -1,72 +1,102 @@
 # WAV-e
 
-WAV-e is een interne coaching-app voor een EMS-studio. De applicatie helpt trainers, management en admin met ledenopvolging, evaluatiegesprekken, stoplichtstatussen, acties, notities, trainerberichten en tablettoegang via een studio-console.
+WAV-e is een private interne coaching-app voor een EMS-studio. De app ondersteunt trainers, management en admin bij ledenopvolging, evaluatiegesprekken, acties, notities, berichten en tablettoegang via een studio-console.
 
-## Status
+De codebase is een Next.js App Router-app met Supabase voor auth, database, RPC's en server-side mutaties.
 
-Dit project is een private Next.js-app met Supabase als auth- en datalaag. De huidige codebase bevat een werkende App Router-app, client-side dashboards, API-routes voor mutaties en een console-login voor tablets. De route `/nieuw-lid` bestaat nog als lege placeholder; leden toevoegen gebeurt in de huidige app via het trainerdashboard of managementscherm.
+## Huidige Status
 
-## Functionaliteit
+- Next.js `16.2.3` met App Router en React `19.2.4`.
+- Supabase Auth voor normale browser-login.
+- HMAC-gesigneerde console-sessies voor tabletgebruik zonder normale login per gebruiker.
+- UI bestaat vooral uit client components met inline styles en globale design tokens in `src/app/globals.css`.
+- Mutaties lopen via API-routes onder `src/app/api`.
+- `/nieuw-lid` bestaat als route maar is inhoudelijk nog een placeholder. Leden toevoegen gebeurt in de praktijk via trainerdashboard of management.
+- Er staan nog enkele mojibake-tekens in oude comments en UI-strings. Deze README beschrijft de huidige bedoelde functionaliteit.
 
-### Rollen
+## Rollen
 
-- **Admin** beheert gebruikers, rollen, console-PINs en studio-console tokens.
-- **Management** beheert trainers, leden, acties, consoletoegang en de berichten-inbox.
-- **Trainer** werkt vanuit een eigen dashboard met leden, stoplichten, acties, gesprekken, urgente meldingen en berichten met management.
-- **Studio-console** gebruikt een console-token plus 4-cijferige PIN voor tabletlogin zonder normale Supabase-login per trainer of managementgebruiker.
+### Admin
 
-### Belangrijkste onderdelen
+Admin beheert gebruikers en toegang:
 
-- Supabase Auth-login met rolgebaseerde redirects.
-- Routebescherming in `src/proxy.ts`.
-- HMAC-gesigneerde `console_session` cookie voor console-sessies.
-- Trainerdashboard met momentumstrip, stoplichtoverzicht, open acties, ledenlijst, nieuw lid toevoegen en berichten naar management.
-- Managementdashboard met studio-overzicht, trainer- en ledenbeheer, actiebeheer, PIN-beheer en console-tokenbeheer.
-- Management-inbox op `/management/berichten` voor alle trainerberichten.
-- Adminpaneel op `/admin` voor accountbeheer, PINs en console-tokens.
-- Tabletconsole op `/console?token=...` met keuze tussen trainer en management en een grote PIN-keypad.
-- Liddossier met contactmomenten, evaluaties, acties en notities.
-- Evaluatieformulier op `/gesprek/new`, inclusief leefstijlscores, fysieke metingen, doelen, tevredenheid en vrije notities.
-- Voortgangspagina met leefstijltrends en fysieke metingen per evaluatiecyclus.
+- trainer- en managementaccounts aanmaken;
+- gebruikers deactiveren/verwijderen via admin API;
+- trainer-PINs en management-PIN instellen;
+- console-tokens beheren;
+- adminpaneel openen via `/admin`.
 
-## Lokaal opstarten
+De proxy gebruikt momenteel een hardcoded `ADMIN_UUID` in `src/proxy.ts` voor adminroute-gating.
 
-```bash
-npm install
-npm run dev
-```
+### Management
 
-Open daarna `http://localhost:3000`.
+Management beheert studio-operatie:
 
-Beschikbare scripts:
+- studio-overzicht met trainers, ledenstatussen en acties;
+- trainers activeren/deactiveren;
+- leden activeren, deactiveren, stoppen, heractiveren en herverdelen;
+- leden aanmaken;
+- acties aan trainers of leden koppelen;
+- lidnotities maken, eventueel zichtbaar voor trainer;
+- berichten van trainers lezen via `/management/berichten`;
+- antwoorden naar trainer sturen;
+- console-tokens en PINs beheren.
 
-```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-```
+### Trainer
 
-## Omgevingsvariabelen
+Trainer werkt vanuit `/trainer/[trainerId]`:
 
-Maak lokaal een `.env.local` met:
+- momentumstrip voor maandelijkse gesprekken en afgeronde acties;
+- stoplichtoverzicht voor actieve leden;
+- nieuw gesprek starten;
+- open acties bekijken;
+- eigen leden bekijken;
+- nieuw lid toevoegen;
+- trainer-visible lidnotities vanuit management zien als meldingen;
+- berichten naar management sturen;
+- berichten van management beantwoorden of verwijderen.
+
+### Studio-console
+
+De tabletconsole gebruikt:
+
+- `/console?token=...`;
+- een geldig `console_tokens` record;
+- trainer- of managementkeuze;
+- 4-cijferige PIN-verificatie;
+- een HMAC-gesigneerde `console_session` cookie.
+
+Trainer-console-sessies worden beperkt tot de eigen trainerroute, gesprekken en liddossiers. Management-console-sessies krijgen managementscope, maar geen adminscope.
+
+## Belangrijkste UI-routes
 
 ```text
-NEXT_PUBLIC_SUPABASE_URL        Supabase Project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY   Supabase anon public key
-SUPABASE_SERVICE_ROLE_KEY       Supabase service_role key voor server/API-routes
-CONSOLE_SESSION_SECRET          Optioneel; HMAC-secret voor console_session cookies
+/                              startpagina; proxy redirectt ingelogde rollen
+/login                         normale Supabase-login
+/admin                         adminpaneel
+/management                    managementdashboard
+/management/berichten          management-inbox voor trainerberichten
+/console?token=...             tabletconsole-token validatie en PIN-login
+/trainer/[trainerId]           trainerdashboard
+/trainer/[trainerId]/acties    acties voor een trainer
+/trainer/[trainerId]/leden     filterbare ledenlijst voor een trainer
+/leden/[id]                    liddossier
+/leden/[id]/vooruitgang        voortgangsoverzicht
+/leden/[id]/evaluatie/[cyclus] evaluatiedetail
+/gesprek/new                   nieuw evaluatiegesprek
+/gesprek/new?lid_id=...        nieuw gesprek met lid vooringevuld
+/nieuw-lid                     placeholder zonder werkende UI
 ```
 
-Als `CONSOLE_SESSION_SECRET` ontbreekt, gebruikt `src/lib/consoleSession.ts` de service role key als fallback. `SUPABASE_SERVICE_ROLE_KEY` mag nooit in client-side code of logs terechtkomen.
+Let op: in `src/proxy.ts` redirectt een trainer vanaf `/` nog naar `/leden`, maar er is geen `src/app/leden/page.tsx`. De daadwerkelijke trainerflow gebruikt `/trainer/[trainerId]`.
 
-## Architectuur
+## App-structuur
 
 ```text
 src/
   app/
     admin/                         adminpaneel
-    api/                           server-side API-routes
+    api/                           API-routes voor data en mutaties
     components/                    Navigation en AdminBar
     console/                       tabletlogin via token + PIN
     gesprek/new/                   nieuw evaluatiegesprek
@@ -75,75 +105,106 @@ src/
     leden/[id]/vooruitgang/        voortgangsoverzicht
     login/                         Supabase Auth-login
     management/                    managementdashboard
-    management/berichten/          trainerberichten-inbox
-    nieuw-lid/                     lege placeholder
+    management/berichten/          management-inbox
+    nieuw-lid/                     placeholder
     trainer/[trainerId]/           trainerdashboard
     trainer/[trainerId]/acties/    acties per trainer
     trainer/[trainerId]/leden/     ledenlijst per trainer
   lib/
-    consoleSession.ts              HMAC console session cookie
+    actieUrgency.ts                actie-urgentie en open/toekomstig logica
+    consoleSession.ts              HMAC console-session cookie
     serverAuth.ts                  server/API auth-context en access checks
     stoplight.ts                   stoplichtlogica
     supabase.ts                    browser Supabase client
-    supabase-server.ts             Supabase server client met user session
+    supabase-server.ts             server Supabase client met user session
     trainerData.ts                 gedeelde trainerdashboard-data
   proxy.ts                         route guards en auth headers
 ```
 
-De app gebruikt een mix van client-side Supabase reads en server-side API-routes. Nieuwe of gevoelige mutaties horen via API-routes te lopen, met `getServerAuthContext()` uit `src/lib/serverAuth.ts` voor sessie- of console-auth.
+## Auth en Toegang
 
-## Routes
+### Browser-login
 
-```text
-/                              startpagina; proxy redirect op basis van rol
-/login                         normale Supabase-login
-/admin                         adminpaneel
-/management                    managementdashboard
-/management/berichten          management-inbox
-/console?token=...             studio-console login
-/trainer/[trainerId]           trainerdashboard
-/trainer/[trainerId]/acties    open acties
-/trainer/[trainerId]/leden     filterbare ledenlijst
-/leden/[id]                    liddossier
-/leden/[id]/vooruitgang        voortgangsoverzicht
-/leden/[id]/evaluatie/[cyclus] evaluatiedetail
-/gesprek/new                   nieuw gesprek
-/gesprek/new?lid_id=...        nieuw gesprek met lid vooringevuld
-/nieuw-lid                     placeholder zonder UI
+Client-side login gebruikt Supabase Auth. Server/API-auth loopt via:
+
+```ts
+getServerAuthContext(req)
 ```
+
+uit `src/lib/serverAuth.ts`.
+
+Die helper ondersteunt twee auth-modi:
+
+- `session`: normale Supabase sessie;
+- `console`: gevalideerde HMAC `console_session`.
+
+### Service-role gebruik
+
+`src/lib/serverAuth.ts` bevat:
+
+```ts
+getServiceRoleClient()
+```
+
+Deze stateless service-role client wordt gebruikt nadat app-level auth al is gecontroleerd, voor mutaties of reads die anders door Supabase RLS of een gelekte request-JWT kunnen falen. Dit is onder andere relevant voor:
+
+- management replies in `trainer_notities`;
+- trainer-thread reads waar management-authored berichten zichtbaar moeten zijn;
+- lidnotities die door management worden aangemaakt en zichtbaar voor trainers kunnen zijn.
+
+Gebruik service-role nooit direct vanuit client-side code.
+
+### Proxy
+
+`src/proxy.ts`:
+
+- laat `/login`, `/console`, `/api/console/*` en `/api/auth-context` publiek door;
+- valideert console-sessies cryptografisch zonder databasecall;
+- gebruikt Supabase session auth voor normale routes;
+- gate adminroutes via `ADMIN_UUID`;
+- gate managementroutes op rol `management` of admin UUID;
+- beperkt trainer-console-sessies tot eigen trainerdashboard, `/gesprek` en `/leden/[id]`.
 
 ## API-routes
 
 ```text
-/api/auth-context                         huidige rol/authMode voor navigatie
+/api/auth-context                         huidige rol/authMode/trainerId
+
 /api/admin/list                           gebruikerslijst
 /api/admin/create                         trainer of managementgebruiker maken
-/api/admin/delete                         gebruiker deactiveren en auth-sessie intrekken
+/api/admin/delete                         gebruiker deactiveren en auth-user verwijderen
 /api/admin/pins                           PIN-overzicht
 /api/admin/pin                            trainer-PIN instellen
 /api/admin/pin-management                 management-PIN instellen
 /api/admin/console-tokens                 admin console-tokenbeheer
-/api/management/trainers                  trainer aanmaken vanuit management
+
 /api/management/data                      managementdashboard-data
+/api/management/trainers                  trainer aanmaken vanuit management
 /api/management/trainers/[id]             trainer activeren/deactiveren
-/api/management/leden/[id]                lid activeren/deactiveren/status wijzigen
+/api/management/leden/[id]                lid activeren/deactiveren/status/trainer wijzigen of verwijderen
 /api/management/console-tokens            management console-tokenbeheer
-/api/management/console-tokens/[id]       console-token wijzigen of verwijderen
+/api/management/console-tokens/[id]       console-token wijzigen of intrekken/verwijderen
+
 /api/trainer/[trainer_id]/dashboard       trainerdashboard-data
 /api/trainer/[trainer_id]/leden           trainerleden ophalen of lid toevoegen
 /api/trainer/[trainer_id]/acties          acties voor trainer
 /api/trainer/[trainer_id]/next-lid-id     volgend lidnummer via RPC
+
 /api/leden/[id]                           lid, evaluaties en contactmomenten ophalen
 /api/gesprek                              evaluatie opslaan
 /api/gesprek/leden                        actieve leden voor gesprekformulier
 /api/contact                              contactmoment opslaan
+
 /api/acties                               acties ophalen of aanmaken
 /api/acties/[id]                          actie afronden of wijzigen
+
 /api/notities/[lid_id]                    lidnotities ophalen of aanmaken
 /api/notities/[lid_id]/[notitie_id]       notitie soft-deleten of als gezien markeren
+
 /api/trainer-notities                     management-inbox aggregate
-/api/trainer-notities/[trainer_id]        thread ophalen of bericht plaatsen
+/api/trainer-notities/[trainer_id]        trainer/management thread ophalen of bericht plaatsen
 /api/trainer-notities/[trainer_id]/[notitie_id] bericht soft-deleten
+
 /api/console/validate                     console-token valideren en cookie zetten
 /api/console/people                       trainers en management voor consolekeuze
 /api/console/verify-pin                   PIN controleren en console_session zetten
@@ -151,41 +212,43 @@ De app gebruikt een mix van client-side Supabase reads en server-side API-routes
 /api/console/logout                       console_session wissen
 ```
 
-## Auth en toegang
+Er staat ook `src/app/admin/trainers/route.ts`; dit is geen route in de huidige `app/api` structuur en wordt niet als normale API-route in de route-output van `next build` vermeld.
 
-- Browser-login gebruikt `getSupabase()` uit `src/lib/supabase.ts`.
-- Server/API-auth loopt via `getServerAuthContext(req)` uit `src/lib/serverAuth.ts`.
-- Console-auth gebruikt eerst een `console_token` cookie, daarna een HMAC-gesigneerde `console_session` cookie.
-- `src/proxy.ts` laat publieke console- en loginroutes door, controleert console-sessies zonder databasecall en valt daarna terug op Supabase session auth.
-- Adminroutes worden in de proxy momenteel gated op de hardcoded `ADMIN_UUID`.
-- Managementroutes vereisen rol `management` of de admin UUID.
-- Trainer-console-sessies mogen alleen naar hun eigen trainerroute, `/gesprek` en `/leden/[id]`.
+## Leden
 
-## Leden, acties en gesprekken
+Leden worden opgeslagen in `leden`.
 
 Leden kunnen worden toegevoegd via:
 
-- het trainerdashboard: `POST /api/trainer/[trainer_id]/leden`;
-- het managementdashboard: via de bestaande management UI en Supabase/API-mutaties.
+- trainerdashboard: `POST /api/trainer/[trainer_id]/leden`;
+- managementdashboard: management UI en management APIs.
 
-Acties kunnen aan een lid of direct aan een trainer gekoppeld zijn. Open acties verschijnen op het trainerdashboard en de actiespagina. Afgeronde acties tellen mee in de momentumstrip van de huidige maand.
+Leden kunnen actief, inactief of gestopt zijn. Management kan leden stoppen, heractiveren, verwijderen en aan een andere trainer koppelen.
 
-Een nieuw gesprek wordt opgeslagen via `POST /api/gesprek`. De server bepaalt de volgende `cyclus` op basis van bestaande evaluaties voor dat lid.
+Trainerleden worden gebruikt voor:
 
-## Notities en berichten
+- stoplichtstatus;
+- gesprekselectie;
+- ledenlijst;
+- acties;
+- zichtbare managementnotities.
 
-Er zijn twee aparte notitiestromen:
+## Gesprekken en Evaluaties
 
-- **Lidnotities** in `notities`, gekoppeld aan een lid en optioneel zichtbaar als urgente melding voor de trainer.
-- **Trainerberichten** in `trainer_notities`, gebruikt als tweerichtings-thread tussen trainer en management.
+Nieuwe gesprekken worden opgeslagen via `POST /api/gesprek`.
 
-Managementnotities met `toon_aan_trainer = true` en `gezien = false` verschijnen op het trainerdashboard. Trainers kunnen deze als gezien markeren via `PATCH /api/notities/[lid_id]/[notitie_id]`.
+De server:
 
-Trainerberichten worden gelezen en beantwoord via `/management/berichten`. De thread-route markeert management-leesstatus bij het ophalen van een trainerthread.
+- controleert toegang tot het lid;
+- bepaalt de volgende `cyclus`;
+- schrijft een evaluatie met leefstijlscores, fysieke metingen, doel, tevredenheid en vrije notitievelden;
+- schrijft optioneel contactmomenten/notities afhankelijk van de request-body.
+
+Evaluaties zijn zichtbaar in het liddossier, de evaluatiedetailpagina en de voortgangspagina.
 
 ## Stoplichtlogica
 
-De stoplichtstatus gebruikt de meest recente datum uit contactmomenten en evaluaties:
+Stoplichtstatus gebruikt de meest recente datum uit contactmomenten en evaluaties:
 
 ```text
 Groen  contact binnen 14 dagen
@@ -193,25 +256,125 @@ Oranje 15 t/m 28 dagen
 Rood   29 dagen of langer, of geen contact bekend
 ```
 
-De implementatie staat in `src/lib/stoplight.ts`.
+Implementatie: `src/lib/stoplight.ts`.
 
-## Technische stack
+## Acties
 
-- Next.js `16.2.3` met App Router
-- React `19.2.4`
-- TypeScript `^5`
-- Supabase Auth, database en RPC's
-- `@supabase/ssr` `^0.10.2`
-- `@supabase/supabase-js` `^2.103.0`
-- `qrcode.react` `^4.2.0`
-- Tailwind CSS `^4` wordt globaal geimporteerd in `src/app/globals.css`
-- ESLint `^9` met `eslint-config-next`
+Acties staan in `acties`.
 
-De UI gebruikt vooral inline styles, lokale `<style>`-blokken en CSS design tokens in `src/app/globals.css`.
+Acties kunnen:
 
-## Supabase
+- aan een lid gekoppeld zijn;
+- direct aan een trainer gekoppeld zijn zonder lid;
+- van management of trainer afkomstig zijn;
+- open, afgerond of overdue zijn.
 
-Tabellen die in de huidige code worden gebruikt:
+Urgentie staat in `src/lib/actieUrgency.ts`:
+
+```text
+Geen deadline              rood
+Deadline binnen 7 dagen    rood / Kritiek
+Deadline binnen 14 dagen   oranje / Urgent
+Deadline binnen 21 dagen   groen / Open
+Traineractie > 21 dagen    toekomstig en niet zichtbaar als open dashboardactie
+Managementactie > 21 dagen blijft groen/open
+```
+
+Afgeronde acties tellen mee in de momentumstrip van de huidige maand.
+
+## Lidnotities
+
+Lidnotities staan in `notities`.
+
+Eigenschappen:
+
+- gekoppeld aan een lid;
+- optioneel gekoppeld aan een evaluatie;
+- auteurtype `trainer`, `management` of `admin`;
+- soft-delete via `verwijderd`;
+- `toon_aan_trainer` bepaalt of een managementnotitie als trainer-melding verschijnt;
+- `gezien` bepaalt of die melding nog open staat.
+
+Management kan vanuit het managementdashboard een lidnotitie maken en aanvinken dat deze aan de trainer getoond moet worden. In de UI heet dit nog "Urgent voor trainer", maar technisch is het de zichtbaarheid/actieflag `toon_aan_trainer`.
+
+Trainerdashboard toont zulke notities als meldingen zolang:
+
+```text
+toon_aan_trainer = true
+gezien = false
+verwijderd = false
+```
+
+De trainer kan een melding als gezien markeren via:
+
+```text
+PATCH /api/notities/[lid_id]/[notitie_id]
+```
+
+Trainer-facing meldingen krijgen automatisch een in-message lidreferentie:
+
+```text
+Betreft: Voornaam Achternaam (LID-ID)
+
+[tekst van management]
+```
+
+## Trainerberichten
+
+Trainerberichten staan in `trainer_notities` en vormen de berichtenstroom tussen trainer en management.
+
+### Management-inbox
+
+`/management/berichten` toont alleen trainer-authored berichten uit de aggregate route:
+
+```text
+GET /api/trainer-notities
+```
+
+Management kan op berichtniveau:
+
+- `Beantwoorden`: plaatst een managementbericht in de trainerthread en verbergt het oorspronkelijke trainerbericht lokaal uit de huidige inboxweergave;
+- `Verwijder`: soft-delete het bericht in de database via `verwijderd = true`.
+
+Management replies worden bewust niet opnieuw in de management-inbox getoond.
+
+### Trainerdashboard
+
+Het trainerdashboard heeft twee gelijke panelen:
+
+- links `Bericht sturen`: nieuw bericht naar management;
+- rechts `Berichten van management`: alleen management/admin-authored berichten.
+
+Op managementberichten kan de trainer:
+
+- `Beantwoorden`: stuurt een bericht naar management en verbergt het oorspronkelijke managementbericht lokaal uit de huidige trainerweergave;
+- `Verwijder`: soft-delete het managementbericht in de database.
+
+Trainer-sent berichten worden niet in het rechter managementberichtenpaneel getoond.
+
+### Delete en reply semantiek
+
+- Delete betekent database soft-delete met `verwijderd = true`, waardoor het bericht voor beide kanten verdwijnt.
+- Reply betekent: nieuw bericht aanmaken en het oorspronkelijke bericht uit de huidige view halen.
+- De oude `gelezen_door_management` leesstatusfunctionaliteit is uit de actieve UI/API-flow verwijderd.
+
+## Console
+
+Consoleflow:
+
+1. `/console?token=...` valideert het token via `/api/console/validate`.
+2. De console haalt personen op via `/api/console/people`.
+3. De gebruiker kiest trainer of management.
+4. `/api/console/verify-pin` controleert de PIN via Supabase RPC.
+5. De server zet `console_session`.
+6. `/api/console/refresh` verlengt de sessie.
+7. `/api/console/logout` wist de sessie.
+
+Console-tokenstatus wordt bijgehouden in `console_tokens`.
+
+## Supabase Tabellen
+
+Tabellen die de huidige code gebruikt:
 
 ```text
 acties
@@ -226,7 +389,9 @@ trainers
 user_roles
 ```
 
-RPC's die in de huidige code worden aangeroepen:
+## Supabase RPC's
+
+RPC's die de huidige code aanroept:
 
 ```text
 get_my_role
@@ -240,10 +405,67 @@ verify_trainer_pin
 verify_management_pin
 ```
 
-## Bekende aandachtspunten
+## Omgevingsvariabelen
 
-- `/nieuw-lid` is nog een lege placeholder.
-- De proxy redirectt trainers vanaf `/` naar `/leden`, maar er is geen `src/app/leden/page.tsx`; de trainerflow gebruikt normaal `/trainer/[trainerId]`.
-- `ADMIN_UUID` staat hardcoded in `src/proxy.ts`.
-- Er staan nog enkele mojibake-tekens in comments en UI-strings uit eerdere encodingproblemen.
-- De pagina-comments zijn niet overal actueel; de code en deze README zijn leidend.
+Maak lokaal een `.env.local` met:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL        Supabase Project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY   Supabase anon public key
+SUPABASE_SERVICE_ROLE_KEY       Supabase service_role key voor server/API-routes
+CONSOLE_SESSION_SECRET          Optioneel; HMAC-secret voor console_session cookies
+```
+
+Als `CONSOLE_SESSION_SECRET` ontbreekt, gebruikt `src/lib/consoleSession.ts` de service-role key als fallback.
+
+`SUPABASE_SERVICE_ROLE_KEY` mag nooit naar client-side code, logs of browserbundles lekken.
+
+## Lokaal Draaien
+
+```bash
+npm install
+npm run dev
+```
+
+Open daarna:
+
+```text
+http://localhost:3000
+```
+
+Beschikbare scripts:
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
+
+## Technische Stack
+
+- Next.js `16.2.3`
+- React `19.2.4`
+- TypeScript `^5`
+- Supabase Auth, database en RPC's
+- `@supabase/ssr` `^0.10.2`
+- `@supabase/supabase-js` `^2.103.0`
+- `qrcode.react` `^4.2.0`
+- Tailwind CSS `^4`
+- ESLint `^9` met `eslint-config-next`
+
+## Ontwikkelrichtlijnen
+
+- Lees bij Next.js wijzigingen eerst `node_modules/next/dist/docs/`, zoals vastgelegd in `AGENTS.md`.
+- Nieuwe gevoelige mutaties horen via API-routes te lopen.
+- Controleer eerst app-level auth met `getServerAuthContext(req)`.
+- Gebruik `getServiceRoleClient()` alleen server-side en alleen nadat toegang expliciet is gecontroleerd.
+- Laat unrelated dirty files staan; `.claude/settings.local.json` is lokaal gewijzigd en hoort niet automatisch mee in commits.
+
+## Bekende Aandachtspunten
+
+- `/nieuw-lid` is een placeholder, ondanks dat de startpagina ernaar linkt.
+- De root proxy redirect voor trainers wijst naar `/leden`, maar er is geen ledenindexpagina.
+- Admin gating gebruikt een hardcoded UUID in `src/proxy.ts`.
+- Enkele oude comments en UI-strings bevatten mojibake door encodingproblemen.
+- Sommige pagina-comments zijn ouder dan de implementatie; deze README en de code zijn leidend.

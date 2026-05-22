@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getActieUrgency, isActieOpen, URGENCY_COLOR, URGENCY_LABEL } from '@/lib/actieUrgency'
 import { daysSince, getLatestContactDatum, getStoplight } from '@/lib/stoplight'
@@ -528,26 +528,35 @@ export default function TrainerDashboard() {
     }
   }
 
-  const counts = {
-    red: leden.filter(l => getLidStoplight(l) === 'red').length,
-    amber: leden.filter(l => getLidStoplight(l) === 'amber').length,
-    green: leden.filter(l => getLidStoplight(l) === 'green').length,
-  }
+  const ledenByStoplight = useMemo(() => {
+    const grouped = { red: [] as Lid[], amber: [] as Lid[], green: [] as Lid[] }
+    for (const lid of leden) grouped[getLidStoplight(lid)].push(lid)
+    return grouped
+  }, [leden])
 
-  const ledenByStoplight = (sig: 'red' | 'amber' | 'green') => leden.filter(l => getLidStoplight(l) === sig)
-  const dashboardActies = [
+  const counts = useMemo(() => ({
+    red: ledenByStoplight.red.length,
+    amber: ledenByStoplight.amber.length,
+    green: ledenByStoplight.green.length,
+  }), [ledenByStoplight])
+
+  const dashboardActies = useMemo(() => [
     ...acties.filter(a => !a.afgerond && a.bron === 'management')
       .sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? '')),
     ...acties.filter(a => !a.afgerond && a.bron !== 'management' && isActieOpen(a.deadline, a.bron, a.afgerond))
       .sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999')),
-  ]
-  const dashboardCritical = dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'rood')
-  const dashboardUrgency = dashboardCritical
-    ? 'rood'
-    : dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'oranje')
-      ? 'oranje'
-      : 'groen'
-  const zichtbareManagementBerichten = berichten.filter(b => b.auteur_type !== 'trainer' && !deletedIds.has(b.id))
+  ], [acties])
+
+  const dashboardUrgency = useMemo(() => {
+    if (dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'rood')) return 'rood'
+    if (dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'oranje')) return 'oranje'
+    return 'groen'
+  }, [dashboardActies])
+
+  const zichtbareManagementBerichten = useMemo(
+    () => berichten.filter(b => b.auteur_type !== 'trainer' && !deletedIds.has(b.id)),
+    [berichten, deletedIds]
+  )
 
   if (loading) return (
     <>
@@ -599,7 +608,7 @@ export default function TrainerDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             {(['red', 'amber', 'green'] as const).map(sig => {
               const isOpen = openStoplight === sig
-              const members = ledenByStoplight(sig)
+              const members = ledenByStoplight[sig]
               const col = STOPLIGHT[sig]
               return (
                 <div key={sig} style={{ position: 'relative' }}>

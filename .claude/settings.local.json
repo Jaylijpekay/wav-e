@@ -10,7 +10,9 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(findstr /i \"supabase trigger schema migration\")",
-      "Bash(findstr /i /r \"supabase trigger schema migrat \\\\.sql\")"
+      "Bash(findstr /i /r \"supabase trigger schema migrat \\\\.sql\")",
+      "Bash(git log *)",
+      "Bash(git show *)"
     ]
   }
 }

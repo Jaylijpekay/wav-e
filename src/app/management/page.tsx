@@ -16,7 +16,7 @@
  * /api/management/trainers, /api/admin/pins, /api/admin/pin, /api/admin/pin-management
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import { getSupabase } from '@/lib/supabase'
@@ -1208,13 +1208,13 @@ export default function ManagementPage() {
 
   useEffect(() => { load() }, [load])
 
-  const counts: StudioCounts = {
+  const counts: StudioCounts = useMemo(() => ({
     actief:   leden.filter(l => l.actief && (l.status?.toLowerCase() === 'actief' || !l.status)).length,
     inactief: leden.filter(l => !l.actief && l.status?.toLowerCase() !== 'gestopt').length,
     gestopt:  leden.filter(l => !l.actief && l.status?.toLowerCase() === 'gestopt').length,
-  }
+  }), [leden])
 
-  const visibleLeden = leden.filter(l => {
+  const visibleLeden = useMemo(() => leden.filter(l => {
     const q = memberSearch.trim().toLowerCase()
     if (q) {
       const fullName = `${l.voornaam} ${l.achternaam}`.toLowerCase()
@@ -1239,15 +1239,21 @@ export default function ManagementPage() {
       return !l.actief && l.status?.toLowerCase() !== 'gestopt'
     }
     return true
-  })
-  const gestoptLeden = leden.filter(l => !l.actief && l.status?.toLowerCase() === 'gestopt')
+  }), [leden, memberSearch, statusFilter, trainerFilter])
+  const gestoptLeden = useMemo(
+    () => leden.filter(l => !l.actief && l.status?.toLowerCase() === 'gestopt'),
+    [leden]
+  )
   const openGestoptSection = () => {
     setShowGestopt(true)
     setTimeout(() => gestoptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
-  const pinByTrainerId = Object.fromEntries(
-    consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
-  ) as Record<string, TrainerPin>
+  const pinByTrainerId = useMemo(
+    () => Object.fromEntries(
+      consolePins.filter(p => p.type === 'trainer').map(p => [p.trainer_id, p])
+    ) as Record<string, TrainerPin>,
+    [consolePins]
+  )
   const ownPinAction = ownPinPerson ?? CURRENT_MANAGEMENT_PIN
 
   if (loading) return (
