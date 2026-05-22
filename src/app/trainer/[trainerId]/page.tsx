@@ -780,22 +780,21 @@ export default function TrainerDashboard() {
                         {isManagement ? 'Management' : 'Jij'} · {dateLabel}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      {isManagement ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {isManagement && (
                         <button
                           style={{ ...primaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12 }}
                           onClick={() => setReplyTarget(bericht)}
                         >
                           Beantwoorden
                         </button>
-                      ) : (
-                        <button
-                          style={{ ...secondaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12, color: 'var(--red-text)', borderColor: 'rgba(220,38,38,0.2)' }}
-                          onClick={() => deleteBericht(bericht.id)}
-                        >
-                          Verwijder
-                        </button>
                       )}
+                      <button
+                        style={{ ...secondaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12, color: 'var(--red-text)', borderColor: 'rgba(220,38,38,0.2)' }}
+                        onClick={() => deleteBericht(bericht.id)}
+                      >
+                        Verwijder
+                      </button>
                     </div>
                   </div>
                 )

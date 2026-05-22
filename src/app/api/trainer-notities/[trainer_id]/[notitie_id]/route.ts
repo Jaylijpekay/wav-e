@@ -93,15 +93,13 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return jsonError('Notitie niet gevonden', 404)
     }
 
-    const isOriginalTrainer =
+    const isThreadTrainer =
       role === 'trainer' &&
-      trainerId === trainer_id &&
-      notitie.auteur_type === 'trainer' &&
-      notitie.auteur_id === user.id
+      trainerId === trainer_id
     const isManagement = role === 'management' || role === 'admin'
 
-    if (!isOriginalTrainer && !isManagement) {
-      return jsonError('Alleen de auteur mag dit bericht verwijderen', 403)
+    if (!isThreadTrainer && !isManagement) {
+      return jsonError('Geen toegang om dit bericht te verwijderen', 403)
     }
 
     const { data, error: updateError } = await supabase
