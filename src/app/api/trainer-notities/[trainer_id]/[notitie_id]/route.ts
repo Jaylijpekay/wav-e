@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getServerAuthContext } from '@/lib/serverAuth'
+import { getServerAuthContext, getServiceRoleClient } from '@/lib/serverAuth'
 
 type Role = 'trainer' | 'management' | 'admin'
 
@@ -67,7 +67,7 @@ function isAllowed(role: Role | null, ownTrainerId: string | null, trainerId: st
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const { trainer_id, notitie_id } = await params
-    const { supabase, user, role, trainerId } = await getAuthContext(req)
+    const { user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -77,7 +77,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return jsonError('Geen toegang', 403)
     }
 
-    const { data: existing, error: readError } = await supabase
+    const db = getServiceRoleClient()
+
+    const { data: existing, error: readError } = await db
       .from('trainer_notities')
       .select('id, trainer_id, auteur_id, auteur_type, verwijderd')
       .eq('id', notitie_id)
@@ -102,7 +104,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return jsonError('Geen toegang om dit bericht te verwijderen', 403)
     }
 
-    const { data, error: updateError } = await supabase
+    const { data, error: updateError } = await db
       .from('trainer_notities')
       .update({
         verwijderd: true,

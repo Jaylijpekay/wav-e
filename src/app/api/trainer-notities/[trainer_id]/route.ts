@@ -144,7 +144,7 @@ async function resolveAuteurNamen(
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { trainer_id } = await params
-    const { supabase, user, role, trainerId } = await getAuthContext(req)
+    const { user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -154,7 +154,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return jsonError('Geen toegang', 403)
     }
 
-    const { data, error: notitiesError } = await supabase
+    const db = getServiceRoleClient()
+
+    const { data, error: notitiesError } = await db
       .from('trainer_notities')
       .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op')
       .eq('trainer_id', trainer_id)
@@ -166,7 +168,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     const notities = await resolveAuteurNamen(
-      supabase,
+      db,
       (data ?? []) as TrainerNotitieRow[]
     )
 

@@ -547,6 +547,7 @@ export default function TrainerDashboard() {
     : dashboardActies.some(a => getActieUrgency(a.deadline, a.bron) === 'oranje')
       ? 'oranje'
       : 'groen'
+  const zichtbareManagementBerichten = berichten.filter(b => b.auteur_type !== 'trainer' && !deletedIds.has(b.id))
 
   if (loading) return (
     <>
@@ -740,24 +741,52 @@ export default function TrainerDashboard() {
           </section>
         )}
 
-        <section style={sectionStyle}>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, alignItems: 'stretch' }}>
+          <div style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Bericht sturen</div>
+            </div>
+            <div style={{ padding: 24 }}>
+              <textarea
+                value={berichtTekst}
+                onChange={e => setBerichtTekst(e.target.value)}
+                placeholder="Schrijf een bericht aan management..."
+                maxLength={1000}
+                rows={5}
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
+              {berichtTekst.length >= 800 && (
+                <div style={{ textAlign: 'right', color: berichtTekst.length >= 1000 ? 'var(--red-text)' : 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                  {berichtTekst.length}/1000
+                </div>
+              )}
+              <button
+                onClick={postBericht}
+                disabled={berichtPosting || !berichtTekst.trim()}
+                style={{ ...primaryButtonStyle, marginTop: 10, opacity: berichtPosting || !berichtTekst.trim() ? 0.4 : 1 }}
+              >
+                {berichtPosting ? 'Versturen...' : 'Versturen'}
+              </button>
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
           <div style={sectionHeaderStyle}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Berichten</div>
-            {berichten.filter(b => !deletedIds.has(b.id)).length > 0 && (
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Berichten van management</div>
+            {zichtbareManagementBerichten.length > 0 && (
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                {berichten.filter(b => !deletedIds.has(b.id)).length}
+                {zichtbareManagementBerichten.length}
               </div>
             )}
           </div>
           {berichtError && <div style={{ color: 'var(--red-text)', fontSize: 13, padding: '12px 24px' }}>{berichtError}</div>}
           {berichtenLoading ? (
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Laden…</div>
-          ) : berichten.filter(b => !deletedIds.has(b.id)).length === 0 ? (
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen berichten.</div>
+          ) : zichtbareManagementBerichten.length === 0 ? (
+            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen berichten van management.</div>
           ) : (
             <div>
-              {berichten.filter(b => !deletedIds.has(b.id)).slice(0, berichtenMax).map(bericht => {
-                const isManagement = bericht.auteur_type !== 'trainer'
+              {zichtbareManagementBerichten.slice(0, berichtenMax).map(bericht => {
                 const date = new Date(bericht.aangemaakt_op)
                 const dateLabel = `${date.getDate()} ${DUTCH_MONTHS[date.getMonth()]}`
                 return (
@@ -768,27 +797,23 @@ export default function TrainerDashboard() {
                       borderBottom: '1px solid var(--border-subtle)',
                       display: 'flex',
                       gap: 12,
-                      background: isManagement ? 'rgba(99,102,241,0.04)' : 'transparent',
+                      background: 'rgba(99,102,241,0.04)',
                     }}
                   >
-                    {isManagement && (
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', marginTop: 6, flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-accent)', marginTop: 6, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{bericht.tekst}</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 6 }}>
-                        {isManagement ? 'Management' : 'Jij'} · {dateLabel}
+                        Management · {dateLabel}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      {isManagement && (
-                        <button
-                          style={{ ...primaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12 }}
-                          onClick={() => setReplyTarget(bericht)}
-                        >
-                          Beantwoorden
-                        </button>
-                      )}
+                      <button
+                        style={{ ...primaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12 }}
+                        onClick={() => setReplyTarget(bericht)}
+                      >
+                        Beantwoorden
+                      </button>
                       <button
                         style={{ ...secondaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12, color: 'var(--red-text)', borderColor: 'rgba(220,38,38,0.2)' }}
                         onClick={() => deleteBericht(bericht.id)}
@@ -799,32 +824,11 @@ export default function TrainerDashboard() {
                   </div>
                 )
               })}
-              {berichten.filter(b => !deletedIds.has(b.id)).length > berichtenMax && (
+              {zichtbareManagementBerichten.length > berichtenMax && (
                 <button style={{ ...secondaryButtonStyle, margin: 16 }} onClick={() => setBerichtenMax(n => n + 10)}>Toon meer</button>
               )}
             </div>
           )}
-          <div style={{ padding: 24, borderTop: '1px solid var(--border-subtle)' }}>
-            <textarea
-              value={berichtTekst}
-              onChange={e => setBerichtTekst(e.target.value)}
-              placeholder="Schrijf een bericht aan management…"
-              maxLength={1000}
-              rows={3}
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
-            {berichtTekst.length >= 800 && (
-              <div style={{ textAlign: 'right', color: berichtTekst.length >= 1000 ? 'var(--red-text)' : 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
-                {berichtTekst.length}/1000
-              </div>
-            )}
-            <button
-              onClick={postBericht}
-              disabled={berichtPosting || !berichtTekst.trim()}
-              style={{ ...secondaryButtonStyle, marginTop: 10, opacity: berichtPosting || !berichtTekst.trim() ? 0.4 : 1 }}
-            >
-              {berichtPosting ? '…' : 'Versturen'}
-            </button>
           </div>
         </section>
       </div>
