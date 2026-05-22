@@ -1376,7 +1376,7 @@ export default function ManagementPage() {
             { label: 'Inactief', value: counts.inactief, color: 'var(--amber)' },
             { label: 'Gestopt',  value: counts.gestopt,  color: 'var(--text-muted)' },
           ]).map(({ label, value, color }) => (
-            <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
+            <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
               <div style={{ fontSize: 26, fontWeight: 800, color }}>{value}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
             </div>
@@ -1412,8 +1412,19 @@ export default function ManagementPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Trainer', 'Email', 'Leden', 'Rood', 'Amber', 'Acties', 'PIN', '', 'Notitie', ''].map(h => (
-                  <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                {([
+                  { label: 'Trainer',    align: 'left'   },
+                  { label: 'Email',      align: 'left'   },
+                  { label: 'Leden',      align: 'center' },
+                  { label: 'Rood',       align: 'center' },
+                  { label: 'Amber',      align: 'center' },
+                  { label: 'Acties',     align: 'center' },
+                  { label: 'PIN',        align: 'right'  },
+                  { label: 'Actie',      align: 'right'  },
+                  { label: 'Notitie',    align: 'right'  },
+                  { label: 'Deactiveer', align: 'right'  },
+                ] as const).map(({ label, align }) => (
+                  <th key={label} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', padding: '10px 20px', textAlign: align, whiteSpace: 'nowrap' }}>{label}</th>
                 ))}
               </tr>
             </thead>
@@ -1529,10 +1540,16 @@ export default function ManagementPage() {
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 300px', padding: '8px 24px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12 }}>
-                {['Naam', 'Status', 'Trainer', 'Wijzig trainer', 'Lid-ID', ''].map(h => (
-                  <span key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{h}</span>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 110px 110px 110px', gridTemplateRows: 'auto auto', padding: '6px 24px 8px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12, rowGap: 2, alignItems: 'end' }}>
+                <span style={{ gridColumn: '7 / 9', gridRow: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', opacity: 0.75, textAlign: 'center' }}>Lid beheren</span>
+                <span style={{ gridColumn: 1, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>Naam</span>
+                <span style={{ gridColumn: 2, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>Status</span>
+                <span style={{ gridColumn: 3, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>Trainer</span>
+                <span style={{ gridColumn: 4, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>Wijzig trainer</span>
+                <span style={{ gridColumn: 5, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>Lid-ID</span>
+                <span style={{ gridColumn: 6, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', textAlign: 'center' }}>Actie</span>
+                <span style={{ gridColumn: 7, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', textAlign: 'center' }}>Deactiveer</span>
+                <span style={{ gridColumn: 8, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', textAlign: 'center' }}>Gestopt</span>
               </div>
               {visibleLeden.map((l, i) => {
                 const trainer = trainers.find(t => t.id === l.trainer_id)
@@ -1540,7 +1557,7 @@ export default function ManagementPage() {
                   <div
                     key={l.id}
                     onClick={() => router.push(`/leden/${l.id}`)}
-                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 300px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
+                    style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 110px 110px 110px', padding: '10px 24px', minHeight: 72, overflow: 'visible', borderBottom: i < visibleLeden.length - 1 ? '1px solid var(--border-subtle)' : 'none', alignItems: 'center', transition: 'background 0.12s', cursor: 'pointer', columnGap: 12 }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -1568,7 +1585,7 @@ export default function ManagementPage() {
                       </select>
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--border-strong)', fontFamily: 'monospace' }}>{l.lid_id}</span>
-                    <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, textAlign: 'right', minWidth: 300, width: 300 }}>
+                    <span style={{ display: 'flex', justifyContent: 'center' }}>
                       {l.actief && (
                         <button
                           onClick={e => { e.stopPropagation(); openActieFromLid(l) }}
@@ -1579,6 +1596,8 @@ export default function ManagementPage() {
                           + Actie
                         </button>
                       )}
+                    </span>
+                    <span style={{ display: 'flex', justifyContent: 'center' }}>
                       {l.actief && (
                         <button
                           onClick={e => { e.stopPropagation(); deactiveerLid(l) }}
@@ -1590,17 +1609,6 @@ export default function ManagementPage() {
                           {deactivating === l.id ? '…' : 'Deactiveer'}
                         </button>
                       )}
-                      {l.actief && (
-                        <button
-                          onClick={e => { e.stopPropagation(); stoptLid(l) }}
-                          disabled={deactivating === l.id}
-                          style={{ ...tableDangerButtonStyle, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1 }}
-                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.borderColor = 'var(--red-text)' }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)' }}
-                        >
-                          {deactivating === l.id ? '…' : 'Gestopt'}
-                        </button>
-                      )}
                       {!l.actief && (
                         <button
                           onClick={e => { e.stopPropagation(); reactiveerLid(l) }}
@@ -1610,6 +1618,19 @@ export default function ManagementPage() {
                           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                         >
                           {reactivating === l.id ? '…' : 'Heractiveren'}
+                        </button>
+                      )}
+                    </span>
+                    <span style={{ display: 'flex', justifyContent: 'center' }}>
+                      {l.actief && (
+                        <button
+                          onClick={e => { e.stopPropagation(); stoptLid(l) }}
+                          disabled={deactivating === l.id}
+                          style={{ ...tableDangerButtonStyle, padding: '4px 10px', color: 'var(--red-text)', fontSize: 11, cursor: deactivating === l.id ? 'default' : 'pointer', opacity: deactivating === l.id ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (deactivating !== l.id) e.currentTarget.style.borderColor = 'var(--red-text)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(220,38,38,0.25)' }}
+                        >
+                          {deactivating === l.id ? '…' : 'Gestopt'}
                         </button>
                       )}
                       {!l.actief && (
