@@ -5,18 +5,17 @@
  *
  * Wat doet deze pagina:
  * Aggregeert berichten van alle trainers in één inbox voor management.
- * Gegroepeerd per trainer. Ongelezen trainers bovenaan. Inline lezen + antwoorden.
+ * Gegroepeerd per trainer. Inline lezen + antwoorden.
  *
  * Data:
  * Leest via API: trainer_notities (+ leden, trainers). Schrijft via API naar:
- * trainer_notities. Markeert gelezen via PATCH /api/trainer-notities/[id]/gelezen.
+ * trainer_notities.
  *
  * Toegang:
  * management / admin
  *
  * Gerelateerde API routes:
- * /api/trainer-notities (GET), /api/trainer-notities/[trainer_id] (POST),
- * /api/trainer-notities/[id]/gelezen (PATCH)
+ * /api/trainer-notities (GET), /api/trainer-notities/[trainer_id] (POST/GET)
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -31,7 +30,6 @@ type Bericht = {
   auteur_type: string
   tekst: string
   aangemaakt_op: string
-  gelezen_door_management: boolean
   lid_id: string | null
   lid_naam: string | null
 }
@@ -39,7 +37,6 @@ type Bericht = {
 type TrainerGroep = {
   trainer_id: string
   trainer_naam: string
-  ongelezen: number
   berichten: Bericht[]
 }
 
@@ -86,17 +83,14 @@ function groupByTrainer(berichten: Bericht[]): TrainerGroep[] {
       map.set(b.trainer_id, {
         trainer_id: b.trainer_id,
         trainer_naam: b.trainer_naam,
-        ongelezen: 0,
         berichten: [],
       })
     }
     const g = map.get(b.trainer_id)!
     g.berichten.push(b)
-    if (!b.gelezen_door_management && b.auteur_type === 'trainer') g.ongelezen++
   }
-  // Trainers met ongelezen bovenaan, daarbinnen nieuwste bericht eerst
+  // Nieuwste thread bovenaan.
   return Array.from(map.values()).sort((a, b) => {
-    if (b.ongelezen !== a.ongelezen) return b.ongelezen - a.ongelezen
     const aLatest = a.berichten[0]?.aangemaakt_op ?? ''
     const bLatest = b.berichten[0]?.aangemaakt_op ?? ''
     return bLatest.localeCompare(aLatest)
@@ -210,15 +204,14 @@ function TrainerCard({
   onNavigateLid: (lid_id: string) => void
   onNavigateTrainer: (trainer_id: string) => void
 }) {
-  const [expanded, setExpanded] = useState(groep.ongelezen > 0)
-  const hasOngelezen = groep.ongelezen > 0
+  const [expanded, setExpanded] = useState(true)
   const latestBericht = groep.berichten[0]
 
   return (
     <div
       style={{
         background: 'var(--bg-surface)',
-        border: `1px solid ${hasOngelezen ? 'rgba(99,102,241,0.3)' : 'var(--border-subtle)'}`,
+        border: '1px solid var(--border-subtle)',
         borderRadius: 12,
         overflow: 'hidden',
         transition: 'border-color 0.2s',
@@ -233,18 +226,18 @@ function TrainerCard({
           alignItems: 'center',
           gap: 14,
           cursor: 'pointer',
-          background: hasOngelezen ? 'var(--bg-raised)' : 'var(--bg-surface)',
+          background: 'var(--bg-surface)',
           userSelect: 'none',
         }}
       >
         {/* Avatar */}
         <div style={{
           width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-          background: hasOngelezen ? 'var(--color-accent)' : 'var(--bg-raised)',
-          border: `1px solid ${hasOngelezen ? 'var(--color-accent)' : 'var(--border-subtle)'}`,
+          background: 'var(--bg-raised)',
+          border: '1px solid var(--border-subtle)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 14, fontWeight: 700,
-          color: hasOngelezen ? 'var(--color-white)' : 'var(--text-muted)',
+          color: 'var(--text-muted)',
         }}>
           {groep.trainer_naam.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
         </div>
@@ -254,15 +247,6 @@ function TrainerCard({
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
               {groep.trainer_naam}
             </span>
-            {hasOngelezen && (
-              <span style={{
-                fontSize: 11, fontWeight: 700,
-                background: 'var(--color-accent)', color: 'var(--color-white)',
-                borderRadius: 20, padding: '1px 7px',
-              }}>
-                {groep.ongelezen} nieuw
-              </span>
-            )}
           </div>
           {!expanded && latestBericht && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -288,7 +272,6 @@ function TrainerCard({
         <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
           {groep.berichten.map((b, i) => {
             const isTrainer = b.auteur_type === 'trainer'
-            const isUnread = !b.gelezen_door_management && isTrainer
             return (
               <div
                 key={b.id}
@@ -298,14 +281,11 @@ function TrainerCard({
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
-                  background: isUnread ? 'rgba(99,102,241,0.04)' : 'transparent',
+                  background: 'transparent',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {isUnread && (
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent)', flexShrink: 0 }} />
-                    )}
                     <span style={{ fontSize: 11, fontWeight: 600, color: isTrainer ? 'var(--text-primary)' : 'var(--color-accent-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {isTrainer ? groep.trainer_naam : 'Jij'}
                     </span>
@@ -313,7 +293,7 @@ function TrainerCard({
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(b.aangemaakt_op)}</span>
                 </div>
 
-                <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', paddingLeft: isUnread ? 12 : 0 }}>
+                <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                   {b.tekst}
                 </div>
 
@@ -404,7 +384,6 @@ export default function BerichtenPage() {
   }
 
   const groepen = groupByTrainer(berichten.filter(b => !deletedIds.has(b.id)))
-  const totaalOngelezen = groepen.reduce((s, g) => s + g.ongelezen, 0)
 
   if (loading) {
     return (
@@ -440,16 +419,11 @@ export default function BerichtenPage() {
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
               Berichten
-              {totaalOngelezen > 0 && (
-                <span style={{ fontSize: 13, fontWeight: 700, background: 'var(--color-accent)', color: 'var(--color-white)', borderRadius: 20, padding: '2px 9px' }}>
-                  {totaalOngelezen}
-                </span>
-              )}
             </h1>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
               {groepen.length === 0
                 ? 'Geen berichten'
-                : `${groepen.length} trainer${groepen.length !== 1 ? 's' : ''}${totaalOngelezen > 0 ? ` · ${totaalOngelezen} ongelezen` : ''}`}
+                : `${groepen.length} trainer${groepen.length !== 1 ? 's' : ''}`}
             </p>
           </div>
           <a

@@ -15,8 +15,6 @@ type TrainerNotitieRow = {
   auteur_type: AuteurType
   tekst: string
   aangemaakt_op: string
-  gelezen_door_management: boolean
-  gelezen_op: string | null
 }
 
 type TrainerNotitieResponse = TrainerNotitieRow & {
@@ -146,7 +144,7 @@ async function resolveAuteurNamen(
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { trainer_id } = await params
-    const { supabase, user, role, trainerId, error } = await getAuthContext(req)
+    const { supabase, user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -156,26 +154,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return jsonError('Geen toegang', 403)
     }
 
-    if (role === 'management' || role === 'admin') {
-      const { error: readError } = await supabase
-        .from('trainer_notities')
-        .update({
-          gelezen_door_management: true,
-          gelezen_op: new Date().toISOString(),
-        })
-        .eq('trainer_id', trainer_id)
-        .eq('auteur_type', 'trainer')
-        .eq('gelezen_door_management', false)
-        .eq('verwijderd', false)
-
-      if (readError) {
-        return jsonError(readError.message, 500)
-      }
-    }
-
     const { data, error: notitiesError } = await supabase
       .from('trainer_notities')
-      .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, gelezen_op')
+      .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op')
       .eq('trainer_id', trainer_id)
       .eq('verwijderd', false)
       .order('aangemaakt_op', { ascending: true })
@@ -249,7 +230,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         auteur_type: role,
         tekst,
       })
-      .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, gelezen_op')
+      .select('id, trainer_id, lid_id, auteur_id, auteur_type, tekst, aangemaakt_op')
 
     if (insertError) {
       return jsonError(insertError.message, 500)

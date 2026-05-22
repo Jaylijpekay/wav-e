@@ -12,6 +12,14 @@ type RouteParams = {
   }>
 }
 
+type TrainerNotitieRow = {
+  id: string
+  trainer_id: string
+  auteur_id: string
+  auteur_type: Role
+  verwijderd: boolean
+}
+
 const ALLOWED_ROLES: Role[] = ['trainer', 'management', 'admin']
 
 function jsonError(error: string, status: number) {
@@ -59,7 +67,7 @@ function isAllowed(role: Role | null, ownTrainerId: string | null, trainerId: st
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const { trainer_id, notitie_id } = await params
-    const { supabase, user, role, trainerId, error } = await getAuthContext(req)
+    const { supabase, user, role, trainerId } = await getAuthContext(req)
 
     if (!user) {
       return jsonError('Niet ingelogd', 401)
@@ -67,6 +75,33 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     if (!isAllowed(role, trainerId, trainer_id)) {
       return jsonError('Geen toegang', 403)
+    }
+
+    const { data: existing, error: readError } = await supabase
+      .from('trainer_notities')
+      .select('id, trainer_id, auteur_id, auteur_type, verwijderd')
+      .eq('id', notitie_id)
+      .eq('trainer_id', trainer_id)
+      .maybeSingle()
+
+    if (readError) {
+      return jsonError(readError.message, 500)
+    }
+
+    const notitie = existing as TrainerNotitieRow | null
+    if (!notitie || notitie.verwijderd) {
+      return jsonError('Notitie niet gevonden', 404)
+    }
+
+    const isOriginalTrainer =
+      role === 'trainer' &&
+      trainerId === trainer_id &&
+      notitie.auteur_type === 'trainer' &&
+      notitie.auteur_id === user.id
+    const isManagement = role === 'management' || role === 'admin'
+
+    if (!isOriginalTrainer && !isManagement) {
+      return jsonError('Alleen de auteur mag dit bericht verwijderen', 403)
     }
 
     const { data, error: updateError } = await supabase

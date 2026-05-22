@@ -21,7 +21,6 @@ type BerichtRow = {
   auteur_type: 'trainer' | 'management' | 'admin'
   tekst: string
   aangemaakt_op: string
-  gelezen_door_management: boolean
   lid_id: string | null
 }
 
@@ -33,7 +32,6 @@ type BerichtItem = {
   auteur_type: string
   tekst: string
   aangemaakt_op: string
-  gelezen_door_management: boolean
   lid_id: string | null
   lid_naam: string | null
 }
@@ -52,10 +50,9 @@ export async function GET(req: NextRequest) {
 
   const { data: berichtenRaw, error: berichtenError } = await supabase
     .from('trainer_notities')
-    .select('id, trainer_id, auteur_id, auteur_type, tekst, aangemaakt_op, gelezen_door_management, lid_id')
+    .select('id, trainer_id, auteur_id, auteur_type, tekst, aangemaakt_op, lid_id')
     .eq('verwijderd', false)
     .eq('auteur_type', 'trainer')
-    .order('gelezen_door_management', { ascending: true })
     .order('aangemaakt_op', { ascending: false })
 
   if (berichtenError) return jsonError(berichtenError.message, 500)
@@ -106,7 +103,6 @@ export async function GET(req: NextRequest) {
       auteur_type: r.auteur_type,
       tekst: r.tekst,
       aangemaakt_op: r.aangemaakt_op,
-      gelezen_door_management: r.gelezen_door_management,
       lid_id: r.lid_id,
       lid_naam: lidNaam,
     }

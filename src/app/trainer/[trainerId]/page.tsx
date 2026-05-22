@@ -64,8 +64,6 @@ type TrainerNotitie = {
   auteur_naam: string
   tekst: string
   aangemaakt_op: string
-  gelezen_door_management: boolean
-  gelezen_op: string | null
 }
 
 interface MomentumProps {
@@ -260,6 +258,78 @@ function AddLidModal({
   )
 }
 
+function ReplyModal({
+  trainerId,
+  onClose,
+  onSent,
+}: {
+  trainerId: string
+  onClose: () => void
+  onSent: (bericht: TrainerNotitie) => void
+}) {
+  const [tekst, setTekst] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    setError(null)
+    if (!tekst.trim()) { setError('Tekst is verplicht'); return }
+    if (tekst.length > 1000) { setError('Maximaal 1000 tekens'); return }
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/trainer-notities/${trainerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tekst: tekst.trim() }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        setError(err?.error ?? 'Versturen mislukt')
+        return
+      }
+      const bericht = (await res.json()) as TrainerNotitie
+      onSent(bericht)
+      onClose()
+    } catch {
+      setError('Verbindingsfout')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Beantwoorden</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Naar management</div>
+        </div>
+        <textarea
+          value={tekst}
+          onChange={e => setTekst(e.target.value)}
+          placeholder="Schrijf een reactie..."
+          rows={4}
+          maxLength={1000}
+          style={{ ...inputStyle, resize: 'vertical' }}
+        />
+        {tekst.length >= 800 && (
+          <div style={{ textAlign: 'right', color: tekst.length >= 1000 ? 'var(--red-text)' : 'var(--text-muted)', fontSize: 12 }}>
+            {tekst.length}/1000
+          </div>
+        )}
+        {error && <div style={{ fontSize: 13, color: 'var(--red-text)' }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={secondaryButtonStyle}>Annuleren</button>
+          <button onClick={submit} disabled={saving} style={{ ...primaryButtonStyle, opacity: saving ? 0.6 : 1 }}>{saving ? 'Versturen...' : 'Versturen'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MomentumStrip({ gesprekken, actiesAfgerond }: MomentumProps) {
   const [dispGesprekken, setDispGesprekken] = useState(0)
   const [dispActies, setDispActies] = useState(0)
@@ -342,6 +412,7 @@ export default function TrainerDashboard() {
   const [berichtPosting, setBerichtPosting] = useState(false)
   const [berichtError, setBerichtError] = useState<string | null>(null)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [replyTarget, setReplyTarget] = useState<TrainerNotitie | null>(null)
 
   const gesprekRef = useRef<HTMLDivElement>(null)
   const stoplichtRef = useRef<HTMLElement>(null)
@@ -444,13 +515,7 @@ export default function TrainerDashboard() {
     }
   }
 
-  const deleteBericht = async (notitieId: string, isManagement: boolean) => {
-    if (isManagement) {
-      // Management replies: hide locally only, never delete from DB
-      setDeletedIds(prev => new Set([...prev, notitieId]))
-      return
-    }
-    // Trainer's own messages: soft delete via API
+  const deleteBericht = async (notitieId: string) => {
     const previous = berichten
     setBerichten(prev => prev.filter(b => b.id !== notitieId))
     setBerichtError(null)
@@ -499,6 +564,17 @@ export default function TrainerDashboard() {
           trainerId={trainerId as string}
           onClose={() => setShowAddLid(false)}
           onSaved={() => setRefreshKey(k => k + 1)}
+        />
+      )}
+
+      {replyTarget && (
+        <ReplyModal
+          trainerId={trainerId as string}
+          onClose={() => setReplyTarget(null)}
+          onSent={(bericht) => {
+            setBerichten(prev => [...prev, bericht])
+            setDeletedIds(prev => new Set([...prev, replyTarget.id]))
+          }}
         />
       )}
 
@@ -704,13 +780,23 @@ export default function TrainerDashboard() {
                         {isManagement ? 'Management' : 'Jij'} · {dateLabel}
                       </div>
                     </div>
-                    <button
-                      style={{ ...secondaryButtonStyle, padding: '6px 10px', fontSize: 12 }}
-                      onClick={() => deleteBericht(bericht.id, isManagement)}
-                      aria-label="Bericht verwijderen"
-                    >
-                      ×
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      {isManagement ? (
+                        <button
+                          style={{ ...primaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12 }}
+                          onClick={() => setReplyTarget(bericht)}
+                        >
+                          Beantwoorden
+                        </button>
+                      ) : (
+                        <button
+                          style={{ ...secondaryButtonStyle, minHeight: 36, padding: '6px 10px', fontSize: 12, color: 'var(--red-text)', borderColor: 'rgba(220,38,38,0.2)' }}
+                          onClick={() => deleteBericht(bericht.id)}
+                        >
+                          Verwijder
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )
               })}

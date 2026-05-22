@@ -1029,8 +1029,6 @@ export default function ManagementPage() {
   const [consolePins, setConsolePins]     = useState<TrainerPin[]>([])
   const [ownPinPerson, setOwnPinPerson]   = useState<TrainerPin | null>(null)
   const [pinPerson, setPinPerson]         = useState<TrainerPin | null>(null)
-  const [unreadCounts, setUnreadCounts]   = useState<Record<string, number>>({})
-  const [totalUnread, setTotalUnread]     = useState(0)
   const [nextLidId, setNextLidId]         = useState('WE-001')
   const [loading, setLoading]             = useState(true)
   const [trainerFilter, setTrainerFilter] = useState<string>('allen')
@@ -1157,19 +1155,6 @@ export default function ManagementPage() {
       const contacten    = (studioData.contacten  ?? []) as { lid_id: string; datum: string }[]
       const evaluaties   = (studioData.evaluaties ?? []) as { lid_id: string; datum: string; slaap: number | null; energie: number | null; stress: number | null; cyclus: number }[]
       const actiesData   = (studioData.acties     ?? []) as { id: string; trainer_id: string; lid_id: string; deadline?: string | null; bron?: string | null; afgerond?: boolean | null }[]
-
-      const unreadRes = await fetch('/api/trainer-notities')
-      if (unreadRes.ok) {
-        const { berichten } = await unreadRes.json()
-        const arr = (berichten ?? []) as { trainer_id: string; gelezen_door_management: boolean }[]
-        const unreadOnly = arr.filter(b => !b.gelezen_door_management)
-        setTotalUnread(unreadOnly.length)
-        const counts: Record<string, number> = {}
-        for (const b of unreadOnly) {
-          counts[b.trainer_id] = (counts[b.trainer_id] ?? 0) + 1
-        }
-        setUnreadCounts(counts)
-      }
 
       try {
         const pinsRes = await fetch('/api/admin/pins')
@@ -1354,11 +1339,6 @@ export default function ManagementPage() {
               style={{ ...touchButtonStyle, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: 'var(--color-accent)', border: 'none', borderRadius: 8, color: 'var(--color-white)', fontSize: 13, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', touchAction: 'manipulation' }}
             >
               Berichten
-              {totalUnread > 0 && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, background: 'rgba(255,255,255,0.25)', color: 'var(--color-white)', fontSize: 10, fontWeight: 700, padding: '0 5px', lineHeight: 1 }}>
-                  {totalUnread}
-                </span>
-              )}
             </a>
           </div>
         </div>
@@ -1426,11 +1406,6 @@ export default function ManagementPage() {
                         >
                           {t.voornaam} {t.achternaam}
                         </span>
-                        {(unreadCounts[t.id] ?? 0) > 0 && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, borderRadius: 9, background: 'rgba(99,102,241,0.15)', color: 'var(--color-accent-text)', fontSize: 10, fontWeight: 700, padding: '0 5px', lineHeight: 1 }}>
-                            {unreadCounts[t.id]}
-                          </span>
-                        )}
                       </span>
                       {!t.actief && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>inactief</span>}
                     </td>
