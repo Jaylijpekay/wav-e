@@ -1104,12 +1104,15 @@ export default function ManagementPage() {
   const reactiveerLid = async (l: Lid) => {
     if (!confirm(`Heractiveer ${l.voornaam} ${l.achternaam}?\n\nHet lid wordt weer actief.`)) return
     setReactivating(l.id)
-    await fetch(`/api/management/leden/${l.id}`, {
+    const res = await fetch(`/api/management/leden/${l.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ actief: true }),
     })
     setReactivating(null)
+    if (res.ok) {
+      setLeden(prev => prev.map(m => m.id === l.id ? { ...m, actief: true, status: 'actief', gestopt_op: null } : m))
+    }
     setRefreshKey(k => k + 1)
   }
 
