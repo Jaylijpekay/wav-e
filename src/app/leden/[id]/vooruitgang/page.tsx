@@ -430,7 +430,6 @@ export default function VooruitgangPage() {
           min-height: 100dvh;
           background: var(--report-green-soft);
           font-family: Raleway, system-ui, sans-serif;
-          padding-bottom: 60px;
           -webkit-tap-highlight-color: transparent;
         }
 
@@ -477,12 +476,12 @@ export default function VooruitgangPage() {
           overflow: hidden;
           width: 90vw;
           max-width: none;
-          margin: 24px auto 0;
+          margin: 12px auto;
         }
 
         .vg-card-head {
           background: var(--report-green-soft);
-          padding: 20px 24px 16px;
+          padding: 14px 24px 12px;
           border-bottom: 1px solid var(--report-green-border);
           display: flex;
           justify-content: space-between;
@@ -490,14 +489,14 @@ export default function VooruitgangPage() {
           gap: 12px;
         }
 
-        .vg-member-name { font-size: 22px; font-weight: 600; color: var(--surface-pressed); margin: 0 0 4px; letter-spacing: -0.02em; }
+        .vg-member-name { font-size: 20px; font-weight: 600; color: var(--surface-pressed); margin: 0 0 2px; letter-spacing: -0.02em; }
         .vg-member-meta { font-size: 12px; color: var(--report-text-muted); }
 
         /* ── Cycle strip — horizontally scrollable on tablet ── */
         .vg-cycles-strip {
           display: flex;
           gap: 6px;
-          padding: 12px 24px;
+          padding: 8px 24px;
           border-bottom: 1px solid var(--report-border-soft);
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
@@ -507,13 +506,13 @@ export default function VooruitgangPage() {
         .vg-cycles-strip::-webkit-scrollbar { display: none; }
 
         .vg-cyc-btn {
-          padding: 8px 16px;
-          min-height: 40px;
-          border-radius: 20px;
+          padding: 6px 14px;
+          min-height: 36px;
+          border-radius: 18px;
           border: 1.5px solid var(--report-green-border-muted);
           background: var(--report-bg);
           color: var(--wave-gray);
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.15s;
@@ -531,12 +530,12 @@ export default function VooruitgangPage() {
           display: grid;
           grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 8px;
-          padding: 20px 24px;
+          padding: 12px 24px;
           border-bottom: 1px solid var(--report-border-soft);
         }
 
         /* ── Tabs ── */
-        .vg-tabs { display: flex; gap: 4px; padding: 14px 24px 0; }
+        .vg-tabs { display: flex; gap: 4px; padding: 10px 24px 0; }
 
         .vg-tab {
           padding: 10px 16px;
@@ -560,7 +559,7 @@ export default function VooruitgangPage() {
 
         /* ── Tab body ── */
         .vg-tab-body {
-          padding: 20px 24px 24px;
+          padding: 14px 24px 16px;
           background: var(--report-surface-muted);
           border-top: 1px solid var(--report-green-border);
           display: flex;
@@ -568,9 +567,16 @@ export default function VooruitgangPage() {
           gap: 12px;
         }
 
+        .vg-tab-body.is-leefstijl {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          column-gap: 28px;
+          row-gap: 6px;
+        }
+
         /* ── Footer ── */
         .vg-footer-strip {
-          padding: 12px 24px;
+          padding: 8px 24px;
           background: var(--report-green-soft);
           border-top: 1px solid var(--report-green-border);
           display: flex;
@@ -584,19 +590,20 @@ export default function VooruitgangPage() {
           .vg-back { font-size: 0.82rem; }
 
           /* Card fills more of the tablet viewport */
-          .vg-card { width: 92vw; margin: 28px auto 0; }
+          .vg-card { width: 92vw; margin: 16px auto; }
 
           /* Rings: bigger on tablet */
-          .vg-rings { padding: 24px 28px; gap: 12px; }
+          .vg-rings { padding: 16px 28px; gap: 12px; }
 
           /* Cycle buttons: taller */
-          .vg-cyc-btn { padding: 10px 20px; min-height: 48px; font-size: 14px; }
+          .vg-cyc-btn { padding: 8px 18px; min-height: 44px; font-size: 13px; }
 
           /* Tab bar */
-          .vg-tab { padding: 12px 20px; min-height: 48px; font-size: 13px; }
+          .vg-tab { padding: 10px 20px; min-height: 44px; font-size: 13px; }
 
           /* Tab body: more breathing room */
-          .vg-tab-body { padding: 24px 28px 28px; gap: 16px; }
+          .vg-tab-body { padding: 16px 28px 18px; gap: 14px; }
+          .vg-tab-body.is-leefstijl { column-gap: 32px; row-gap: 8px; }
 
           /* Fysiek table rows taller */
         }
@@ -606,6 +613,15 @@ export default function VooruitgangPage() {
           .vg-card { width: 96vw; border-radius: 12px; }
           /* Rings: 3 per row on portrait to avoid cramping */
           .vg-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        }
+
+        /* Narrow screens: charts need one column to keep labels and deltas readable */
+        @media (max-width: 639px) {
+          .vg-tab-body.is-leefstijl {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
         }
 
         /* Landscape tablet: keep 6-col rings, wider card */
@@ -673,7 +689,7 @@ export default function VooruitgangPage() {
           </div>
 
           {/* Tab body */}
-          <div className="vg-tab-body">
+          <div className={`vg-tab-body${tab === 'leefstijl' ? ' is-leefstijl' : ''}`}>
             {tab === 'leefstijl' && METRICS.map(m => (
               <MetricChart
                 key={m.key}
