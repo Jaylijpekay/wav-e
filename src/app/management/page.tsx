@@ -1045,6 +1045,7 @@ function ConsolePanel() {
 
 export default function ManagementPage() {
   const router = useRouter()
+  const [authMode, setAuthMode]         = useState<'session' | 'console' | null>(null)
   const [trainers, setTrainers]           = useState<Trainer[]>([])
   const [leden, setLeden]                 = useState<Lid[]>([])
   const [trainerStats, setTrainerStats]   = useState<Record<string, TrainerStats>>({})
@@ -1068,6 +1069,19 @@ export default function ManagementPage() {
   const [reactivating, setReactivating]   = useState<string | null>(null)
   const [deletingLid,  setDeletingLid]    = useState<string | null>(null)
   const [reassigningLid, setReassigningLid] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadAuthMode = async () => {
+      try {
+        const res = await fetch('/api/auth-context')
+        const data = res.ok ? await res.json() : null
+        setAuthMode(data?.authMode === 'console' ? 'console' : data?.authMode === 'session' ? 'session' : null)
+      } catch {
+        setAuthMode(null)
+      }
+    }
+    void loadAuthMode()
+  }, [])
 
   // Open actie modal from trainer row (user picks lid)
   const openActieFromTrainer = (t: Trainer) => {
@@ -1337,7 +1351,7 @@ export default function ManagementPage() {
         />
       )}
 
-      <div className="management-shell">
+      <div className={`management-shell${authMode === 'console' ? ' is-console' : ''}`}>
 
         {/* Title */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

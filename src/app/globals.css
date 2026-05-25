@@ -277,6 +277,12 @@ tbody td {
   gap: 32px;
 }
 
+.management-shell.is-console {
+  max-width: none;
+  width: 100%;
+  padding: 24px clamp(12px, 2vw, 24px) 40px;
+}
+
 @media (min-width: 1401px) {
   .management-shell {
     max-width: var(--app-shell-max);
