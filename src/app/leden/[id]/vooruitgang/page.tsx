@@ -568,10 +568,9 @@ export default function VooruitgangPage() {
         }
 
         .vg-tab-body.is-leefstijl {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          column-gap: 28px;
-          row-gap: 6px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
 
         /* ── Footer ── */
@@ -603,7 +602,7 @@ export default function VooruitgangPage() {
 
           /* Tab body: more breathing room */
           .vg-tab-body { padding: 16px 28px 18px; gap: 14px; }
-          .vg-tab-body.is-leefstijl { column-gap: 32px; row-gap: 8px; }
+          .vg-tab-body.is-leefstijl { gap: 14px; }
 
           /* Fysiek table rows taller */
         }
@@ -613,15 +612,6 @@ export default function VooruitgangPage() {
           .vg-card { width: 96vw; border-radius: 12px; }
           /* Rings: 3 per row on portrait to avoid cramping */
           .vg-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-        }
-
-        /* Narrow screens: charts need one column to keep labels and deltas readable */
-        @media (max-width: 639px) {
-          .vg-tab-body.is-leefstijl {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
         }
 
         /* Landscape tablet: keep 6-col rings, wider card */
