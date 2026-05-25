@@ -267,6 +267,26 @@ tbody td {
   margin: 0 auto;
 }
 
+.management-shell {
+  width: 90%;
+  min-height: 100vh;
+  background: var(--bg-base);
+  padding: 32px var(--app-shell-padding) 48px;
+  max-width: var(--app-shell-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .management-shell {
+    width: 100%;
+    max-width: none;
+    padding: 24px clamp(12px, 2vw, 24px) 40px;
+  }
+}
+
 /* ============================================================
    SCROLLBAR
    ============================================================ */

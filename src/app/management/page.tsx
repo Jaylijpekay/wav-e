@@ -1337,7 +1337,7 @@ export default function ManagementPage() {
         />
       )}
 
-      <div style={{ width: '90%', minHeight: '100vh', background: 'var(--bg-base)', padding: '32px var(--app-shell-padding) 48px', maxWidth: 'var(--app-shell-max)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div className="management-shell">
 
         {/* Title */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
