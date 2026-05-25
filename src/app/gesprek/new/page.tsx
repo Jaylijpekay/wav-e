@@ -109,6 +109,8 @@ export default function GesprekNew() {
         slaap: scores.slaap,
         energie: scores.energie,
         stress: scores.stress,
+        voeding: scores.voeding,
+        beweging: scores.beweging,
         motivatie: scores.motivatie,
         tevredenheid,
         notities: notities || null,
@@ -121,12 +123,6 @@ export default function GesprekNew() {
       setSaving(false)
       return
     }
-
-    /*
-      Deze velden worden bewust niet meegestuurd: voeding, beweging, gewicht,
-      vetpercentage, spiermassa en doelen. Ze bestaan niet in de huidige
-      evaluaties-tabel en mogen daarom niet vanuit de client worden geschreven.
-    */
     setSuccess(true)
     setTimeout(() => router.back(), 1200)
   }

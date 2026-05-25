@@ -692,7 +692,7 @@ export default function TrainerDashboard() {
               <div style={{ fontSize: 12, fontWeight: 500, marginTop: 4 }}>Start een cyclus</div>
             </button>
             {gesprekOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 20, minWidth: 260, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 1000, minWidth: 260, background: 'var(--bg-raised)', border: '1px solid var(--border-strong)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.45)' }}>
                 {ledenDropdown.length === 0
                   ? <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
                   : ledenDropdown.map(lid => (

@@ -268,7 +268,7 @@ tbody td {
 }
 
 .management-shell {
-  width: 90%;
+  width: 100%;
   min-height: 100vh;
   background: var(--bg-base);
   padding: 32px var(--app-shell-padding) 48px;
@@ -279,7 +279,7 @@ tbody td {
   gap: 32px;
 }
 
-@media (min-width: 768px) and (max-width: 1180px) {
+@media (min-width: 768px) and (max-width: 1400px) {
   .management-shell {
     width: 100%;
     max-width: none;
