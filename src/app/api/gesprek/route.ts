@@ -11,6 +11,8 @@ type GesprekPayload = {
   slaap?: unknown
   energie?: unknown
   stress?: unknown
+  voeding?: unknown
+  beweging?: unknown
   motivatie?: unknown
   tevredenheid?: unknown
   notities?: unknown
@@ -96,6 +98,8 @@ export async function POST(req: NextRequest) {
       slaap: asScore(body.slaap),
       energie: asScore(body.energie),
       stress: asScore(body.stress),
+      voeding: asScore(body.voeding),
+      beweging: asScore(body.beweging),
       motivatie: asScore(body.motivatie),
       tevredenheid: asScore(body.tevredenheid),
       notities: typeof body.notities === 'string' && body.notities.trim()

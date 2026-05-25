@@ -173,6 +173,15 @@ const sectionHeaderStyle: CSSProperties = {
   gap: 12,
 }
 
+const detailValueStyle: CSSProperties = {
+  color: 'var(--text-primary)',
+  fontSize: 14,
+  marginTop: 4,
+  lineHeight: 1.4,
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
+}
+
 function NotitieCard({ notitie, onDelete }: { notitie: Notitie; onDelete: () => void }) {
   const isMgmt = notitie.auteur_type === 'management' || notitie.auteur_type === 'admin'
   const date = new Date(notitie.aangemaakt_op)
@@ -466,9 +475,15 @@ export default function LedenDetail() {
                 ['Geboortedatum', formatDate(lid.geboortedatum)],
                 ['Laatste contact', lastContactDays === null ? 'Nog geen contact' : `${lastContactDays} dagen geleden`],
               ].map(([label, value]) => (
-                <div key={label}>
+                <div
+                  key={label}
+                  style={{
+                    minWidth: 0,
+                    gridColumn: label === 'Email' || label === 'Telefoon' ? '1 / -1' : undefined,
+                  }}
+                >
                   <div style={labelStyle}>{label}</div>
-                  <div style={{ color: 'var(--text-primary)', fontSize: 14, marginTop: 4 }}>{value}</div>
+                  <div style={detailValueStyle}>{value}</div>
                 </div>
               ))}
             </div>
