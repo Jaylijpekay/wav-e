@@ -1294,6 +1294,7 @@ export default function ManagementPage() {
     [consolePins]
   )
   const ownPinAction = ownPinPerson ?? CURRENT_MANAGEMENT_PIN
+  const isConsole = authMode === 'console'
 
   if (loading) return (
     <>
@@ -1397,7 +1398,7 @@ export default function ManagementPage() {
           ))}
         </section>
 {/* Trainers */}
-        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'visible' }}>
+        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflowX: isConsole ? 'auto' : 'visible', overflowY: 'visible' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Trainers</div>
@@ -1423,7 +1424,7 @@ export default function ManagementPage() {
             </div>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: isConsole ? 1180 : undefined, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)' }}>
                 {([
@@ -1526,7 +1527,7 @@ export default function ManagementPage() {
         <ConsolePanel />
 
         {/* Member table */}
-        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+        <section style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflowX: isConsole ? 'auto' : 'hidden', overflowY: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Leden · {visibleLeden.length}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -1553,7 +1554,7 @@ export default function ManagementPage() {
           {visibleLeden.length === 0 ? (
             <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Geen leden gevonden</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: isConsole ? 1080 : undefined }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 150px minmax(0, 1fr) 100px 110px 110px 110px', gridTemplateRows: 'auto auto', padding: '6px 24px 8px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-subtle)', columnGap: 12, rowGap: 2, alignItems: 'end' }}>
                 <span style={{ gridColumn: '7 / 9', gridRow: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', opacity: 0.75, textAlign: 'center' }}>Lid beheren</span>
                 <span style={{ gridColumn: 1, gridRow: 2, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>Naam</span>
@@ -1667,7 +1668,7 @@ export default function ManagementPage() {
         </section>
 
         {statusFilter !== 'gestopt' && gestoptLeden.length > 0 && (
-          <section ref={gestoptRef} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
+          <section ref={gestoptRef} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflowX: isConsole ? 'auto' : 'hidden', overflowY: 'hidden' }}>
             <div
               onClick={() => setShowGestopt(s => !s)}
               style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}

@@ -41,6 +41,7 @@ export default function Navigation() {
   }
 
   const activeTrainerId = trainerIdFromPath ?? trainerId
+  const isConsole = authMode === 'console'
 
   const trainerLinks = activeTrainerId
     ? [
@@ -84,7 +85,7 @@ export default function Navigation() {
         }
 
         .nav-inner {
-          max-width: var(--app-shell-max);
+          max-width: ${isConsole ? '100%' : 'var(--app-shell-max)'};
           width: 100%;
           margin: 0 auto;
           display: flex;
